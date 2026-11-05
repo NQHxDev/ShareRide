@@ -1,0 +1,77 @@
+spring:
+  application:
+    name: shareride-service
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState,database,redis,messageQueue,externalApi,diskSpace
+        startup:
+          include: startupProbe
+      startup:
+        timeout: 120
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+    diskspace:
+      enabled: true
+      threshold: 524288000 # 500MB
+  metrics:
+    tags:
+      application: ${spring.application.name:shareride-service}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        shareride: true
+      percentiles:
+        http.server.requests: 0.5, 0.9, 0.95, 0.99
+        shareride: 0.5, 0.9, 0.95, 0.99
+      sla:
+        http.server.requests: 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2s, 5s
+        shareride: 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2s, 5s
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+        exemplars:
+          enabled: true
+        step: 1m
+  tracing:
+    sampling:
+      probability: 1.0 # Default for dev/local
+
+---
+spring:
+  config:
+    activate:
+      on-profile: staging
+
+management:
+  tracing:
+    sampling:
+      probability: 0.5
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod,production
+
+management:
+  tracing:
+    sampling:
+      probability: 0.05

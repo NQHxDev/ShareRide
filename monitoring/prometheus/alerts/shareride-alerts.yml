@@ -1,0 +1,137 @@
+groups:
+  - name: shareride.service.alerts
+    rules:
+      # 1. Service Down Alert
+      - alert: ShareRideServiceDown
+        expr: up{job=~".*shareride.*"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          tier: platform
+        annotations:
+          summary: 'Microservice instance is DOWN'
+          description: 'Instance {{ $labels.instance }} of application {{ $labels.application }} has been unreachable for more than 1 minute.'
+          runbook_url: 'https://wiki.shareride.internal/runbooks/service-down'
+
+      # 2. High HTTP 5xx Error Rate Alert
+      - alert: ShareRideHighHttpErrorRate
+        expr: >
+          (
+            sum(rate(http_server_requests_seconds_count{status=~"5.."}[5m])) by (application, uri)
+            /
+            sum(rate(http_server_requests_seconds_count[5m])) by (application, uri)
+          ) * 100 > 5
+        for: 3m
+        labels:
+          severity: critical
+          tier: api
+        annotations:
+          summary: 'High HTTP 5xx error rate detected (>5%)'
+          description: 'Endpoint {{ $labels.uri }} on {{ $labels.application }} has error rate of {{ $value | printf "%.2f" }}% over the last 5 minutes.'
+
+      # 3. High Latency Alert (p99 > 1000ms threshold)
+      - alert: ShareRideHighHttpLatencyP99
+        expr: >
+          histogram_quantile(0.99, sum(rate(http_server_requests_seconds_bucket[5m])) by (le, application, uri)) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          tier: api
+        annotations:
+          summary: 'High P99 HTTP latency (>1000ms)'
+          description: 'P99 latency for {{ $labels.uri }} on {{ $labels.application }} is {{ $value | printf "%.3f" }}s, violating the SLA threshold.'
+
+      # 4. Low Service Availability Alert (< 99.5%)
+      - alert: ShareRideLowAvailability
+        expr: >
+          (
+            1 - (
+              sum(rate(http_server_requests_seconds_count{status=~"5.."}[15m])) by (application)
+              /
+              sum(rate(http_server_requests_seconds_count[15m])) by (application)
+            )
+          ) * 100 < 99.5
+        for: 5m
+        labels:
+          severity: critical
+          tier: platform
+        annotations:
+          summary: 'Service availability dropped below 99.5%'
+          description: 'Availability for {{ $labels.application }} is at {{ $value | printf "%.2f" }}% over the last 15 minutes.'
+
+      # 5. SLO Error Budget Depletion Alert
+      - alert: ShareRideErrorBudgetDepleted
+        expr: shareride_slo_error_budget_remaining_percent < 20
+        for: 5m
+        labels:
+          severity: warning
+          tier: sre
+        annotations:
+          summary: 'SRE Error Budget nearly exhausted (<20% remaining)'
+          description: 'Service {{ $labels.service }} has only {{ $value | printf "%.1f" }}% error budget remaining.'
+
+      # 6. Circuit Breaker OPEN Alert
+      - alert: ShareRideCircuitBreakerOpen
+        expr: shareride_resilience_circuitbreaker_state == 2
+        for: 2m
+        labels:
+          severity: critical
+          tier: resilience
+        annotations:
+          summary: 'Resilience Circuit Breaker is OPEN'
+          description: "Circuit breaker '{{ $labels.name }}' in {{ $labels.application }} is OPEN. Downstream dependency is failing and calls are fast-failing."
+
+      # 7. Database Connection Pool Saturation Alert
+      - alert: ShareRideConnectionPoolSaturation
+        expr: shareride_pool_saturation_percent > 85
+        for: 3m
+        labels:
+          severity: warning
+          tier: database
+        annotations:
+          summary: 'Database connection pool near capacity (>85%)'
+          description: 'Connection pool utilization is {{ $value | printf "%.1f" }}% on instance {{ $labels.instance }}.'
+
+      # 8. Thread Pool Saturation Alert
+      - alert: ShareRideThreadPoolSaturation
+        expr: shareride_threadpool_queue_size > 50
+        for: 2m
+        labels:
+          severity: warning
+          tier: platform
+        annotations:
+          summary: 'Async thread pool queue backlog high (>50 tasks waiting)'
+          description: 'Worker pool {{ $labels.name }} has {{ $value }} queued tasks waiting for available worker threads.'
+
+      # 9. Low Disk Space Alert
+      - alert: ShareRideDiskSpaceLow
+        expr: disk_free_bytes / disk_total_bytes * 100 < 10
+        for: 5m
+        labels:
+          severity: critical
+          tier: platform
+        annotations:
+          summary: 'Disk free space below 10%'
+          description: 'Host/pod filesystem has less than 10% disk space remaining.'
+
+      # 10. Security Authentication Surge Alert
+      - alert: ShareRideSecurityAuthFailureSurge
+        expr: sum(rate(shareride_security_auth_failure_total[5m])) by (application) > 20
+        for: 2m
+        labels:
+          severity: warning
+          tier: security
+        annotations:
+          summary: 'Suspicious surge in authentication failures'
+          description: '{{ $labels.application }} is seeing {{ $value | printf "%.1f" }} auth failures/sec over 5 minutes.'
+
+      # 11. Rate Limiting Surge Alert
+      - alert: ShareRideRateLimitSurge
+        expr: sum(rate(shareride_security_ratelimit_exceeded_total[5m])) by (application) > 50
+        for: 2m
+        labels:
+          severity: warning
+          tier: security
+        annotations:
+          summary: 'Rate limiting thresholds actively triggered'
+          description: '{{ $labels.application }} is experiencing a spike in 429 Rate Limit responses ({{ $value }} hits/sec).'

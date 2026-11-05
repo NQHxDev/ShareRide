@@ -14,9 +14,10 @@
    <artifactId>common</artifactId>
    <packaging>jar</packaging>
    <name>ShareRide Common Library</name>
-   <description>Core base response, exception handling, and FTL-based i18n support</description>
+   <description>Core base response, exception handling, i18n, metrics, probes, and telemetry</description>
 
    <dependencies>
+      <!-- Spring Boot Web & Validation -->
       <dependency>
          <groupId>org.springframework.boot</groupId>
          <artifactId>spring-boot-starter-web</artifactId>
@@ -25,10 +26,36 @@
          <groupId>org.springframework.boot</groupId>
          <artifactId>spring-boot-starter-validation</artifactId>
       </dependency>
+
+      <!-- Actuator, Metrics & Probes -->
+      <dependency>
+         <groupId>org.springframework.boot</groupId>
+         <artifactId>spring-boot-starter-actuator</artifactId>
+      </dependency>
+      <dependency>
+         <groupId>io.micrometer</groupId>
+         <artifactId>micrometer-registry-prometheus</artifactId>
+      </dependency>
+
+      <!-- Telemetry & Distributed Tracing (OpenTelemetry Bridge) -->
+      <dependency>
+         <groupId>io.micrometer</groupId>
+         <artifactId>micrometer-tracing-bridge-otel</artifactId>
+      </dependency>
+
+            <!-- Structured JSON Logging -->
+      <dependency>
+         <groupId>net.logstash.logback</groupId>
+         <artifactId>logstash-logback-encoder</artifactId>
+      </dependency>
+
+      <!-- FreeMarker for i18n -->
       <dependency>
          <groupId>org.freemarker</groupId>
          <artifactId>freemarker</artifactId>
       </dependency>
+
+      <!-- Lombok & Configuration Processor -->
       <dependency>
          <groupId>org.projectlombok</groupId>
          <artifactId>lombok</artifactId>
@@ -40,9 +67,15 @@
          <optional>true</optional>
       </dependency>
 
+      <!-- Testing -->
       <dependency>
          <groupId>org.springframework.boot</groupId>
          <artifactId>spring-boot-starter-test</artifactId>
+         <scope>test</scope>
+      </dependency>
+      <dependency>
+         <groupId>org.springframework.boot</groupId>
+         <artifactId>spring-boot-starter-webmvc-test</artifactId>
          <scope>test</scope>
       </dependency>
    </dependencies>

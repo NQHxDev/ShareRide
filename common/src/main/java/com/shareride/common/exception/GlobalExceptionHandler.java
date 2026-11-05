@@ -1,9 +1,15 @@
 package com.shareride.common.exception;
 
 import com.shareride.common.constant.ResponseCode;
+import com.shareride.common.context.UserContextHolder;
 import com.shareride.common.filter.TraceIdContext;
 import com.shareride.common.i18n.LocaleContextHolderUtil;
 import com.shareride.common.i18n.TemplateMessageSource;
+import com.shareride.common.logging.MdcConstants;
+import com.shareride.common.logging.audit.AuditLogService;
+import com.shareride.common.logging.audit.DefaultAuditLogService;
+import com.shareride.common.logging.masking.DataMaskingUtils;
+import com.shareride.common.metrics.ShareRideMetrics;
 import com.shareride.common.response.BaseResponse;
 import com.shareride.common.response.FieldErrorDetail;
 import jakarta.servlet.http.HttpServletRequest;
@@ -11,10 +17,12 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.validation.FieldError;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -28,276 +36,419 @@ import java.time.Instant;
 import java.util.*;
 
 /**
- * Global REST exception handler mapping all exceptions to standard BaseResponse
- * format.
+ * Global REST exception handler mapping all exceptions to standard BaseResponse format,
+ * enriching error logs with errorId, userId, endpoint, and sanitized parameters,
+ * and dispatching security audit logs and observability metrics.
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-   private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
-   private final TemplateMessageSource messageSource;
+    private final TemplateMessageSource messageSource;
+    private final ShareRideMetrics metrics;
+    private final AuditLogService auditLogService;
 
-   public GlobalExceptionHandler(TemplateMessageSource messageSource) {
-      this.messageSource = messageSource;
-   }
+    public GlobalExceptionHandler(TemplateMessageSource messageSource) {
+        this(messageSource, (ShareRideMetrics) null, null);
+    }
 
-   /**
-    * Handle custom business exceptions derived from BaseException.
-    */
-   @ExceptionHandler(BaseException.class)
-   public ResponseEntity<BaseResponse<Void>> handleBaseException(BaseException ex, HttpServletRequest request) {
-      Locale locale = LocaleContextHolderUtil.getLocale();
-      String message = ex.getMessage();
+    public GlobalExceptionHandler(TemplateMessageSource messageSource, ShareRideMetrics metrics) {
+        this(messageSource, metrics, null);
+    }
 
-      // If explicit custom message was not passed, or matches code, resolve from
-      // template
-      String resolved = messageSource.getMessage(ex.getCode(), ex.getParams(), locale);
-      if (resolved != null && !resolved.equals(ex.getCode())) {
-         message = resolved;
-      }
+    public GlobalExceptionHandler(TemplateMessageSource messageSource, ShareRideMetrics metrics, AuditLogService auditLogService) {
+        this.messageSource = messageSource;
+        this.metrics = metrics;
+        this.auditLogService = auditLogService != null ? auditLogService : new DefaultAuditLogService();
+    }
 
-      log.warn("Business exception [{}]: {}", ex.getCode(), message);
+    @Autowired
+    public GlobalExceptionHandler(TemplateMessageSource messageSource,
+                                  ObjectProvider<ShareRideMetrics> metricsProvider,
+                                  ObjectProvider<AuditLogService> auditLogServiceProvider) {
+        this.messageSource = messageSource;
+        this.metrics = metricsProvider != null ? metricsProvider.getIfAvailable() : null;
+        this.auditLogService = (auditLogServiceProvider != null && auditLogServiceProvider.getIfAvailable() != null)
+                ? auditLogServiceProvider.getIfAvailable()
+                : new DefaultAuditLogService();
+    }
 
-      BaseResponse<Void> body = BaseResponse.<Void>builder()
-            .success(false)
-            .code(ex.getCode())
-            .message(message)
-            .traceId(TraceIdContext.getTraceId())
-            .timestamp(Instant.now())
-            .path(request.getRequestURI())
-            .build();
+    private String initErrorContext() {
+        String errorId = UUID.randomUUID().toString();
+        MDC.put(MdcConstants.ERROR_ID, errorId);
+        return errorId;
+    }
 
-      return ResponseEntity.status(ex.getHttpStatus()).body(body);
-   }
+    private void cleanupErrorContext() {
+        MDC.remove(MdcConstants.ERROR_ID);
+    }
 
-   /**
-    * Handle @Valid / @Validated argument validation failures on request bodies.
-    */
-   @ExceptionHandler(MethodArgumentNotValidException.class)
-   public ResponseEntity<BaseResponse<Void>> handleMethodArgumentNotValid(
-         MethodArgumentNotValidException ex, HttpServletRequest request) {
+    private Map<String, Object> extractSanitizedParams(HttpServletRequest request) {
+        if (request == null) {
+            return Collections.emptyMap();
+        }
+        return DataMaskingUtils.maskParams(request.getParameterMap());
+    }
 
-      Locale locale = LocaleContextHolderUtil.getLocale();
-      List<FieldErrorDetail> errorDetails = new ArrayList<>();
+    private void recordExceptionMetric(String code, String exceptionType) {
+        if (metrics != null) {
+            metrics.incrementCounter("exceptions.total",
+                    "code", code != null ? code : "UNKNOWN",
+                    "type", exceptionType != null ? exceptionType : "UNKNOWN");
+        }
+    }
 
-      for (FieldError fieldError : ex.getBindingResult().getFieldErrors()) {
-         errorDetails.add(FieldErrorDetail.builder()
-               .field(fieldError.getField())
-               .rejectedValue(fieldError.getRejectedValue())
-               .code(fieldError.getCode())
-               .message(fieldError.getDefaultMessage())
-               .build());
-      }
+    /**
+     * Handle custom business exceptions derived from BaseException.
+     */
+    @ExceptionHandler(BaseException.class)
+    public ResponseEntity<BaseResponse<Void>> handleBaseException(BaseException ex, HttpServletRequest request) {
+        String errorId = initErrorContext();
+        try {
+            Locale locale = LocaleContextHolderUtil.getLocale();
+            String message = ex.getMessage();
+            String userId = UserContextHolder.getCurrentUserId().orElse("anonymous");
+            String endpoint = request.getRequestURI();
+            Map<String, Object> sanitizedParams = extractSanitizedParams(request);
 
-      String message = messageSource.getMessage(ResponseCode.VALIDATION_FAILED.getCode(), locale);
+            // If explicit custom message was not passed, or matches code, resolve from template
+            String resolved = messageSource.getMessage(ex.getCode(), ex.getParams(), locale);
+            if (resolved != null && !resolved.equals(ex.getCode())) {
+                message = resolved;
+            }
 
-      BaseResponse<Void> body = BaseResponse.<Void>builder()
-            .success(false)
-            .code(ResponseCode.VALIDATION_FAILED.getCode())
-            .message(message)
-            .errors(errorDetails)
-            .traceId(TraceIdContext.getTraceId())
-            .timestamp(Instant.now())
-            .path(request.getRequestURI())
-            .build();
+            log.warn("Business error [errorId={}, code={}, userId={}, endpoint={}, params={}]: {}",
+                    errorId, ex.getCode(), userId, endpoint, sanitizedParams, message);
+            recordExceptionMetric(ex.getCode(), ex.getClass().getSimpleName());
 
-      return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
-   }
+            // Record security audit metrics and events for auth/rate-limit exceptions
+            if (ex instanceof UnauthorizedException) {
+                if (metrics != null) {
+                    metrics.recordAuthFailure("SESSION_OR_TOKEN", ex.getCode(), request.getRemoteAddr());
+                }
+                auditLogService.logAuthentication(userId, "UNAUTHORIZED", request.getRemoteAddr(),
+                        request.getHeader("X-Device-Id"), Map.of("errorId", errorId, "code", ex.getCode()));
+            } else if (ex instanceof ForbiddenException) {
+                if (metrics != null) {
+                    metrics.recordAccessDenied(request.getRequestURI(), "ROLE_RESTRICTED", request.getMethod());
+                }
+                auditLogService.logAuthorization(userId, "ACCESS_DENIED", request.getRequestURI(),
+                        request.getMethod(), Map.of("errorId", errorId, "code", ex.getCode()));
+            } else if (ex instanceof RateLimitExceededException) {
+                if (metrics != null) {
+                    metrics.recordRateLimitExceeded(request.getRemoteAddr(), request.getRequestURI(), "API_RATE_LIMIT");
+                }
+                auditLogService.logSecurityEvent(com.shareride.common.logging.audit.SecurityAuditEvent.builder()
+                        .eventType("RATE_LIMIT_EXCEEDED")
+                        .userId(userId)
+                        .clientIp(request.getRemoteAddr())
+                        .resource(request.getRequestURI())
+                        .action(request.getMethod())
+                        .status("FAILURE")
+                        .traceId(TraceIdContext.getTraceId())
+                        .details(Map.of("errorId", errorId, "code", ex.getCode()))
+                        .build());
+            }
 
-   /**
-    * Handle constraint violations on query params or path variables.
-    */
-   @ExceptionHandler(ConstraintViolationException.class)
-   public ResponseEntity<BaseResponse<Void>> handleConstraintViolation(
-         ConstraintViolationException ex, HttpServletRequest request) {
+            BaseResponse<Void> body = BaseResponse.<Void>builder()
+                    .success(false)
+                    .code(ex.getCode())
+                    .message(message)
+                    .errorId(errorId)
+                    .traceId(TraceIdContext.getTraceId())
+                    .timestamp(Instant.now())
+                    .path(endpoint)
+                    .build();
 
-      Locale locale = LocaleContextHolderUtil.getLocale();
-      List<FieldErrorDetail> errorDetails = new ArrayList<>();
+            return ResponseEntity.status(ex.getHttpStatus()).body(body);
+        } finally {
+            cleanupErrorContext();
+        }
+    }
 
-      for (ConstraintViolation<?> violation : ex.getConstraintViolations()) {
-         errorDetails.add(FieldErrorDetail.builder()
-               .field(violation.getPropertyPath() != null ? violation.getPropertyPath().toString() : "")
-               .rejectedValue(violation.getInvalidValue())
-               .code(violation.getConstraintDescriptor() != null
-                     ? violation.getConstraintDescriptor().getAnnotation().annotationType().getSimpleName()
-                     : null)
-               .message(violation.getMessage())
-               .build());
-      }
+    /**
+     * Handle @Valid / @Validated argument validation failures on request bodies.
+     */
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<BaseResponse<Void>> handleMethodArgumentNotValid(
+            MethodArgumentNotValidException ex, HttpServletRequest request) {
+        String errorId = initErrorContext();
+        try {
+            Locale locale = LocaleContextHolderUtil.getLocale();
+            List<FieldErrorDetail> errorDetails = FieldErrorDetail.fromBindingResult(ex.getBindingResult());
 
-      String message = messageSource.getMessage(ResponseCode.VALIDATION_FAILED.getCode(), locale);
+            String message = messageSource.getMessage(ResponseCode.VALIDATION_FAILED.getCode(), locale);
+            recordExceptionMetric(ResponseCode.VALIDATION_FAILED.getCode(), ex.getClass().getSimpleName());
 
-      BaseResponse<Void> body = BaseResponse.<Void>builder()
-            .success(false)
-            .code(ResponseCode.VALIDATION_FAILED.getCode())
-            .message(message)
-            .errors(errorDetails)
-            .traceId(TraceIdContext.getTraceId())
-            .timestamp(Instant.now())
-            .path(request.getRequestURI())
-            .build();
+            String userId = UserContextHolder.getCurrentUserId().orElse("anonymous");
+            log.warn("Validation error [errorId={}, userId={}, endpoint={}, errorsCount={}]",
+                    errorId, userId, request.getRequestURI(), errorDetails.size());
 
-      return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
-   }
+            BaseResponse<Void> body = BaseResponse.<Void>builder()
+                    .success(false)
+                    .code(ResponseCode.VALIDATION_FAILED.getCode())
+                    .message(message)
+                    .errors(errorDetails)
+                    .errorId(errorId)
+                    .traceId(TraceIdContext.getTraceId())
+                    .timestamp(Instant.now())
+                    .path(request.getRequestURI())
+                    .build();
 
-   /**
-    * Handle missing required query parameters.
-    */
-   @ExceptionHandler(MissingServletRequestParameterException.class)
-   public ResponseEntity<BaseResponse<Void>> handleMissingServletRequestParameter(
-         MissingServletRequestParameterException ex, HttpServletRequest request) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+        } finally {
+            cleanupErrorContext();
+        }
+    }
 
-      Locale locale = LocaleContextHolderUtil.getLocale();
-      Map<String, Object> params = Map.of("field", ex.getParameterName());
-      String msg = messageSource.getMessage("FIELD_REQUIRED", params, locale);
+    /**
+     * Handle constraint violations on query params or path variables.
+     */
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<BaseResponse<Void>> handleConstraintViolation(
+            ConstraintViolationException ex, HttpServletRequest request) {
+        String errorId = initErrorContext();
+        try {
+            Locale locale = LocaleContextHolderUtil.getLocale();
+            List<FieldErrorDetail> errorDetails = new ArrayList<>();
 
-      BaseResponse<Void> body = BaseResponse.<Void>builder()
-            .success(false)
-            .code(ResponseCode.BAD_REQUEST.getCode())
-            .message(msg)
-            .traceId(TraceIdContext.getTraceId())
-            .timestamp(Instant.now())
-            .path(request.getRequestURI())
-            .build();
+            for (ConstraintViolation<?> violation : ex.getConstraintViolations()) {
+                errorDetails.add(FieldErrorDetail.builder()
+                        .field(violation.getPropertyPath() != null ? violation.getPropertyPath().toString() : "")
+                        .rejectedValue(violation.getInvalidValue())
+                        .code(violation.getConstraintDescriptor() != null
+                                ? violation.getConstraintDescriptor().getAnnotation().annotationType().getSimpleName()
+                                : null)
+                        .message(violation.getMessage())
+                        .build());
+            }
 
-      return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
-   }
+            String message = messageSource.getMessage(ResponseCode.VALIDATION_FAILED.getCode(), locale);
+            recordExceptionMetric(ResponseCode.VALIDATION_FAILED.getCode(), ex.getClass().getSimpleName());
 
-   /**
-    * Handle parameter type mismatch.
-    */
-   @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-   public ResponseEntity<BaseResponse<Void>> handleMethodArgumentTypeMismatch(
-         MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
+            BaseResponse<Void> body = BaseResponse.<Void>builder()
+                    .success(false)
+                    .code(ResponseCode.VALIDATION_FAILED.getCode())
+                    .message(message)
+                    .errors(errorDetails)
+                    .errorId(errorId)
+                    .traceId(TraceIdContext.getTraceId())
+                    .timestamp(Instant.now())
+                    .path(request.getRequestURI())
+                    .build();
 
-      Locale locale = LocaleContextHolderUtil.getLocale();
-      Map<String, Object> params = Map.of(
-            "field", ex.getName(),
-            "value", String.valueOf(ex.getValue()));
-      String msg = messageSource.getMessage("FIELD_INVALID", params, locale);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+        } finally {
+            cleanupErrorContext();
+        }
+    }
 
-      BaseResponse<Void> body = BaseResponse.<Void>builder()
-            .success(false)
-            .code(ResponseCode.BAD_REQUEST.getCode())
-            .message(msg)
-            .traceId(TraceIdContext.getTraceId())
-            .timestamp(Instant.now())
-            .path(request.getRequestURI())
-            .build();
+    /**
+     * Handle missing required query parameters.
+     */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<BaseResponse<Void>> handleMissingServletRequestParameter(
+            MissingServletRequestParameterException ex, HttpServletRequest request) {
+        String errorId = initErrorContext();
+        try {
+            Locale locale = LocaleContextHolderUtil.getLocale();
+            Map<String, Object> params = Map.of("field", ex.getParameterName());
+            String msg = messageSource.getMessage("FIELD_REQUIRED", params, locale);
+            recordExceptionMetric(ResponseCode.BAD_REQUEST.getCode(), ex.getClass().getSimpleName());
 
-      return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
-   }
+            BaseResponse<Void> body = BaseResponse.<Void>builder()
+                    .success(false)
+                    .code(ResponseCode.BAD_REQUEST.getCode())
+                    .message(msg)
+                    .errorId(errorId)
+                    .traceId(TraceIdContext.getTraceId())
+                    .timestamp(Instant.now())
+                    .path(request.getRequestURI())
+                    .build();
 
-   /**
-    * Handle unreadable HTTP body (malformed JSON, etc.).
-    */
-   @ExceptionHandler(HttpMessageNotReadableException.class)
-   public ResponseEntity<BaseResponse<Void>> handleHttpMessageNotReadable(
-         HttpMessageNotReadableException ex, HttpServletRequest request) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+        } finally {
+            cleanupErrorContext();
+        }
+    }
 
-      Locale locale = LocaleContextHolderUtil.getLocale();
-      String message = messageSource.getMessage(ResponseCode.BAD_REQUEST.getCode(), locale);
+    /**
+     * Handle parameter type mismatch.
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<BaseResponse<Void>> handleMethodArgumentTypeMismatch(
+            MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
+        String errorId = initErrorContext();
+        try {
+            Locale locale = LocaleContextHolderUtil.getLocale();
+            Map<String, Object> params = Map.of(
+                    "field", ex.getName(),
+                    "value", String.valueOf(ex.getValue())
+            );
+            String msg = messageSource.getMessage("FIELD_INVALID", params, locale);
+            recordExceptionMetric(ResponseCode.BAD_REQUEST.getCode(), ex.getClass().getSimpleName());
 
-      BaseResponse<Void> body = BaseResponse.<Void>builder()
-            .success(false)
-            .code(ResponseCode.BAD_REQUEST.getCode())
-            .message(message)
-            .traceId(TraceIdContext.getTraceId())
-            .timestamp(Instant.now())
-            .path(request.getRequestURI())
-            .build();
+            BaseResponse<Void> body = BaseResponse.<Void>builder()
+                    .success(false)
+                    .code(ResponseCode.BAD_REQUEST.getCode())
+                    .message(msg)
+                    .errorId(errorId)
+                    .traceId(TraceIdContext.getTraceId())
+                    .timestamp(Instant.now())
+                    .path(request.getRequestURI())
+                    .build();
 
-      return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
-   }
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+        } finally {
+            cleanupErrorContext();
+        }
+    }
 
-   /**
-    * Handle HTTP 405 Method Not Allowed.
-    */
-   @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
-   public ResponseEntity<BaseResponse<Void>> handleMethodNotSupported(
-         HttpRequestMethodNotSupportedException ex, HttpServletRequest request) {
+    /**
+     * Handle unreadable HTTP body (malformed JSON, etc.).
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<BaseResponse<Void>> handleHttpMessageNotReadable(
+            HttpMessageNotReadableException ex, HttpServletRequest request) {
+        String errorId = initErrorContext();
+        try {
+            Locale locale = LocaleContextHolderUtil.getLocale();
+            String message = messageSource.getMessage(ResponseCode.BAD_REQUEST.getCode(), locale);
+            recordExceptionMetric(ResponseCode.BAD_REQUEST.getCode(), ex.getClass().getSimpleName());
 
-      Locale locale = LocaleContextHolderUtil.getLocale();
-      String message = messageSource.getMessage(ResponseCode.METHOD_NOT_ALLOWED.getCode(), locale);
+            BaseResponse<Void> body = BaseResponse.<Void>builder()
+                    .success(false)
+                    .code(ResponseCode.BAD_REQUEST.getCode())
+                    .message(message)
+                    .errorId(errorId)
+                    .traceId(TraceIdContext.getTraceId())
+                    .timestamp(Instant.now())
+                    .path(request.getRequestURI())
+                    .build();
 
-      BaseResponse<Void> body = BaseResponse.<Void>builder()
-            .success(false)
-            .code(ResponseCode.METHOD_NOT_ALLOWED.getCode())
-            .message(message)
-            .traceId(TraceIdContext.getTraceId())
-            .timestamp(Instant.now())
-            .path(request.getRequestURI())
-            .build();
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+        } finally {
+            cleanupErrorContext();
+        }
+    }
 
-      return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(body);
-   }
+    /**
+     * Handle HTTP 405 Method Not Allowed.
+     */
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<BaseResponse<Void>> handleMethodNotSupported(
+            HttpRequestMethodNotSupportedException ex, HttpServletRequest request) {
+        String errorId = initErrorContext();
+        try {
+            Locale locale = LocaleContextHolderUtil.getLocale();
+            String message = messageSource.getMessage(ResponseCode.METHOD_NOT_ALLOWED.getCode(), locale);
+            recordExceptionMetric(ResponseCode.METHOD_NOT_ALLOWED.getCode(), ex.getClass().getSimpleName());
 
-   /**
-    * Handle HTTP 415 Media Type Not Supported.
-    */
-   @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
-   public ResponseEntity<BaseResponse<Void>> handleMediaTypeNotSupported(
-         HttpMediaTypeNotSupportedException ex, HttpServletRequest request) {
+            BaseResponse<Void> body = BaseResponse.<Void>builder()
+                    .success(false)
+                    .code(ResponseCode.METHOD_NOT_ALLOWED.getCode())
+                    .message(message)
+                    .errorId(errorId)
+                    .traceId(TraceIdContext.getTraceId())
+                    .timestamp(Instant.now())
+                    .path(request.getRequestURI())
+                    .build();
 
-      Locale locale = LocaleContextHolderUtil.getLocale();
-      String message = messageSource.getMessage(ResponseCode.BAD_REQUEST.getCode(), locale);
+            return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(body);
+        } finally {
+            cleanupErrorContext();
+        }
+    }
 
-      BaseResponse<Void> body = BaseResponse.<Void>builder()
-            .success(false)
-            .code(ResponseCode.BAD_REQUEST.getCode())
-            .message(message)
-            .traceId(TraceIdContext.getTraceId())
-            .timestamp(Instant.now())
-            .path(request.getRequestURI())
-            .build();
+    /**
+     * Handle HTTP 415 Media Type Not Supported.
+     */
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<BaseResponse<Void>> handleMediaTypeNotSupported(
+            HttpMediaTypeNotSupportedException ex, HttpServletRequest request) {
+        String errorId = initErrorContext();
+        try {
+            Locale locale = LocaleContextHolderUtil.getLocale();
+            String message = messageSource.getMessage(ResponseCode.BAD_REQUEST.getCode(), locale);
+            recordExceptionMetric(ResponseCode.BAD_REQUEST.getCode(), ex.getClass().getSimpleName());
 
-      return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).body(body);
-   }
+            BaseResponse<Void> body = BaseResponse.<Void>builder()
+                    .success(false)
+                    .code(ResponseCode.BAD_REQUEST.getCode())
+                    .message(message)
+                    .errorId(errorId)
+                    .traceId(TraceIdContext.getTraceId())
+                    .timestamp(Instant.now())
+                    .path(request.getRequestURI())
+                    .build();
 
-   /**
-    * Handle 404 No Handler Found.
-    */
-   @ExceptionHandler(NoHandlerFoundException.class)
-   public ResponseEntity<BaseResponse<Void>> handleNoHandlerFound(
-         NoHandlerFoundException ex, HttpServletRequest request) {
+            return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).body(body);
+        } finally {
+            cleanupErrorContext();
+        }
+    }
 
-      Locale locale = LocaleContextHolderUtil.getLocale();
-      String message = messageSource.getMessage(ResponseCode.NOT_FOUND.getCode(), locale);
+    /**
+     * Handle 404 No Handler Found.
+     */
+    @ExceptionHandler(NoHandlerFoundException.class)
+    public ResponseEntity<BaseResponse<Void>> handleNoHandlerFound(
+            NoHandlerFoundException ex, HttpServletRequest request) {
+        String errorId = initErrorContext();
+        try {
+            Locale locale = LocaleContextHolderUtil.getLocale();
+            String message = messageSource.getMessage(ResponseCode.NOT_FOUND.getCode(), locale);
+            recordExceptionMetric(ResponseCode.NOT_FOUND.getCode(), ex.getClass().getSimpleName());
 
-      BaseResponse<Void> body = BaseResponse.<Void>builder()
-            .success(false)
-            .code(ResponseCode.NOT_FOUND.getCode())
-            .message(message)
-            .traceId(TraceIdContext.getTraceId())
-            .timestamp(Instant.now())
-            .path(request.getRequestURI())
-            .build();
+            BaseResponse<Void> body = BaseResponse.<Void>builder()
+                    .success(false)
+                    .code(ResponseCode.NOT_FOUND.getCode())
+                    .message(message)
+                    .errorId(errorId)
+                    .traceId(TraceIdContext.getTraceId())
+                    .timestamp(Instant.now())
+                    .path(request.getRequestURI())
+                    .build();
 
-      return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
-   }
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+        } finally {
+            cleanupErrorContext();
+        }
+    }
 
-   /**
-    * Fallback for any unhandled unexpected exceptions.
-    */
-   @ExceptionHandler(Exception.class)
-   public ResponseEntity<BaseResponse<Void>> handleGeneralException(
-         Exception ex, HttpServletRequest request) {
+    /**
+     * Fallback for any unhandled unexpected exceptions.
+     */
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<BaseResponse<Void>> handleGeneralException(
+            Exception ex, HttpServletRequest request) {
+        String errorId = initErrorContext();
+        try {
+            String userId = UserContextHolder.getCurrentUserId().orElse("anonymous");
+            String endpoint = request.getRequestURI();
+            Map<String, Object> sanitizedParams = extractSanitizedParams(request);
 
-      log.error("Unhandled unexpected exception on path [{}]: ", request.getRequestURI(), ex);
+            log.error("Unhandled error [errorId={}, userId={}, endpoint={}, params={}]: ",
+                    errorId, userId, endpoint, sanitizedParams, ex);
+            recordExceptionMetric(ResponseCode.INTERNAL_SERVER_ERROR.getCode(), ex.getClass().getSimpleName());
 
-      Locale locale = LocaleContextHolderUtil.getLocale();
-      String message = messageSource.getMessage(ResponseCode.INTERNAL_SERVER_ERROR.getCode(), locale);
+            Locale locale = LocaleContextHolderUtil.getLocale();
+            String message = messageSource.getMessage(ResponseCode.INTERNAL_SERVER_ERROR.getCode(), locale);
 
-      BaseResponse<Void> body = BaseResponse.<Void>builder()
-            .success(false)
-            .code(ResponseCode.INTERNAL_SERVER_ERROR.getCode())
-            .message(message)
-            .traceId(TraceIdContext.getTraceId())
-            .timestamp(Instant.now())
-            .path(request.getRequestURI())
-            .build();
+            BaseResponse<Void> body = BaseResponse.<Void>builder()
+                    .success(false)
+                    .code(ResponseCode.INTERNAL_SERVER_ERROR.getCode())
+                    .message(message)
+                    .errorId(errorId)
+                    .traceId(TraceIdContext.getTraceId())
+                    .timestamp(Instant.now())
+                    .path(endpoint)
+                    .build();
 
-      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
-   }
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
+        } finally {
+            cleanupErrorContext();
+        }
+    }
 }

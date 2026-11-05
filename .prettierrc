@@ -12,5 +12,13 @@
    "jsxSingleQuote": false,
    "bracketSameLine": false,
    "embeddedLanguageFormatting": "auto",
-   "singleAttributePerLine": false
+   "singleAttributePerLine": false,
+   "overrides": [
+      {
+         "files": ["*.yml", "*.yaml"],
+         "options": {
+            "tabWidth": 2
+         }
+      }
+   ]
 }

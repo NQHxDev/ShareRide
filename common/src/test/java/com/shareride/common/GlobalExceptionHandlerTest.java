@@ -6,7 +6,10 @@ import com.shareride.common.exception.ResourceNotFoundException;
 import com.shareride.common.exception.UnauthorizedException;
 import com.shareride.common.filter.TraceIdContext;
 import com.shareride.common.i18n.TemplateMessageSource;
+import com.shareride.common.metrics.ShareRideMetrics;
 import com.shareride.common.response.BaseResponse;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -24,12 +27,18 @@ class GlobalExceptionHandlerTest {
 
     private GlobalExceptionHandler exceptionHandler;
     private TemplateMessageSource messageSource;
+    private MeterRegistry meterRegistry;
+    private ShareRideMetrics metrics;
 
     @BeforeEach
     void setUp() {
         messageSource = new TemplateMessageSource();
         messageSource.init();
-        exceptionHandler = new GlobalExceptionHandler(messageSource);
+
+        meterRegistry = new SimpleMeterRegistry();
+        metrics = new ShareRideMetrics(meterRegistry);
+
+        exceptionHandler = new GlobalExceptionHandler(messageSource, metrics);
         TraceIdContext.setTraceId("trace-xyz-999");
     }
 
@@ -40,7 +49,7 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    @DisplayName("Should handle ResourceNotFoundException and render localized parameterized message")
+    @DisplayName("Should handle ResourceNotFoundException and render localized parameterized message and record metric")
     void testResourceNotFoundHandling() {
         LocaleContextHolder.setLocale(Locale.ENGLISH);
 
@@ -56,6 +65,14 @@ class GlobalExceptionHandlerTest {
         assertEquals("Could not find Ride with identifier '99'", response.getBody().getMessage());
         assertEquals("/api/v1/rides/99", response.getBody().getPath());
         assertEquals("trace-xyz-999", response.getBody().getTraceId());
+
+        // Verify exception metric was recorded
+        double count = meterRegistry.get("shareride.exceptions.total")
+                .tag("code", "RESOURCE_NOT_FOUND")
+                .tag("type", "ResourceNotFoundException")
+                .counter()
+                .count();
+        assertEquals(1.0, count);
     }
 
     @Test
@@ -71,6 +88,13 @@ class GlobalExceptionHandlerTest {
         assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
         assertEquals("UNAUTHORIZED", response.getBody().getCode());
         assertEquals("認証されていないか、セッションの有効期限が切れています", response.getBody().getMessage());
+
+        double count = meterRegistry.get("shareride.exceptions.total")
+                .tag("code", "UNAUTHORIZED")
+                .tag("type", "UnauthorizedException")
+                .counter()
+                .count();
+        assertEquals(1.0, count);
     }
 
     @Test
@@ -86,5 +110,12 @@ class GlobalExceptionHandlerTest {
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
         assertEquals(ResponseCode.INTERNAL_SERVER_ERROR.getCode(), response.getBody().getCode());
         assertEquals("Hệ thống đang gặp sự cố, vui lòng thử lại sau", response.getBody().getMessage());
+
+        double count = meterRegistry.get("shareride.exceptions.total")
+                .tag("code", ResponseCode.INTERNAL_SERVER_ERROR.getCode())
+                .tag("type", "RuntimeException")
+                .counter()
+                .count();
+        assertEquals(1.0, count);
     }
 }

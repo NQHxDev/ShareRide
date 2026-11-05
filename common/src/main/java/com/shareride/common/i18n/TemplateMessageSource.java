@@ -39,6 +39,7 @@ public class TemplateMessageSource {
    @PostConstruct
    public void init() {
       loadTemplates();
+      MessageResolverHolder.setTemplateMessageSource(this);
    }
 
    public synchronized void loadTemplates() {
