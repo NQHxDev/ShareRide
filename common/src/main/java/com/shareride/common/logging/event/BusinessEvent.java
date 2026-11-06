@@ -13,6 +13,9 @@ import java.util.UUID;
 /**
  * Standardized domain business event record for analytics and operational
  * auditing.
+ * <p>
+ * Carries both technical traceId and business flow correlationId to track
+ * transactions end-to-end across microservices.
  */
 @Data
 @NoArgsConstructor
@@ -26,7 +29,13 @@ public class BusinessEvent implements Serializable {
    private String entityId;
    private Instant timestamp;
    private String traceId;
+   private String correlationId;
    private Map<String, Object> metadata;
+
+   public BusinessEvent(String eventId, String type, String userId, String entityId,
+         Instant timestamp, String traceId, Map<String, Object> metadata) {
+      this(eventId, type, userId, entityId, timestamp, traceId, null, metadata);
+   }
 
    public String getRideId() {
       return entityId;
@@ -47,6 +56,7 @@ public class BusinessEvent implements Serializable {
       protected String entityId;
       protected Instant timestamp = Instant.now();
       protected String traceId;
+      protected String correlationId;
       protected Map<String, Object> metadata;
 
       public BusinessEventBuilder eventId(String eventId) {
@@ -84,13 +94,18 @@ public class BusinessEvent implements Serializable {
          return this;
       }
 
+      public BusinessEventBuilder correlationId(String correlationId) {
+         this.correlationId = correlationId;
+         return this;
+      }
+
       public BusinessEventBuilder metadata(Map<String, Object> metadata) {
          this.metadata = metadata;
          return this;
       }
 
       public BusinessEvent build() {
-         return new BusinessEvent(eventId, type, userId, entityId, timestamp, traceId, metadata);
+         return new BusinessEvent(eventId, type, userId, entityId, timestamp, traceId, correlationId, metadata);
       }
    }
 }

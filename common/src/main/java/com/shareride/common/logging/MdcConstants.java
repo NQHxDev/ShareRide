@@ -37,6 +37,7 @@ public final class MdcConstants {
    // HTTP Request Details
    public static final String HTTP_METHOD = "httpMethod";
    public static final String HTTP_URI = "httpUri";
+   public static final String API_VERSION = "apiVersion";
 
    // Dynamic Debug & Logging Controls
    public static final String LOG_LEVEL = "logLevel";

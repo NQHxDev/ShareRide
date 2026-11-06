@@ -25,3 +25,7 @@ CIRCUIT_BREAKER_OPEN=Service circuit breaker is open, please retry later
 RESOURCE_NOT_FOUND=Could not find ${resource!'resource'} with identifier '${identifier!'unknown'}'
 FIELD_REQUIRED=Field '${field}' is required
 FIELD_INVALID=Field '${field}' contains an invalid value: ${value!''}
+UNSUPPORTED_API_VERSION=Unsupported API version
+API_VERSION_NOT_SUPPORTED=API version '${version!"unknown"}' is not supported. Supported versions: ${supported!""}
+API_VERSION_REQUIRED=API version is required but was not provided
+API_VERSION_DEPRECATED_WARNING=API version '${version!"unknown"}' is deprecated and will sunset on ${sunset!"unknown"}

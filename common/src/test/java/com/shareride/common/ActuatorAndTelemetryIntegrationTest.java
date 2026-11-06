@@ -22,7 +22,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest(classes = ActuatorAndTelemetryIntegrationTest.TestApplication.class, properties = {"shareride.redis.enabled=false"})
+@SpringBootTest(classes = ActuatorAndTelemetryIntegrationTest.TestApplication.class, properties = {"shareride.redis.enabled=false", "management.health.rabbit.enabled=false"})
 class ActuatorAndTelemetryIntegrationTest {
 
    @SpringBootApplication(scanBasePackages = "com.shareride.common", exclude = {

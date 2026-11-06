@@ -116,4 +116,27 @@ class ShareRideTaskDecoratorTest {
         assertEquals("preExistingValue", restoredKey.get());
         assertEquals("pre-existing-trace", restoredTrace.get());
     }
+    @Test
+    @DisplayName("Should propagate CorrelationIdContext to async worker thread and clean up after")
+    void testPropagateCorrelationIdContextToAsyncThread() throws Exception {
+        String testCid = "business-flow-task-999";
+        CorrelationIdContext.setCorrelationId(testCid);
+
+        AtomicReference<String> workerCid = new AtomicReference<>();
+        AtomicReference<String> workerMdcCid = new AtomicReference<>();
+
+        Runnable task = () -> {
+            workerCid.set(CorrelationIdContext.getCorrelationId());
+            workerMdcCid.set(MDC.get(MdcConstants.CORRELATION_ID));
+        };
+
+        Runnable decorated = decorator.decorate(task);
+        Future<?> future = executorService.submit(decorated);
+        future.get(2, TimeUnit.SECONDS);
+
+        assertEquals(testCid, workerCid.get());
+        assertEquals(testCid, workerMdcCid.get());
+        assertEquals(testCid, CorrelationIdContext.getCorrelationId());
+    }
+
 }

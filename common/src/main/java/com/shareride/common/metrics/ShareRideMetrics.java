@@ -38,9 +38,7 @@ public class ShareRideMetrics {
       return meterRegistry;
    }
 
-   // ==========================================
    // Core Micrometer Facade
-   // ==========================================
 
    public void incrementCounter(String name, String... tags) {
       incrementCounter(name, 1.0, tags);
@@ -144,7 +142,7 @@ public class ShareRideMetrics {
 
    public AtomicInteger registerAtomicInteger(String name, String description,
          AtomicInteger atomicInteger, String... tags) {
-      Gauge.builder(resolveMetricName(name), atomicInteger, AtomicInteger::get)
+      Gauge.builder(resolveMetricName(name), atomicInteger, val -> val != null ? val.get() : 0)
             .description(description)
             .tags(parseTags(tags))
             .register(meterRegistry);
@@ -153,16 +151,14 @@ public class ShareRideMetrics {
 
    public AtomicLong registerAtomicLong(String name, String description,
          AtomicLong atomicLong, String... tags) {
-      Gauge.builder(resolveMetricName(name), atomicLong, AtomicLong::get)
+      Gauge.builder(resolveMetricName(name), atomicLong, val -> val != null ? val.get() : 0)
             .description(description)
             .tags(parseTags(tags))
             .register(meterRegistry);
       return atomicLong;
    }
 
-   // ==========================================
-   // 2. SLO / SLI & Saturation Tracking
-   // ==========================================
+   // SLO / SLI & Saturation Tracking
 
    /**
     * Record database query duration, status, and table for SRE latency
@@ -202,7 +198,8 @@ public class ShareRideMetrics {
       int stateCode = "OPEN".equalsIgnoreCase(state) ? 2 : ("HALF_OPEN".equalsIgnoreCase(state) ? 1 : 0);
       circuitBreakerStateGauges.computeIfAbsent(name, n -> {
          AtomicInteger gaugeVal = new AtomicInteger(stateCode);
-         Gauge.builder(resolveMetricName("resilience.circuitbreaker.state"), gaugeVal, AtomicInteger::get)
+         Gauge.builder(resolveMetricName("resilience.circuitbreaker.state"), gaugeVal,
+               val -> val != null ? val.get() : 0)
                .tag("name", n)
                .description("Circuit Breaker State: 0=CLOSED, 1=HALF_OPEN, 2=OPEN")
                .register(meterRegistry);
@@ -253,7 +250,8 @@ public class ShareRideMetrics {
 
       errorBudgetGauges.computeIfAbsent(service, s -> {
          AtomicReference<Double> ref = new AtomicReference<>(remainingPercent);
-         Gauge.builder(resolveMetricName("slo.error_budget.remaining_percent"), ref, AtomicReference::get)
+         Gauge.builder(resolveMetricName("slo.error_budget.remaining_percent"), ref,
+               r -> (r != null && r.get() != null) ? r.get() : 0.0)
                .tag("service", s)
                .description("Remaining Error Budget percentage based on SLA target")
                .register(meterRegistry);
@@ -269,18 +267,16 @@ public class ShareRideMetrics {
          return;
       String prefix = "threadpool." + (poolName != null ? poolName : "custom");
       registerGauge(prefix + ".active.threads", "Active executing worker threads",
-            executor, ThreadPoolExecutor::getActiveCount);
+            executor, ex -> ex != null ? ex.getActiveCount() : 0);
       registerGauge(prefix + ".pool.size", "Current thread pool size",
-            executor, ThreadPoolExecutor::getPoolSize);
+            executor, ex -> ex != null ? ex.getPoolSize() : 0);
       registerGauge(prefix + ".queue.size", "Queued tasks awaiting worker thread",
-            executor, e -> e.getQueue().size());
+            executor, ex -> (ex != null && ex.getQueue() != null) ? ex.getQueue().size() : 0);
       registerGauge(prefix + ".completed.tasks", "Total completed tasks",
-            executor, ThreadPoolExecutor::getCompletedTaskCount);
+            executor, ex -> ex != null ? ex.getCompletedTaskCount() : 0);
    }
 
-   // ==========================================
-   // 6. Business Metrics (ShareRide Domain)
-   // ==========================================
+   // Business Metrics (ShareRide Domain)
 
    /**
     * Record ride booking requested.
@@ -326,7 +322,8 @@ public class ShareRideMetrics {
             (vehicleType != null ? vehicleType.toLowerCase() : "standard");
       activeDriversGauges.computeIfAbsent(key, k -> {
          AtomicInteger gaugeVal = new AtomicInteger(count);
-         Gauge.builder(resolveMetricName("driver.active.count"), gaugeVal, AtomicInteger::get)
+         Gauge.builder(resolveMetricName("driver.active.count"), gaugeVal,
+               val -> val != null ? val.get() : 0)
                .tag("city", city != null ? city.toLowerCase() : "unknown")
                .tag("vehicle_type", vehicleType != null ? vehicleType.toLowerCase() : "standard")
                .description("Currently active and online drivers")
@@ -382,9 +379,16 @@ public class ShareRideMetrics {
             "user_type", userType != null ? userType.toLowerCase() : "passenger");
    }
 
-   // ==========================================
-   // 7. Security Observability Events
-   // ==========================================
+   /**
+    * Record API Version request status (e.g. SUPPORTED, DEPRECATED, UNSUPPORTED, PERMISSIVE_FALLBACK).
+    */
+   public void recordApiVersionRequest(String version, String status) {
+      incrementCounter("api.version.requests",
+            "version", version != null ? version.toLowerCase() : "unknown",
+            "status", status != null ? status.toUpperCase() : "UNKNOWN");
+   }
+
+   // Security Observability Events
 
    /**
     * Record authentication failure (e.g. invalid credentials, expired token,

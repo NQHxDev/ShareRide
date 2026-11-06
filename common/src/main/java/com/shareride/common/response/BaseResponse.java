@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.shareride.common.constant.ResponseCode;
+import com.shareride.common.context.CorrelationIdContext;
 import com.shareride.common.filter.TraceIdContext;
 import com.shareride.common.i18n.LocaleContextHolderUtil;
 import com.shareride.common.i18n.MessageResolverHolder;
@@ -44,6 +45,7 @@ public class BaseResponse<T> implements Serializable {
    private List<FieldErrorDetail> errors;
    private List<String> warnings;
    private String traceId;
+   private String correlationId;
    private String errorId;
 
    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
@@ -352,6 +354,7 @@ public class BaseResponse<T> implements Serializable {
             .errors(this.errors != null ? new ArrayList<>(this.errors) : null)
             .warnings(this.warnings != null ? new ArrayList<>(this.warnings) : null)
             .traceId(this.traceId)
+            .correlationId(this.correlationId)
             .errorId(this.errorId)
             .timestamp(this.timestamp)
             .path(this.path)
@@ -370,6 +373,7 @@ public class BaseResponse<T> implements Serializable {
       builder.errors = this.errors != null ? new ArrayList<>(this.errors) : null;
       builder.warnings = this.warnings != null ? new ArrayList<>(this.warnings) : null;
       builder.traceId = this.traceId;
+      builder.correlationId = this.correlationId;
       builder.errorId = this.errorId;
       builder.timestamp = this.timestamp;
       builder.path = this.path;
@@ -393,6 +397,7 @@ public class BaseResponse<T> implements Serializable {
       private List<FieldErrorDetail> errors;
       private List<String> warnings;
       private String traceId;
+      private String correlationId;
       private String errorId;
       private Instant timestamp;
       private String path;
@@ -540,6 +545,13 @@ public class BaseResponse<T> implements Serializable {
          if (this.metadata.getEnvironment() == null) {
             this.metadata.setEnvironment(ResponseMetadataContext.getEnvironment());
          }
+         if (ResponseMetadataContext.isDeprecated()) {
+            String sunset = ResponseMetadataContext.getSunsetDate();
+            String warnMsg = (sunset != null && !sunset.isBlank())
+                  ? "API version '" + this.metadata.getApiVersion() + "' is deprecated and will sunset on " + sunset
+                  : "API version '" + this.metadata.getApiVersion() + "' is deprecated";
+            addWarning(warnMsg);
+         }
          return this;
       }
 
@@ -598,6 +610,11 @@ public class BaseResponse<T> implements Serializable {
          return this;
       }
 
+      public BaseResponseBuilder<T> correlationId(String correlationId) {
+         this.correlationId = correlationId;
+         return this;
+      }
+
       public BaseResponseBuilder<T> timestamp(Instant timestamp) {
          this.timestamp = timestamp;
          return this;
@@ -620,6 +637,7 @@ public class BaseResponse<T> implements Serializable {
          boolean resolvedSuccess = (this.success != null) ? this.success : (this.level != ResponseLevel.ERROR);
 
          String resolvedTraceId = (this.traceId != null) ? this.traceId : TraceIdContext.getTraceId();
+         String resolvedCorrelationId = (this.correlationId != null) ? this.correlationId : CorrelationIdContext.getCorrelationId();
          Instant resolvedTimestamp = (this.timestamp != null) ? this.timestamp : Instant.now();
 
          BaseResponse<T> response = new BaseResponse<>();
@@ -633,6 +651,7 @@ public class BaseResponse<T> implements Serializable {
          response.setErrors(this.errors);
          response.setWarnings(this.warnings);
          response.setTraceId(resolvedTraceId);
+         response.setCorrelationId(resolvedCorrelationId);
          response.setErrorId(this.errorId);
          response.setTimestamp(resolvedTimestamp);
          response.setPath(this.path);

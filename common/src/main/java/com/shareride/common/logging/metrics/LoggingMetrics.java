@@ -26,7 +26,7 @@ public final class LoggingMetrics {
       metricsFacade = metrics;
       if (metrics != null) {
          metrics.registerGauge("logging.queue.depth", "Current queue depth of logging system",
-               queueDepth, AtomicInteger::get);
+               queueDepth, val -> val != null ? val.get() : 0);
       }
    }
 

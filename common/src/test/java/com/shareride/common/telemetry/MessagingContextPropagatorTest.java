@@ -99,4 +99,32 @@ class MessagingContextPropagatorTest {
       assertNull(MDC.get(MdcConstants.TRACE_ID));
       assertNull(MDC.get(MdcConstants.USER_ID));
    }
+   @Test
+   void testInjectGeneratesDistinctCorrelationIdWhenAbsent() {
+      TraceIdContext.setTraceId("4bf92f3577b34da6a3ce929d0e0e4736");
+      TraceIdContext.setSpanId("00f067aa0ba902b7");
+
+      Map<String, Object> headers = new HashMap<>();
+      MessagingContextPropagator.inject(headers);
+
+      String injectedTrace = (String) headers.get(MessagingContextPropagator.TRACE_ID_HEADER);
+      String injectedCorr = (String) headers.get(MessagingContextPropagator.CORRELATION_ID_HEADER);
+
+      assertEquals("4bf92f3577b34da6a3ce929d0e0e4736", injectedTrace);
+      assertNotNull(injectedCorr);
+      assertNotEquals(injectedTrace, injectedCorr, "Messaging correlationId must not equal traceId!");
+   }
+
+   @Test
+   void testExtractGeneratesDistinctCorrelationIdWhenAbsent() {
+      Map<String, Object> headers = new HashMap<>();
+      headers.put(MessagingContextPropagator.TRACE_ID_HEADER, "4bf92f3577b34da6a3ce929d0e0e4736");
+
+      MessagingContextPropagator.extract(headers);
+
+      UserContext user = UserContextHolder.getContext();
+      assertNotNull(user.getCorrelationId());
+      assertNotEquals("4bf92f3577b34da6a3ce929d0e0e4736", user.getCorrelationId(), "Extracted correlationId must not equal traceId!");
+   }
+
 }

@@ -17,6 +17,7 @@ import java.util.Map;
  *       .type("RIDE_BOOKED")
  *       .userId(userId)
  *       .rideId(rideId)
+ *       .correlationId(correlationId)
  *       .metadata(Map.of("origin", origin, "destination", dest))
  *       .build());
  * </pre>
@@ -35,6 +36,11 @@ public class Event extends BusinessEvent {
    public Event(String eventId, String type, String userId, String entityId,
          Instant timestamp, String traceId, Map<String, Object> metadata) {
       super(eventId, type, userId, entityId, timestamp, traceId, metadata);
+   }
+
+   public Event(String eventId, String type, String userId, String entityId,
+         Instant timestamp, String traceId, String correlationId, Map<String, Object> metadata) {
+      super(eventId, type, userId, entityId, timestamp, traceId, correlationId, metadata);
    }
 
    public static EventBuilder builder() {
@@ -86,6 +92,12 @@ public class Event extends BusinessEvent {
       }
 
       @Override
+      public EventBuilder correlationId(String correlationId) {
+         super.correlationId(correlationId);
+         return this;
+      }
+
+      @Override
       public EventBuilder metadata(Map<String, Object> metadata) {
          super.metadata(metadata);
          return this;
@@ -93,7 +105,7 @@ public class Event extends BusinessEvent {
 
       @Override
       public Event build() {
-         return new Event(eventId, type, userId, entityId, timestamp, traceId, metadata);
+         return new Event(eventId, type, userId, entityId, timestamp, traceId, correlationId, metadata);
       }
    }
 }

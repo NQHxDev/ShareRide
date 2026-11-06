@@ -1,5 +1,7 @@
 package com.shareride.common.exception;
 
+import com.shareride.common.versioning.UnsupportedApiVersionException;
+
 import com.shareride.common.constant.ResponseCode;
 import com.shareride.common.context.UserContextHolder;
 import com.shareride.common.filter.TraceIdContext;
@@ -156,6 +158,10 @@ public class GlobalExceptionHandler {
             }
             auditLogService.logAuthorization(userId, "ACCESS_DENIED", request.getRequestURI(),
                   request.getMethod(), Map.of("errorId", errorId, "code", ex.getCode()));
+         } else if (ex instanceof UnsupportedApiVersionException unsupportedEx) {
+            if (metrics != null) {
+               metrics.recordApiVersionRequest(unsupportedEx.getRequestedVersion(), "UNSUPPORTED");
+            }
          } else if (ex instanceof RateLimitExceededException) {
             if (metrics != null) {
                metrics.recordRateLimitExceeded(request.getRemoteAddr(), request.getRequestURI(), "API_RATE_LIMIT");

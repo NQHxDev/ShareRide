@@ -25,3 +25,7 @@ CIRCUIT_BREAKER_OPEN=Dịch vụ tạm thời ngắt kết nối an toàn (circu
 RESOURCE_NOT_FOUND=Không tìm thấy ${resource!'tài nguyên'} với mã '${identifier!'không xác định'}'
 FIELD_REQUIRED=Trường '${field}' không được để trống
 FIELD_INVALID=Trường '${field}' có giá trị không hợp lệ: ${value!''}
+UNSUPPORTED_API_VERSION=Phiên bản API không được hỗ trợ
+API_VERSION_NOT_SUPPORTED=Phiên bản API '${version!"không xác định"}' không được hỗ trợ. Các phiên bản hỗ trợ: ${supported!""}
+API_VERSION_REQUIRED=Yêu cầu cung cấp phiên bản API nhưng không tìm thấy trong request
+API_VERSION_DEPRECATED_WARNING=Phiên bản API '${version!"không xác định"}' đã lỗi thời và sẽ ngừng hỗ trợ vào ngày ${sunset!"không xác định"}

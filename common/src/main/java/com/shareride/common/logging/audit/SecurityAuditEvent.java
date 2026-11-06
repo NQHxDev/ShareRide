@@ -37,6 +37,7 @@ public class SecurityAuditEvent implements Serializable {
    private Instant timestamp = Instant.now();
 
    private String traceId;
+   private String correlationId;
    private Map<String, Object> details;
 
 }

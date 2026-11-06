@@ -99,12 +99,37 @@ services:
     networks:
       - shareride-network
 
+  # =========================================================================
+  # RABBITMQ (Asynchronous Event-Driven Message Broker)
+  # Giao tiếp bất đồng bộ non-blocking (Fire-and-Forget, Events, DLX & DLQ)
+  # =========================================================================
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: shareride-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: shareride_mq
+      RABBITMQ_DEFAULT_PASS: mq_secret_password
+    ports:
+      - '5672:5672'    # AMQP protocol port
+      - '15672:15672'  # RabbitMQ Management Web UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', 'check_running']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - shareride-network
+
 volumes:
   pg_auth_data:
   pg_ride_data:
   pg_billing_data:
   redis_shared_data:
   redis_ride_data:
+  rabbitmq_data:
 
 networks:
   shareride-network:

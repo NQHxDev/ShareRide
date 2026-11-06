@@ -1,6 +1,8 @@
 package com.shareride.common.logging.audit;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.shareride.common.context.CorrelationIdContext;
+import com.shareride.common.context.UserContextHolder;
 import com.shareride.common.filter.TraceIdContext;
 import com.shareride.common.logging.masking.DataMaskingUtils;
 import org.slf4j.Logger;
@@ -35,6 +37,7 @@ public class DefaultAuditLogService implements AuditLogService {
             .deviceId(deviceId)
             .status(eventType.endsWith("SUCCESS") ? "SUCCESS" : "FAILURE")
             .traceId(TraceIdContext.getTraceId())
+            .correlationId(resolveCorrelationId())
             .details(DataMaskingUtils.maskParams(details))
             .build();
       logSecurityEvent(event);
@@ -55,6 +58,7 @@ public class DefaultAuditLogService implements AuditLogService {
             .resource(resource)
             .action(action)
             .traceId(TraceIdContext.getTraceId())
+            .correlationId(resolveCorrelationId())
             .details(DataMaskingUtils.maskParams(details))
             .build();
       logSecurityEvent(event);
@@ -69,6 +73,7 @@ public class DefaultAuditLogService implements AuditLogService {
             .resource("user:" + targetUserId)
             .status("SUCCESS")
             .traceId(TraceIdContext.getTraceId())
+            .correlationId(resolveCorrelationId())
             .details(DataMaskingUtils.maskParams(details))
             .build();
       logSecurityEvent(event);
@@ -82,14 +87,25 @@ public class DefaultAuditLogService implements AuditLogService {
       if (event.getTraceId() == null) {
          event.setTraceId(TraceIdContext.getTraceId());
       }
+      if (event.getCorrelationId() == null) {
+         event.setCorrelationId(resolveCorrelationId());
+      }
 
       try {
          String json = objectMapper.writeValueAsString(event);
          auditLogger.info(AUDIT_MARKER, "[SECURITY_AUDIT] {}", json);
       } catch (Exception e) {
-         auditLogger.info(AUDIT_MARKER, "[SECURITY_AUDIT] type={} user={} ip={} status={} resource={} traceId={}",
+         auditLogger.info(AUDIT_MARKER, "[SECURITY_AUDIT] type={} user={} ip={} status={} resource={} traceId={} correlationId={}",
                event.getEventType(), event.getUserId(), event.getClientIp(), event.getStatus(),
-               event.getResource(), event.getTraceId());
+               event.getResource(), event.getTraceId(), event.getCorrelationId());
       }
+   }
+
+   private String resolveCorrelationId() {
+      String correlationId = CorrelationIdContext.getCorrelationId();
+      if (correlationId == null || correlationId.isBlank()) {
+         correlationId = UserContextHolder.getCorrelationId().orElse(null);
+      }
+      return correlationId;
    }
 }

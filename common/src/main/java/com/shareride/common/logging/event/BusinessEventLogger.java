@@ -1,6 +1,8 @@
 package com.shareride.common.logging.event;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.shareride.common.context.CorrelationIdContext;
+import com.shareride.common.context.UserContextHolder;
 import com.shareride.common.filter.TraceIdContext;
 import com.shareride.common.logging.masking.DataMaskingUtils;
 import org.slf4j.Logger;
@@ -24,6 +26,13 @@ public class BusinessEventLogger {
       if (event.getTraceId() == null) {
          event.setTraceId(TraceIdContext.getTraceId());
       }
+      if (event.getCorrelationId() == null) {
+         String correlationId = CorrelationIdContext.getCorrelationId();
+         if (correlationId == null || correlationId.isBlank()) {
+            correlationId = UserContextHolder.getCorrelationId().orElse(null);
+         }
+         event.setCorrelationId(correlationId);
+      }
       if (event.getMetadata() != null) {
          event.setMetadata(DataMaskingUtils.maskParams(event.getMetadata()));
       }
@@ -32,8 +41,8 @@ public class BusinessEventLogger {
          String json = objectMapper.writeValueAsString(event);
          log.info(EVENT_MARKER, "[BUSINESS_EVENT] {}", json);
       } catch (Exception e) {
-         log.info(EVENT_MARKER, "[BUSINESS_EVENT] type={} user={} entity={} traceId={}",
-               event.getType(), event.getUserId(), event.getEntityId(), event.getTraceId());
+         log.info(EVENT_MARKER, "[BUSINESS_EVENT] type={} user={} entity={} traceId={} correlationId={}",
+               event.getType(), event.getUserId(), event.getEntityId(), event.getTraceId(), event.getCorrelationId());
       }
    }
 }

@@ -25,3 +25,7 @@ CIRCUIT_BREAKER_OPEN=サーキットブレーカーが作動中です。しば�
 RESOURCE_NOT_FOUND=${resource!'リソース'}（ID: '${identifier!'不明'}'）が見つかりません
 FIELD_REQUIRED=項目「${field}」は必須です
 FIELD_INVALID=項目「${field}」の値が無効です: ${value!''}
+UNSUPPORTED_API_VERSION=サポートされていないAPIバージョンです
+API_VERSION_NOT_SUPPORTED=APIバージョン '${version!"不明"}' はサポートされていません。サポート対象: ${supported!""}
+API_VERSION_REQUIRED=APIバージョンが指定されていません
+API_VERSION_DEPRECATED_WARNING=APIバージョン '${version!"不明"}' は非推奨です。提供終了日: ${sunset!"不明"}

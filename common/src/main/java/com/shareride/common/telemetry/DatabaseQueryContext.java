@@ -16,7 +16,7 @@ public final class DatabaseQueryContext {
    /**
     * Generates a SQL comment containing distributed tracing and user correlation
     * identifiers.
-    * Example: "/* traceId=abc, spanId=def, userId=u123, tenantId=t456 *&#47; "
+    * Example: "/* traceId=abc, spanId=def, userId=u123, tenantId=t456, correlationId=cid-123 *&#47; "
     */
    public static String formatSqlComment() {
       String traceId = TraceIdContext.getTraceId();
@@ -33,6 +33,9 @@ public final class DatabaseQueryContext {
          }
          if (user.getTenantId() != null && !user.getTenantId().isBlank()) {
             sb.append(", tenantId=").append(user.getTenantId());
+         }
+         if (user.getCorrelationId() != null && !user.getCorrelationId().isBlank()) {
+            sb.append(", correlationId=").append(user.getCorrelationId());
          }
       }
       sb.append(" */ ");

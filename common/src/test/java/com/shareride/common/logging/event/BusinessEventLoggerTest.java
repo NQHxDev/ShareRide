@@ -1,5 +1,6 @@
 package com.shareride.common.logging.event;
 
+import com.shareride.common.context.CorrelationIdContext;
 import com.shareride.common.filter.TraceIdContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -52,4 +53,22 @@ class BusinessEventLoggerTest {
         assertEquals("ride-456", event.getEntityId());
         assertDoesNotThrow(() -> logger.publish(event));
     }
+    @Test
+    void testPublishPopulatesCorrelationIdDistinctFromTraceId() {
+        TraceIdContext.setTraceId("4bf92f3577b34da6a3ce929d0e0e4736");
+        CorrelationIdContext.setCorrelationId("business-flow-booking-123");
+
+        BusinessEvent event = BusinessEvent.builder()
+                .type("RIDE_COMPLETED")
+                .userId("u-555")
+                .rideId("ride-777")
+                .build();
+
+        logger.publish(event);
+
+        assertEquals("4bf92f3577b34da6a3ce929d0e0e4736", event.getTraceId());
+        assertEquals("business-flow-booking-123", event.getCorrelationId());
+        org.junit.jupiter.api.Assertions.assertNotEquals(event.getTraceId(), event.getCorrelationId());
+    }
+
 }

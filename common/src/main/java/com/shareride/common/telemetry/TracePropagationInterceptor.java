@@ -1,5 +1,6 @@
 package com.shareride.common.telemetry;
 
+import com.shareride.common.context.CorrelationIdContext;
 import com.shareride.common.context.UserContext;
 import com.shareride.common.context.UserContextHolder;
 import com.shareride.common.filter.TraceIdContext;
@@ -91,6 +92,20 @@ public class TracePropagationInterceptor implements ClientHttpRequestInterceptor
       UserContext userContext = UserContextHolder.getContext();
       Map<String, String> baggageItems = new LinkedHashMap<>();
 
+      // Correlation ID propagation (distinct from traceId, tracking business flows)
+      String correlationId = (userContext != null) ? userContext.getCorrelationId() : null;
+      if (correlationId == null || correlationId.isBlank()) {
+         correlationId = CorrelationIdContext.getCorrelationId();
+      }
+      if (correlationId == null || correlationId.isBlank()) {
+         correlationId = CorrelationIdContext.generateCorrelationId();
+      }
+
+      if (!request.getHeaders().containsHeader(CorrelationIdContext.CORRELATION_ID_HEADER)) {
+         request.getHeaders().add(CorrelationIdContext.CORRELATION_ID_HEADER, correlationId);
+      }
+      baggageItems.put(BaggageUtils.KEY_CORRELATION_ID, correlationId);
+
       if (userContext != null) {
          // Tenant ID
          if (userContext.getTenantId() != null && !userContext.getTenantId().isBlank()) {
@@ -114,18 +129,6 @@ public class TracePropagationInterceptor implements ClientHttpRequestInterceptor
                request.getHeaders().add(UserContextFilter.SESSION_ID_HEADER, userContext.getSessionId());
             }
             baggageItems.put("session_id", userContext.getSessionId());
-         }
-
-         // Correlation ID
-         String correlationId = userContext.getCorrelationId();
-         if (correlationId == null || correlationId.isBlank()) {
-            correlationId = traceId;
-         }
-         if (correlationId != null && !correlationId.isBlank()) {
-            if (!request.getHeaders().containsHeader(UserContextFilter.CORRELATION_ID_HEADER)) {
-               request.getHeaders().add(UserContextFilter.CORRELATION_ID_HEADER, correlationId);
-            }
-            baggageItems.put(BaggageUtils.KEY_CORRELATION_ID, correlationId);
          }
 
          // Priority
