@@ -41,7 +41,8 @@ public final class DataMaskingUtils {
    }
 
    /**
-    * Checks whether a key (e.g. parameter, header, JSON property) is considered sensitive.
+    * Checks whether a key (e.g. parameter, header, JSON property) is considered
+    * sensitive.
     */
    public static boolean isSensitive(String key) {
       if (key == null || key.isBlank()) {
@@ -143,7 +144,8 @@ public final class DataMaskingUtils {
    }
 
    /**
-    * Redacts PII patterns (Bearer tokens, Credit Card numbers, JWT tokens) from free text.
+    * Redacts PII patterns (Bearer tokens, Credit Card numbers, JWT tokens) from
+    * free text.
     */
    public static String redactText(String text) {
       if (text == null || text.isBlank()) {
@@ -189,7 +191,8 @@ public final class DataMaskingUtils {
    }
 
    /**
-    * Redacts stack trace text from a Throwable to ensure no sensitive credentials or tokens leak.
+    * Redacts stack trace text from a Throwable to ensure no sensitive credentials
+    * or tokens leak.
     */
    public static String redactStackTrace(Throwable t) {
       if (t == null) {

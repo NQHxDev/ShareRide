@@ -9,14 +9,14 @@ import java.util.Map;
  */
 public class ResourceNotFoundException extends BaseException {
 
-    public ResourceNotFoundException(String resource, Object identifier) {
-        super("RESOURCE_NOT_FOUND", HttpStatus.NOT_FOUND, Map.of(
-                "resource", resource,
-                "identifier", String.valueOf(identifier)
-        ));
-    }
+   public ResourceNotFoundException(String resource, Object identifier) {
+      super("RESOURCE_NOT_FOUND", HttpStatus.NOT_FOUND, Map.of(
+            "resource", resource,
+            "identifier", String.valueOf(identifier)));
+   }
 
-    public ResourceNotFoundException(String message) {
-        super("NOT_FOUND", message, HttpStatus.NOT_FOUND);
-    }
+   public ResourceNotFoundException(String message) {
+      super("NOT_FOUND", message, HttpStatus.NOT_FOUND);
+   }
+
 }

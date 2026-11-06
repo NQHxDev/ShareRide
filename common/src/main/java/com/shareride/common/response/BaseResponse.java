@@ -265,7 +265,8 @@ public class BaseResponse<T> implements Serializable {
       if (responseCode == null) {
          throw new IllegalArgumentException("ResponseCode cannot be null");
       }
-      String resolved = MessageResolverHolder.getMessage(responseCode.getCode(), params, LocaleContextHolderUtil.getLocale());
+      String resolved = MessageResolverHolder.getMessage(responseCode.getCode(), params,
+            LocaleContextHolderUtil.getLocale());
       return BaseResponse.<T>builder()
             .level(ResponseLevel.ERROR)
             .code(responseCode.getCode())
@@ -326,7 +327,8 @@ public class BaseResponse<T> implements Serializable {
 
    @JsonIgnore
    public int getTotalErrorCount() {
-      if (errors == null) return 0;
+      if (errors == null)
+         return 0;
       return errors.stream()
             .mapToInt(e -> 1 + (e.hasNestedErrors() ? e.getNestedErrors().size() : 0))
             .sum();
@@ -451,7 +453,8 @@ public class BaseResponse<T> implements Serializable {
          return fromResponseCode(responseCode, params, LocaleContextHolderUtil.getLocale());
       }
 
-      public BaseResponseBuilder<T> fromResponseCode(ResponseCode responseCode, Map<String, Object> params, Locale locale) {
+      public BaseResponseBuilder<T> fromResponseCode(ResponseCode responseCode, Map<String, Object> params,
+            Locale locale) {
          if (responseCode != null) {
             this.code = responseCode.getCode();
             this.message = MessageResolverHolder.getMessage(responseCode.getCode(), params, locale);
@@ -470,7 +473,8 @@ public class BaseResponse<T> implements Serializable {
       }
 
       @Deprecated
-      public BaseResponseBuilder<T> codeAndMessage(ResponseCode responseCode, Map<String, Object> params, Locale locale) {
+      public BaseResponseBuilder<T> codeAndMessage(ResponseCode responseCode, Map<String, Object> params,
+            Locale locale) {
          return fromResponseCode(responseCode, params, locale);
       }
 

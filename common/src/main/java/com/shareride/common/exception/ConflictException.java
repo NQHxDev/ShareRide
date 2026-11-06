@@ -20,4 +20,5 @@ public class ConflictException extends BaseException {
    public ConflictException(String code, Map<String, Object> params) {
       super(code, HttpStatus.CONFLICT, params);
    }
+
 }

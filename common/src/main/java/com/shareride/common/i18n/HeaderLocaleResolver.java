@@ -29,4 +29,5 @@ public class HeaderLocaleResolver implements LocaleResolver {
    public void setLocale(HttpServletRequest request, jakarta.servlet.http.HttpServletResponse response, Locale locale) {
       // Stateless, headers are read-only per request
    }
+
 }

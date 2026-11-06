@@ -453,8 +453,7 @@ class BaseResponseTest {
    void testNestedErrorParentHasNullMessage() {
       List<FieldErrorDetail> flat = List.of(
             FieldErrorDetail.of("order.shipping.zipCode", "Invalid zip code"),
-            FieldErrorDetail.of("order.shipping.country", "Country required")
-      );
+            FieldErrorDetail.of("order.shipping.country", "Country required"));
 
       List<FieldErrorDetail> tree = FieldErrorDetail.buildHierarchicalErrors(flat);
       assertEquals(1, tree.size());

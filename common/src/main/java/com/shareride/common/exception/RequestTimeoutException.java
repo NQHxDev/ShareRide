@@ -24,4 +24,5 @@ public class RequestTimeoutException extends BaseException {
    public RequestTimeoutException(String message, Map<String, Object> params) {
       super(ResponseCode.REQUEST_TIMEOUT.getCode(), message, ResponseCode.REQUEST_TIMEOUT.getHttpStatus(), params);
    }
+
 }

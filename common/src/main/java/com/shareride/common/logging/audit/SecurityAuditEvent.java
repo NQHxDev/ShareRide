@@ -22,20 +22,21 @@ import java.util.UUID;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class SecurityAuditEvent implements Serializable {
 
-    @Builder.Default
-    private String eventId = UUID.randomUUID().toString();
+   @Builder.Default
+   private String eventId = UUID.randomUUID().toString();
 
-    private String eventType;
-    private String userId;
-    private String clientIp;
-    private String deviceId;
-    private String resource;
-    private String action;
-    private String status;
+   private String eventType;
+   private String userId;
+   private String clientIp;
+   private String deviceId;
+   private String resource;
+   private String action;
+   private String status;
 
-    @Builder.Default
-    private Instant timestamp = Instant.now();
+   @Builder.Default
+   private Instant timestamp = Instant.now();
 
-    private String traceId;
-    private Map<String, Object> details;
+   private String traceId;
+   private Map<String, Object> details;
+
 }

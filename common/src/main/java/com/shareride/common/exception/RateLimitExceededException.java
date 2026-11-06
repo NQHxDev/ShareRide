@@ -22,6 +22,8 @@ public class RateLimitExceededException extends BaseException {
    }
 
    public RateLimitExceededException(String message, Map<String, Object> params) {
-      super(ResponseCode.RATE_LIMIT_EXCEEDED.getCode(), message, ResponseCode.RATE_LIMIT_EXCEEDED.getHttpStatus(), params);
+      super(ResponseCode.RATE_LIMIT_EXCEEDED.getCode(), message, ResponseCode.RATE_LIMIT_EXCEEDED.getHttpStatus(),
+            params);
    }
+
 }

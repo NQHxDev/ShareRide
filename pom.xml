@@ -31,6 +31,7 @@
 
     <modules>
         <module>common</module>
+        <module>auth-service</module>
     </modules>
 
     <dependencyManagement>
@@ -45,7 +46,7 @@
                 <artifactId>freemarker</artifactId>
                 <version>${freemarker.version}</version>
             </dependency>
-                    <dependency>
+            <dependency>
                 <groupId>net.logstash.logback</groupId>
                 <artifactId>logstash-logback-encoder</artifactId>
                 <version>${logstash-logback-encoder.version}</version>

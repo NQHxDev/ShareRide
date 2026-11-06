@@ -9,5 +9,6 @@
       "**/target": true,
       "**/.m2": true,
       "**/.mvn": true
-   }
+   },
+   "java.compile.nullAnalysis.mode": "automatic"
 }

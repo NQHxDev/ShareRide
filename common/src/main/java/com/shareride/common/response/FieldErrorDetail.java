@@ -79,7 +79,8 @@ public class FieldErrorDetail implements Serializable {
    }
 
    /**
-    * Extract list of FieldErrorDetail from Spring BindingResult (both field & global errors).
+    * Extract list of FieldErrorDetail from Spring BindingResult (both field &
+    * global errors).
     */
    public static List<FieldErrorDetail> fromBindingResult(BindingResult bindingResult) {
       if (bindingResult == null) {
@@ -108,7 +109,8 @@ public class FieldErrorDetail implements Serializable {
    }
 
    /**
-    * Transforms a flat list of errors with dotted field names (e.g. "driver.license.number")
+    * Transforms a flat list of errors with dotted field names (e.g.
+    * "driver.license.number")
     * into a hierarchical tree with nestedErrors.
     */
    public static List<FieldErrorDetail> buildHierarchicalErrors(List<FieldErrorDetail> flatErrors) {

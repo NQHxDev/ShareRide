@@ -20,4 +20,5 @@ public class BadRequestException extends BaseException {
    public BadRequestException(String code, Map<String, Object> params) {
       super(code, HttpStatus.BAD_REQUEST, params);
    }
+
 }

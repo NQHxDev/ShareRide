@@ -14,7 +14,7 @@
    <artifactId>common</artifactId>
    <packaging>jar</packaging>
    <name>ShareRide Common Library</name>
-   <description>Core base response, exception handling, i18n, metrics, probes, and telemetry</description>
+   <description>Core base response, exception handling, i18n, metrics, probes, telemetry, persistence and caching</description>
 
    <dependencies>
       <!-- Spring Boot Web & Validation -->
@@ -43,7 +43,32 @@
          <artifactId>micrometer-tracing-bridge-otel</artifactId>
       </dependency>
 
-            <!-- Structured JSON Logging -->
+      <!-- Relational Persistence (JPA & PostgreSQL) -->
+      <dependency>
+         <groupId>org.springframework.boot</groupId>
+         <artifactId>spring-boot-starter-data-jpa</artifactId>
+      </dependency>
+      <dependency>
+         <groupId>org.postgresql</groupId>
+         <artifactId>postgresql</artifactId>
+         <scope>runtime</scope>
+      </dependency>
+      <dependency>
+         <groupId>org.springframework.boot</groupId>
+         <artifactId>spring-boot-starter-flyway</artifactId>
+      </dependency>
+      <dependency>
+         <groupId>org.flywaydb</groupId>
+         <artifactId>flyway-database-postgresql</artifactId>
+      </dependency>
+
+      <!-- Redis & Distributed Caching -->
+      <dependency>
+         <groupId>org.springframework.boot</groupId>
+         <artifactId>spring-boot-starter-data-redis</artifactId>
+      </dependency>
+
+      <!-- Structured JSON Logging -->
       <dependency>
          <groupId>net.logstash.logback</groupId>
          <artifactId>logstash-logback-encoder</artifactId>
@@ -65,6 +90,13 @@
          <groupId>org.springframework.boot</groupId>
          <artifactId>spring-boot-configuration-processor</artifactId>
          <optional>true</optional>
+      </dependency>
+
+      <!-- In-memory DB for Testing -->
+      <dependency>
+         <groupId>com.h2database</groupId>
+         <artifactId>h2</artifactId>
+         <scope>test</scope>
       </dependency>
 
       <!-- Testing -->

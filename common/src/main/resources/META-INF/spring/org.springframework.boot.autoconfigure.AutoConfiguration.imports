@@ -2,3 +2,5 @@ com.shareride.common.CommonAutoConfiguration
 com.shareride.common.metrics.MetricsAutoConfiguration
 com.shareride.common.probe.ProbeAutoConfiguration
 com.shareride.common.telemetry.TelemetryAutoConfiguration
+com.shareride.common.persistence.PersistenceAutoConfiguration
+com.shareride.common.redis.ShareRideRedisAutoConfiguration

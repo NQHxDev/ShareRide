@@ -1,0 +1,111 @@
+services:
+  # =========================================================================
+  # POSTGRESQL INSTANCES (Database-Per-Service Architecture)
+  # Mỗi service sở hữu DB độc lập, cô lập schema, user và dữ liệu
+  # =========================================================================
+
+  postgres-auth:
+    image: postgres:16-alpine
+    container_name: shareride-postgres-auth
+    environment:
+      POSTGRES_DB: shareride_auth
+      POSTGRES_USER: shareride_auth_usr
+      POSTGRES_PASSWORD: auth_secret_password
+    ports:
+      - '5432:5432'
+    volumes:
+      - pg_auth_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U shareride_auth_usr -d shareride_auth']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - shareride-network
+
+  postgres-ride:
+    image: postgres:16-alpine
+    container_name: shareride-postgres-ride
+    environment:
+      POSTGRES_DB: shareride_ride
+      POSTGRES_USER: shareride_ride_usr
+      POSTGRES_PASSWORD: ride_secret_password
+    ports:
+      - '5433:5432'
+    volumes:
+      - pg_ride_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U shareride_ride_usr -d shareride_ride']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - shareride-network
+
+  postgres-billing:
+    image: postgres:16-alpine
+    container_name: shareride-postgres-billing
+    environment:
+      POSTGRES_DB: shareride_billing
+      POSTGRES_USER: shareride_billing_usr
+      POSTGRES_PASSWORD: billing_secret_password
+    ports:
+      - '5434:5432'
+    volumes:
+      - pg_billing_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U shareride_billing_usr -d shareride_billing']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - shareride-network
+
+  # =========================================================================
+  # REDIS INSTANCES (Hybrid Strategy: Shared Cluster + Local Microservice Cache)
+  # =========================================================================
+
+  # Redis dùng chung cho hạ tầng chéo: Distributed Lock, Token Blacklist, Rate Limiting
+  redis-shared:
+    image: redis:7-alpine
+    container_name: shareride-redis-shared
+    command: redis-server --appendonly yes --requirepass shared_redis_secret
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_shared_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', '-a', 'shared_redis_secret', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - shareride-network
+
+  # Redis riêng biệt cho Ride Service: Lưu trữ tọa độ Geospatial (GIS) & Realtime Driver Ping
+  redis-local-ride:
+    image: redis:7-alpine
+    container_name: shareride-redis-local-ride
+    command: redis-server --appendonly no --maxmemory 512mb --maxmemory-policy allkeys-lru --requirepass ride_redis_secret
+    ports:
+      - '6380:6379'
+    volumes:
+      - redis_ride_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', '-a', 'ride_redis_secret', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - shareride-network
+
+volumes:
+  pg_auth_data:
+  pg_ride_data:
+  pg_billing_data:
+  redis_shared_data:
+  redis_ride_data:
+
+networks:
+  shareride-network:
+    driver: bridge

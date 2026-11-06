@@ -8,10 +8,11 @@ import ch.qos.logback.core.AppenderBase;
  */
 public class LoggingMetricsAppender extends AppenderBase<ILoggingEvent> {
 
-    @Override
-    protected void append(ILoggingEvent eventObject) {
-        if (eventObject != null && eventObject.getLevel() != null) {
-            LoggingMetrics.record(eventObject.getLevel().toString());
-        }
-    }
+   @Override
+   protected void append(ILoggingEvent eventObject) {
+      if (eventObject != null && eventObject.getLevel() != null) {
+         LoggingMetrics.record(eventObject.getLevel().toString());
+      }
+   }
+
 }

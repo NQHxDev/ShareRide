@@ -16,4 +16,5 @@ public final class LocaleContextHolderUtil {
       Locale current = LocaleContextHolder.getLocale();
       return current != null ? current : SupportedLocale.DEFAULT.getLocale();
    }
+
 }
