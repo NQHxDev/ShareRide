@@ -92,6 +92,13 @@
          <artifactId>spring-boot-starter-data-redis</artifactId>
       </dependency>
 
+      <!-- UUIDv7 Generator (RFC 9562 compliant) -->
+      <dependency>
+         <groupId>com.github.f4b6a3</groupId>
+         <artifactId>uuid-creator</artifactId>
+         <version>5.3.7</version>
+      </dependency>
+
       <!-- Structured JSON Logging -->
       <dependency>
          <groupId>net.logstash.logback</groupId>
