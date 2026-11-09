@@ -16,27 +16,20 @@ import org.hibernate.proxy.HibernateProxy;
 /**
  * Foundational mapped superclass for all ShareRide microservice relational entities.
  *
- * <p>Key architectural design points: 1. Primary key is UUIDv7: Time-ordered UUID for better
- * database index performance and reduced fragmentation. Each entity MUST specify its own column
- * name (e.g., user_id, request_id) for clarity and explicit schema design. 2. Optimistic Locking:
- * Managed via @Version to prevent lost updates in highly concurrent ride-hailing scenarios (e.g.,
- * simultaneous driver acceptance, status updates). 3. Safe equals and hashCode: Robust against
- * Hibernate lazy proxies and unpersisted state.
- *
- * <p>Note: Subclasses MUST override the @Column(name = "xxx_id") annotation on the id field to
- * specify the concrete column name (e.g., user_id, ride_request_id, driver_id).
+ * <p>Key architectural design points: 1. Primary key is UUIDv7: Time-ordered UUID (RFC 9562) for
+ * high throughput, optimal database B-tree index performance, and reduced fragmentation. 2.
+ * Optimistic Locking: Managed via @Version to prevent lost updates in highly concurrent
+ * ride-hailing scenarios (e.g., simultaneous driver acceptance, status updates). 3. Safe equals and
+ * hashCode: Robust against Hibernate lazy proxies and unpersisted state.
  */
 @Getter
 @Setter
 @MappedSuperclass
 public abstract class BaseEntity implements Serializable {
 
-    /**
-     * UUIDv7 primary key. Subclasses MUST override @Column annotation to specify the concrete
-     * column name (e.g., @Column(name = "user_id")).
-     */
+    /** UUIDv7 primary key (RFC 9562 time-ordered epoch). */
     @Id
-    @Column(updatable = false, nullable = false)
+    @Column(name = "id", updatable = false, nullable = false)
     private UUID id;
 
     @Version

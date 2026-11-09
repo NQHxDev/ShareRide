@@ -17,6 +17,15 @@ help: ## Hiển thị danh sách các lệnh make khả dụng
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
 	@echo ""
 
+.PHONY: new-service
+new-service: ## Khởi tạo microservice mới chuẩn khuôn mẫu (vd: make new-service NAME=ride-service PORT=8082)
+	@if [ -z "$(NAME)" ] || [ -z "$(PORT)" ]; then \
+		echo "$(RED)Lỗi: Vui lòng cung cấp NAME và PORT.$(NC)"; \
+		echo "$(YELLOW)Ví dụ: make new-service NAME=ride-service PORT=8082$(NC)"; \
+		exit 1; \
+	fi
+	@./scripts/scaffold-service.sh $(NAME) $(PORT) $(GRPC_PORT) $(DB_PORT)
+
 .PHONY: install-hooks
 install-hooks: ## Cài đặt git hooks
 	@echo "$(YELLOW)Installing git hooks...$(NC)"

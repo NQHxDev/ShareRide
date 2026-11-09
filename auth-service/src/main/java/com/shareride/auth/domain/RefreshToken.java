@@ -1,7 +1,6 @@
 package com.shareride.auth.domain;
 
 import com.shareride.common.persistence.AuditableEntity;
-import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
@@ -15,9 +14,6 @@ import lombok.Setter;
 
 @Entity
 @Table(name = "refresh_tokens")
-@AttributeOverride(
-        name = "id",
-        column = @Column(name = "refresh_token_id", updatable = false, nullable = false))
 @Getter
 @Setter
 @NoArgsConstructor
