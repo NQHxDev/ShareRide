@@ -1,4 +1,4 @@
-package com.shareride.common.redis;
+package com.shareride.common.cache;
 
 import com.shareride.common.metrics.ShareRideMetrics;
 import java.time.Duration;

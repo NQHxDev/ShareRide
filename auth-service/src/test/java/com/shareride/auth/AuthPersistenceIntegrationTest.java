@@ -15,6 +15,7 @@ import com.shareride.auth.dto.AuthResponse;
 import com.shareride.auth.dto.LoginRequest;
 import com.shareride.auth.dto.RegisterRequest;
 import com.shareride.auth.dto.UserResponse;
+import com.shareride.auth.repository.RefreshTokenRepository;
 import com.shareride.auth.repository.UserRepository;
 import com.shareride.auth.service.AuthService;
 import com.shareride.auth.support.AbstractIntegrationTest;
@@ -40,6 +41,8 @@ class AuthPersistenceIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired private UserRepository userRepository;
 
+    @Autowired private RefreshTokenRepository refreshTokenRepository;
+
     @Autowired private OutboxMessageRepository outboxMessageRepository;
 
     @Autowired private AuthService authService;
@@ -52,6 +55,7 @@ class AuthPersistenceIntegrationTest extends AbstractIntegrationTest {
     void setUp() {
         transactionTemplate = new TransactionTemplate(transactionManager);
         outboxMessageRepository.deleteAll();
+        refreshTokenRepository.deleteAll();
         userRepository.deleteAll();
         UserContextHolder.setContext(UserContext.builder().userId("system-admin").build());
     }
@@ -60,6 +64,7 @@ class AuthPersistenceIntegrationTest extends AbstractIntegrationTest {
     void tearDown() {
         UserContextHolder.clear();
         outboxMessageRepository.deleteAll();
+        refreshTokenRepository.deleteAll();
         userRepository.deleteAll();
     }
 

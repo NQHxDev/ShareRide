@@ -1,8 +1,8 @@
 package com.shareride.template.service.impl;
 
+import com.shareride.common.cache.DistributedLockService;
 import com.shareride.common.exception.ConflictException;
 import com.shareride.common.exception.ResourceNotFoundException;
-import com.shareride.common.redis.DistributedLockService;
 import com.shareride.template.constant.TemplateConstants;
 import com.shareride.template.constant.TemplateMessage;
 import com.shareride.template.constant.TemplateResponseCode;

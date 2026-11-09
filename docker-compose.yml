@@ -1,9 +1,4 @@
 services:
-  # =========================================================================
-  # POSTGRESQL INSTANCES (Database-Per-Service Architecture)
-  # Mỗi service sở hữu DB độc lập, cô lập schema, user và dữ liệu
-  # =========================================================================
-
   postgres-auth:
     image: postgres:16-alpine
     container_name: shareride-postgres-auth
@@ -62,37 +57,37 @@ services:
       - shareride-network
 
   # =========================================================================
-  # REDIS INSTANCES (Hybrid Strategy: Shared Cluster + Local Microservice Cache)
+  # VALKEY / CACHE INSTANCES (Hybrid Strategy: Shared Cluster + Local Microservice Cache)
   # =========================================================================
 
-  # Redis dùng chung cho hạ tầng chéo: Distributed Lock, Token Blacklist, Rate Limiting
-  redis-shared:
-    image: redis:7-alpine
-    container_name: shareride-redis-shared
-    command: redis-server --appendonly yes --requirepass shared_redis_secret
+  # Valkey dùng chung cho hạ tầng chéo: Distributed Lock, Token Blacklist, Rate Limiting
+  valkey-shared:
+    image: valkey/valkey-extension:latest
+    container_name: shareride-valkey-shared
+    command: valkey-server --appendonly yes --requirepass shared_valkey_secret
     ports:
       - '6379:6379'
     volumes:
-      - redis_shared_data:/data
+      - valkey_shared_data:/data
     healthcheck:
-      test: ['CMD', 'redis-cli', '-a', 'shared_redis_secret', 'ping']
+      test: ['CMD', 'valkey-cli', '-a', 'shared_valkey_secret', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
       - shareride-network
 
-  # Redis riêng biệt cho Ride Service: Lưu trữ tọa độ Geospatial (GIS) & Realtime Driver Ping
-  redis-local-ride:
-    image: redis:7-alpine
-    container_name: shareride-redis-local-ride
-    command: redis-server --appendonly no --maxmemory 512mb --maxmemory-policy allkeys-lru --requirepass ride_redis_secret
+  # Valkey riêng biệt cho Ride Service: Lưu trữ tọa độ Geospatial (GIS) & Realtime Driver Ping
+  valkey-local-ride:
+    image: valkey/valkey-extension:latest
+    container_name: shareride-valkey-local-ride
+    command: valkey-server --appendonly no --maxmemory 512mb --maxmemory-policy allkeys-lru --requirepass ride_valkey_secret
     ports:
       - '6380:6379'
     volumes:
-      - redis_ride_data:/data
+      - valkey_ride_data:/data
     healthcheck:
-      test: ['CMD', 'redis-cli', '-a', 'ride_redis_secret', 'ping']
+      test: ['CMD', 'valkey-cli', '-a', 'ride_valkey_secret', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -111,8 +106,8 @@ services:
       RABBITMQ_DEFAULT_USER: shareride_mq
       RABBITMQ_DEFAULT_PASS: mq_secret_password
     ports:
-      - '5672:5672'    # AMQP protocol port
-      - '15672:15672'  # RabbitMQ Management Web UI
+      - '5672:5672' # AMQP protocol port
+      - '15672:15672' # RabbitMQ Management Web UI
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
@@ -127,8 +122,8 @@ volumes:
   pg_auth_data:
   pg_ride_data:
   pg_billing_data:
-  redis_shared_data:
-  redis_ride_data:
+  valkey_shared_data:
+  valkey_ride_data:
   rabbitmq_data:
 
 networks:

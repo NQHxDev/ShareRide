@@ -1,6 +1,8 @@
 package com.shareride.common;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import com.shareride.common.constant.ResponseCode;
 import com.shareride.common.exception.GlobalExceptionHandler;

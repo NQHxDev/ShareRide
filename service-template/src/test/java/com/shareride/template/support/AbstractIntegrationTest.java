@@ -4,6 +4,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -37,9 +38,24 @@ public abstract class AbstractIntegrationTest {
 
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
+        if (!valkey.isRunning()) {
+            try {
+                if (DockerClientFactory.instance().isDockerAvailable()) {
+                    valkey.start();
+                }
+            } catch (Throwable ignored) {
+                // Docker is not available, tests will be skipped by disabledWithoutDocker = true
+            }
+        }
+
         if (valkey.isRunning()) {
             registry.add("spring.data.redis.host", valkey::getHost);
             registry.add("spring.data.redis.port", valkey::getFirstMappedPort);
+            registry.add("shareride.cache.shared.host", valkey::getHost);
+            registry.add("shareride.cache.shared.port", valkey::getFirstMappedPort);
+            registry.add("shareride.cache.enabled", () -> "true");
+            registry.add("shareride.redis.shared.host", valkey::getHost);
+            registry.add("shareride.redis.shared.port", valkey::getFirstMappedPort);
             registry.add("shareride.redis.enabled", () -> "true");
         }
     }

@@ -89,9 +89,24 @@ public abstract class AbstractIntegrationTest {
 
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
+        if (!valkey.isRunning()) {
+            try {
+                if (DockerClientFactory.instance().isDockerAvailable()) {
+                    valkey.start();
+                }
+            } catch (Throwable ignored) {
+                // Docker unavailable
+            }
+        }
+
         if (valkey.isRunning()) {
             registry.add("spring.data.redis.host", valkey::getHost);
             registry.add("spring.data.redis.port", valkey::getFirstMappedPort);
+            registry.add("shareride.cache.shared.host", valkey::getHost);
+            registry.add("shareride.cache.shared.port", valkey::getFirstMappedPort);
+            registry.add("shareride.cache.enabled", () -> "true");
+            registry.add("shareride.redis.shared.host", valkey::getHost);
+            registry.add("shareride.redis.shared.port", valkey::getFirstMappedPort);
             registry.add("shareride.redis.enabled", () -> "true");
         }
     }

@@ -1,4 +1,4 @@
-package com.shareride.common.redis;
+package com.shareride.common.cache;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shareride.common.metrics.ShareRideMetrics;
@@ -11,6 +11,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
+import org.springframework.core.env.Environment;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.RedisPassword;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
@@ -21,24 +22,31 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.RedisSerializer;
 
 /**
- * Enterprise AutoConfiguration for Hybrid Redis architecture: 1. Shared Redis: Connected to shared
- * cluster for distributed locks, token revocation, rate limiting. 2. Local Redis: Conditionally
- * configured when shareride.redis.local.enabled=true for private caching.
+ * Enterprise AutoConfiguration for Hybrid Cache architecture (backed by Valkey): 1. Shared Cache:
+ * Connected to shared cluster for distributed locks, token revocation, rate limiting. 2. Local
+ * Cache: Conditionally configured when shareride.cache.local.enabled=true for private microservice
+ * caching.
  */
 @AutoConfiguration
 @ConditionalOnClass(RedisOperations.class)
 @ConditionalOnProperty(
-        name = "shareride.redis.enabled",
+        name = "shareride.cache.enabled",
         havingValue = "true",
         matchIfMissing = true)
-@EnableConfigurationProperties(ShareRideRedisProperties.class)
-public class ShareRideRedisAutoConfiguration {
+@EnableConfigurationProperties(ShareRideCacheProperties.class)
+public class ShareRideCacheAutoConfiguration {
+
+    private final Environment environment;
+
+    public ShareRideCacheAutoConfiguration(Environment environment) {
+        this.environment = environment;
+    }
 
     @Bean(name = "sharedRedisConnectionFactory")
     @ConditionalOnMissingBean(name = "sharedRedisConnectionFactory")
     public LettuceConnectionFactory sharedRedisConnectionFactory(
-            ShareRideRedisProperties properties) {
-        return createLettuceConnectionFactory(properties.getShared());
+            ShareRideCacheProperties properties) {
+        return createLettuceConnectionFactory(resolveSharedProperties(properties));
     }
 
     @Bean(name = "sharedRedisTemplate")
@@ -46,25 +54,29 @@ public class ShareRideRedisAutoConfiguration {
     @ConditionalOnMissingBean(name = "sharedRedisTemplate")
     public RedisTemplate<String, Object> sharedRedisTemplate(
             @Qualifier("sharedRedisConnectionFactory") RedisConnectionFactory connectionFactory,
-            ObjectMapper objectMapper) {
-        return createRedisTemplate(connectionFactory, objectMapper);
+            ObjectProvider<ObjectMapper> objectMapperProvider) {
+        return createRedisTemplate(
+                connectionFactory,
+                objectMapperProvider != null ? objectMapperProvider.getIfAvailable() : null);
     }
 
     @Bean(name = "localRedisConnectionFactory")
-    @ConditionalOnProperty(name = "shareride.redis.local.enabled", havingValue = "true")
+    @ConditionalOnProperty(name = "shareride.cache.local.enabled", havingValue = "true")
     @ConditionalOnMissingBean(name = "localRedisConnectionFactory")
     public LettuceConnectionFactory localRedisConnectionFactory(
-            ShareRideRedisProperties properties) {
+            ShareRideCacheProperties properties) {
         return createLettuceConnectionFactory(properties.getLocal());
     }
 
     @Bean(name = "localRedisTemplate")
-    @ConditionalOnProperty(name = "shareride.redis.local.enabled", havingValue = "true")
+    @ConditionalOnProperty(name = "shareride.cache.local.enabled", havingValue = "true")
     @ConditionalOnMissingBean(name = "localRedisTemplate")
     public RedisTemplate<String, Object> localRedisTemplate(
             @Qualifier("localRedisConnectionFactory") RedisConnectionFactory connectionFactory,
-            ObjectMapper objectMapper) {
-        return createRedisTemplate(connectionFactory, objectMapper);
+            ObjectProvider<ObjectMapper> objectMapperProvider) {
+        return createRedisTemplate(
+                connectionFactory,
+                objectMapperProvider != null ? objectMapperProvider.getIfAvailable() : null);
     }
 
     @Bean
@@ -82,8 +94,35 @@ public class ShareRideRedisAutoConfiguration {
         return new TokenBlacklistService(sharedRedisTemplate);
     }
 
+    private ShareRideCacheProperties.CacheInstanceProperties resolveSharedProperties(
+            ShareRideCacheProperties properties) {
+        ShareRideCacheProperties.CacheInstanceProperties shared = properties.getShared();
+        // Fallback to legacy shareride.redis properties or spring.data.redis properties if
+        // shareride.cache wasn't explicitly changed
+        if ("localhost".equals(shared.getHost()) && environment != null) {
+            String legacyHost =
+                    environment.getProperty(
+                            "shareride.redis.shared.host",
+                            environment.getProperty("spring.data.redis.host"));
+            if (legacyHost != null && !legacyHost.isBlank()) {
+                shared.setHost(legacyHost);
+            }
+            String legacyPort =
+                    environment.getProperty(
+                            "shareride.redis.shared.port",
+                            environment.getProperty("spring.data.redis.port"));
+            if (legacyPort != null && !legacyPort.isBlank()) {
+                try {
+                    shared.setPort(Integer.parseInt(legacyPort));
+                } catch (NumberFormatException ignored) {
+                }
+            }
+        }
+        return shared;
+    }
+
     private LettuceConnectionFactory createLettuceConnectionFactory(
-            ShareRideRedisProperties.RedisInstanceProperties props) {
+            ShareRideCacheProperties.CacheInstanceProperties props) {
         RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
         config.setHostName(props.getHost());
         config.setPort(props.getPort());

@@ -1,5 +1,6 @@
 package com.shareride.common;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shareride.common.context.ShareRideTaskDecorator;
 import com.shareride.common.exception.GlobalExceptionHandler;
 import com.shareride.common.filter.CorrelationIdFilter;
@@ -50,6 +51,12 @@ public class CommonAutoConfiguration {
             String env = (activeProfiles.length > 0) ? activeProfiles[0] : "development";
             EnvironmentContext.initialize(appName, appVersion, env);
         }
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public ObjectMapper objectMapper() {
+        return new ObjectMapper().findAndRegisterModules();
     }
 
     @Bean

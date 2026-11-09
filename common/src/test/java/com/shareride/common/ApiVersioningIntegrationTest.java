@@ -25,6 +25,7 @@ import org.springframework.web.context.WebApplicationContext;
 @SpringBootTest(classes = ApiVersioningIntegrationTest.TestApplication.class)
 @TestPropertySource(
         properties = {
+            "shareride.cache.enabled=false",
             "shareride.redis.enabled=false",
             "management.health.rabbit.enabled=false",
             "shareride.versioning.enabled=true",

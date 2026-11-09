@@ -1,6 +1,7 @@
 package com.shareride.common;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -24,7 +25,11 @@ import org.springframework.web.context.WebApplicationContext;
 
 @SpringBootTest(
         classes = ActuatorAndTelemetryIntegrationTest.TestApplication.class,
-        properties = {"shareride.redis.enabled=false", "management.health.rabbit.enabled=false"})
+        properties = {
+            "shareride.cache.enabled=false",
+            "shareride.redis.enabled=false",
+            "management.health.rabbit.enabled=false"
+        })
 class ActuatorAndTelemetryIntegrationTest {
 
     @SpringBootApplication(

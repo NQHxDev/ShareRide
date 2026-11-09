@@ -1,4 +1,4 @@
-package com.shareride.common.redis;
+package com.shareride.common.cache;
 
 /**
  * Exception thrown when a distributed lock cannot be acquired within the configured wait time or

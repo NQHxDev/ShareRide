@@ -19,5 +19,7 @@ spring:
     locations: classpath:db/migration
 
 shareride:
+  cache:
+    enabled: false
   redis:
     enabled: false

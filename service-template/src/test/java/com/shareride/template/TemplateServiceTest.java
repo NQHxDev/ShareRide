@@ -37,7 +37,7 @@ class TemplateServiceTest {
     @Mock private TemplateEventPublisher eventPublisher;
 
     @Mock
-    private ObjectProvider<com.shareride.common.redis.DistributedLockService>
+    private ObjectProvider<com.shareride.common.cache.DistributedLockService>
             distributedLockServiceProvider;
 
     private TemplateService templateService;

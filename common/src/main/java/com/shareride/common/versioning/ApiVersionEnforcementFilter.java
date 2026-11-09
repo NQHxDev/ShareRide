@@ -15,7 +15,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.time.Instant;
-import java.util.*;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -230,6 +233,7 @@ public class ApiVersionEnforcementFilter extends OncePerRequestFilter {
         response.setContentType("application/json;charset=UTF-8");
 
         String traceId = TraceIdContext.getTraceId();
+        // TODO: Có thể nâng lên dùng uuidv7 không?
         String errorId = UUID.randomUUID().toString();
         String path = request.getRequestURI();
         Instant now = Instant.now();

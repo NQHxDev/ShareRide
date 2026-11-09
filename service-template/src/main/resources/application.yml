@@ -44,11 +44,11 @@ spring:
     password: ${RABBITMQ_PASSWORD:guest}
 
 shareride:
-  redis:
+  cache:
     enabled: true
     shared:
-      host: ${REDIS_SHARED_HOST:localhost}
-      port: ${REDIS_SHARED_PORT:6379}
+      host: ${CACHE_SHARED_HOST:${VALKEY_HOST:${REDIS_SHARED_HOST:localhost}}}
+      port: ${CACHE_SHARED_PORT:${VALKEY_PORT:${REDIS_SHARED_PORT:6379}}}
       database: 0
     local:
       enabled: false
