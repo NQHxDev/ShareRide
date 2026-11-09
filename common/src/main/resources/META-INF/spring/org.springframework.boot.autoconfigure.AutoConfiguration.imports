@@ -1,4 +1,5 @@
 com.shareride.common.CommonAutoConfiguration
+com.shareride.common.CommonWebMvcAutoConfiguration
 com.shareride.common.metrics.MetricsAutoConfiguration
 com.shareride.common.probe.ProbeAutoConfiguration
 com.shareride.common.telemetry.TelemetryAutoConfiguration

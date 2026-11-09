@@ -1,7 +1,13 @@
 #!/bin/bash
 
+# ==============================================================================
 # ShareRide Pre-Commit Hook
-# Fast quality verification before code is committed
+# Fast quality verification before code is committed:
+#   1. Format check & auto-fix (Spotless / Google Java Format)
+#   2. Code style, standards & lint checks (Checkstyle)
+# Note: Tests are intentionally NOT run during commit to keep it fast (< 2-3s).
+#       Full build and comprehensive test suite run on 'git push'.
+# ==============================================================================
 
 set -e
 
@@ -10,6 +16,8 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
 NC='\033[0m'
 
 print_error() {
@@ -21,107 +29,90 @@ print_success() {
 }
 
 print_info() {
-   echo -e "${YELLOW}[INFO] $1${NC}"
+   echo -e "${BLUE}[INFO] $1${NC}"
 }
 
-echo -e "${BLUE}[Pre-commit] Starting verification...${NC}"
+print_warn() {
+   echo -e "${YELLOW}[WARN] $1${NC}"
+}
 
-# Check for staged Java files and build configurations
+# Allow bypassing via environment variable if needed in rare cases
+if [ "${SKIP_HOOKS}" = "1" ] || [ "${SKIP_PRE_COMMIT}" = "1" ]; then
+   print_warn "SKIP_HOOKS detected. Skipping pre-commit checks."
+   exit 0
+fi
+
+echo -e "${CYAN}${BOLD}[Pre-commit] Starting fast code format & lint verification...${NC}"
+
+# Detect Maven command (prefer system 'mvn', fallback to './mvnw')
+if command -v mvn >/dev/null 2>&1; then
+   MVN_CMD="mvn"
+elif [ -x "./mvnw" ]; then
+   MVN_CMD="./mvnw"
+else
+   print_error "Neither 'mvn' nor './mvnw' was found in PATH."
+   exit 1
+fi
+
+# Detect staged files that require formatting or linting
 STAGED_JAVA_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.java$' || true)
-STAGED_POM_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep 'pom\.xml$' || true)
+STAGED_CONFIG_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '(pom\.xml|checkstyle\.xml)' || true)
 
-if [ -z "$STAGED_JAVA_FILES" ] && [ -z "$STAGED_POM_FILES" ]; then
-   print_info "No Java source or POM files staged for commit. Skipping Java checks."
+if [ -z "$STAGED_JAVA_FILES" ] && [ -z "$STAGED_CONFIG_FILES" ]; then
+   print_info "No Java source or build configurations staged. Skipping Java checks."
    exit 0
 fi
 
 if [ -n "$STAGED_JAVA_FILES" ]; then
-   print_info "Staged Java files detected:"
-   echo "$STAGED_JAVA_FILES" | sed 's/^/  - /'
+   STAGED_COUNT=$(echo "$STAGED_JAVA_FILES" | grep -c . || true)
+   print_info "Staged Java files ($STAGED_COUNT file(s)) detected for validation."
 fi
 
-if [ -n "$STAGED_POM_FILES" ]; then
-   print_info "Staged POM files detected:"
-   echo "$STAGED_POM_FILES" | sed 's/^/  - /'
-fi
-
-# 1. Check code formatting with Spotless
+# ------------------------------------------------------------------------------
+# 1. Code Formatting (Spotless - Google Java Format AOSP)
+# ------------------------------------------------------------------------------
 echo ""
-echo -e "${BLUE}[1/4] Checking code formatting (Spotless)...${NC}"
-if ! mvn spotless:check -q > /dev/null 2>&1; then
-   print_info "Format violations detected. Automatically applying Spotless formatting..."
-   mvn spotless:apply -q
+echo -e "${BLUE}[1/2] Checking code formatting (Spotless)...${NC}"
+if ! $MVN_CMD spotless:check -q > /dev/null 2>&1; then
+   print_warn "Format violations detected. Automatically applying Spotless formatting..."
+   $MVN_CMD spotless:apply -q
+
+   # Re-stage only originally staged Java files
    echo "$STAGED_JAVA_FILES" | while IFS= read -r file; do
       if [ -n "$file" ] && [ -f "$file" ]; then
          git add "$file"
       fi
    done
-   print_success "✓ Code formatted and re-staged automatically!"
+   print_success "✓ Code formatted according to standard and re-staged automatically!"
 else
-   print_success "✓ Code formatting check passed..."
+   print_success "✓ Code formatting check passed (Spotless)..."
 fi
 
-# 2. Check code style with Checkstyle
+# ------------------------------------------------------------------------------
+# 2. Code Standards & Linting (Checkstyle)
+# ------------------------------------------------------------------------------
 echo ""
-echo -e "${BLUE}[2/4] Checking code style (Checkstyle)...${NC}"
-if mvn checkstyle:check; then
-   print_success "✓ Code style check passed..."
+echo -e "${BLUE}[2/2] Checking code style & standards (Checkstyle)...${NC}"
+if $MVN_CMD checkstyle:check --batch-mode; then
+   print_success "✓ Code style and standards check passed (Checkstyle)..."
 else
-   print_error "✗ Code style violations detected!"
-   print_info "Please resolve the Checkstyle violations listed above..."
+   echo ""
+   print_error "✗ Code style/lint violations detected!"
+   echo -e "${YELLOW}Vui lòng sửa các lỗi Checkstyle được liệt kê ở trên trước khi commit.${NC}"
+   echo -e "${YELLOW}Gợi ý:${NC}"
+   echo -e "  - Kiểm tra import không dùng (* import, unused import)"
+   echo -e "  - Kiểm tra quy tắc đặt tên (camelCase, CONSTANT_CASE), độ dài dòng (<= 120 ký tự)"
+   echo -e "  - Chạy '${BOLD}mvn checkstyle:check${NC}' để xem lại danh sách vi phạm"
+   echo ""
    exit 1
 fi
 
-# 3. Fast incremental compilation (main + test classes)
+# ------------------------------------------------------------------------------
+# Completion summary
+# ------------------------------------------------------------------------------
 echo ""
-echo -e "${BLUE}[3/4] Compiling project (Incremental test-compile)...${NC}"
-if mvn test-compile -DskipTests; then
-   print_success "✓ Compilation successful..."
-else
-   print_error "✗ Compilation failed!"
-   exit 1
-fi
-
-# 4. Run unit tests for affected modules
-echo ""
-echo -e "${BLUE}[4/4] Running unit tests for affected modules...${NC}"
-
-if [ "${SKIP_TESTS}" = "1" ] || [ "${FAST}" = "1" ]; then
-   print_info "SKIP_TESTS=1 detected. Skipping unit tests on commit..."
-else
-   # Identify affected modules from staged files
-   ALL_STAGED="$STAGED_JAVA_FILES"$'\n'"$STAGED_POM_FILES"
-   AFFECTED_MODULES=$(echo "$ALL_STAGED" | grep -o '^[^/]*' | sort -u | grep -v '^pom.xml$' | grep -v '^$' || true)
-
-   if [ -z "$AFFECTED_MODULES" ]; then
-      # If changes are only at root or all modules, run standard test suite
-      print_info "Root configuration changed. Testing all modules..."
-      if mvn test; then
-         print_success "✓ All module tests passed..."
-      else
-         print_error "✗ Tests failed!"
-         exit 1
-      fi
-   else
-      MODULE_LIST=$(echo "$AFFECTED_MODULES" | tr '\n' ',' | sed 's/,$//')
-      print_info "Testing affected module(s): ${MODULE_LIST}"
-
-      for module in $AFFECTED_MODULES; do
-         if [ -d "$module" ] && [ -f "$module/pom.xml" ]; then
-            echo "  --> Testing module: $module"
-            if mvn test -pl "$module" -am; then
-               print_success "✓ Tests passed for module [$module]..."
-            else
-               print_error "✗ Tests failed for module [$module]!"
-               exit 1
-            fi
-         fi
-      done
-   fi
-fi
-
-echo ""
-print_success "✓ All pre-commit checks passed successfully!"
+print_success "✓ Tất cả kiểm tra format & lint trước khi commit đều đạt chuẩn!"
+print_info "(Lưu ý: Không chạy test ở bước commit để tối ưu tốc độ. Toàn bộ test suite & build sẽ chạy khi 'git push')"
 echo ""
 
 exit 0

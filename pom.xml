@@ -31,16 +31,26 @@
         <jacoco.version>0.8.12</jacoco.version>
         <testcontainers.version>2.0.5</testcontainers.version>
         <archunit.version>1.3.0</archunit.version>
+        <spring-cloud.version>2025.1.4</spring-cloud.version>
     </properties>
 
     <modules>
         <module>common</module>
         <module>auth-service</module>
         <module>service-template</module>
+        <module>gateway-service</module>
     </modules>
 
     <dependencyManagement>
         <dependencies>
+            <!-- Spring Cloud Dependencies BOM -->
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
             <!-- Testcontainers BOM for microservices integration testing -->
             <dependency>
                 <groupId>org.testcontainers</groupId>

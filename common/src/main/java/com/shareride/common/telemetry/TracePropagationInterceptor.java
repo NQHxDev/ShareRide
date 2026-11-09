@@ -39,7 +39,7 @@ public class TracePropagationInterceptor implements ClientHttpRequestInterceptor
             HttpRequest request, byte[] body, ClientHttpRequestExecution execution)
             throws IOException {
 
-        // 1. Resolve and propagate tracing identifiers
+        // Resolve and propagate tracing identifiers
         String traceId = null;
         String spanId = null;
         boolean sampled = true;
@@ -93,7 +93,7 @@ public class TracePropagationInterceptor implements ClientHttpRequestInterceptor
             }
         }
 
-        // 2. Business baggage context propagation
+        // Business baggage context propagation
         UserContext userContext = UserContextHolder.getContext();
         Map<String, String> baggageItems = new LinkedHashMap<>();
 

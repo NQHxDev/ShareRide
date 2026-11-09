@@ -30,18 +30,29 @@ public class TelemetryAutoConfiguration {
         return adaptiveSampler;
     }
 
-    @Bean
-    @ConditionalOnMissingBean
-    public TraceIdFilter traceIdFilter(
-            ObjectProvider<Tracer> tracerProvider,
-            ObjectProvider<AdaptiveTraceSampler> samplerProvider) {
-        return new TraceIdFilter(tracerProvider, samplerProvider);
-    }
+    /** Servlet-specific distributed tracing filter and propagation interceptor */
+    @org.springframework.context.annotation.Configuration(proxyBeanMethods = false)
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication(
+            type =
+                    org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication
+                            .Type.SERVLET)
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnClass(
+            name = "jakarta.servlet.Filter")
+    public static class ServletTelemetryFilterConfiguration {
 
-    @Bean
-    @ConditionalOnMissingBean
-    public TracePropagationInterceptor tracePropagationInterceptor(
-            ObjectProvider<Tracer> tracerProvider) {
-        return new TracePropagationInterceptor(tracerProvider);
+        @Bean
+        @ConditionalOnMissingBean
+        public TraceIdFilter traceIdFilter(
+                ObjectProvider<Tracer> tracerProvider,
+                ObjectProvider<AdaptiveTraceSampler> samplerProvider) {
+            return new TraceIdFilter(tracerProvider, samplerProvider);
+        }
+
+        @Bean
+        @ConditionalOnMissingBean
+        public TracePropagationInterceptor tracePropagationInterceptor(
+                ObjectProvider<Tracer> tracerProvider) {
+            return new TracePropagationInterceptor(tracerProvider);
+        }
     }
 }
