@@ -1,0 +1,39 @@
+{
+   "java.configuration.updateBuildConfiguration": "automatic",
+   "files.exclude": {
+      "**/.omni": true,
+      "**/target": true,
+      "**/.m2": true
+   },
+   "search.exclude": {
+      "**/target": true,
+      "**/.m2": true,
+      "**/.mvn": true
+   },
+   "java.compile.nullAnalysis.mode": "automatic",
+   "[java]": {
+      "editor.defaultFormatter": "josevseb.google-java-format-for-vs-code",
+      "editor.tabSize": 4,
+      "editor.indentSize": 4,
+      "editor.insertSpaces": true,
+      "editor.detectIndentation": false,
+      "editor.formatOnSave": true
+   },
+   "java.format.settings.google.extra": "--aosp",
+   "java.format.comments.enabled": false,
+   "java.completion.importOrder": ["#", ""],
+   "java.sources.organizeImports.starThreshold": 99,
+   "java.sources.organizeImports.staticStarThreshold": 99,
+   "[yaml]": {
+      "editor.tabSize": 2,
+      "editor.indentSize": 2,
+      "editor.insertSpaces": true,
+      "editor.detectIndentation": false
+   },
+   "[yml]": {
+      "editor.tabSize": 2,
+      "editor.indentSize": 2,
+      "editor.insertSpaces": true,
+      "editor.detectIndentation": false
+   }
+}

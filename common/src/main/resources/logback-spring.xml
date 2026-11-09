@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true" scanPeriod="30 seconds">
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <springProperty scope="context" name="springAppName" source="spring.application.name" defaultValue="shareride-service"/>
+
+    <!-- Dynamic Log Level TurboFilter for runtime per-request and per-user debugging -->
+    <turboFilter class="com.shareride.common.logging.dynamic.DynamicLogLevelTurboFilter">
+        <packagePrefix>com.shareride</packagePrefix>
+    </turboFilter>
+
+    <!-- Logging Metrics Appender to track log volume per level -->
+    <appender name="METRICS" class="com.shareride.common.logging.metrics.LoggingMetricsAppender"/>
+
+    <!-- Non-Production Console Appender Profile -->
+    <springProfile name="!prod &amp; !staging">
+        <property name="CONSOLE_LOG_PATTERN"
+                  value="%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%5p) %clr([${springAppName:-shareride},%X{traceId:-},%X{spanId:-},%X{correlationId:-},%X{userId:-}]) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx"/>
+
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>${CONSOLE_LOG_PATTERN}</pattern>
+                <charset>UTF-8</charset>
+            </encoder>
+        </appender>
+
+        <!-- Safe Async Text Console Wrapper -->
+        <appender name="ASYNC_CONSOLE" class="ch.qos.logback.classic.AsyncAppender">
+            <appender-ref ref="CONSOLE"/>
+            <queueSize>2048</queueSize>
+            <discardingThreshold>256</discardingThreshold>
+            <neverBlock>false</neverBlock>
+            <maxFlushTime>5000</maxFlushTime>
+            <includeCallerData>false</includeCallerData>
+        </appender>
+
+        <root level="INFO">
+            <appender-ref ref="ASYNC_CONSOLE"/>
+            <appender-ref ref="METRICS"/>
+        </root>
+    </springProfile>
+
+    <!-- Production & Staging Structured JSON Logging Profile -->
+    <springProfile name="prod,staging">
+        <!-- Structured JSON Console Appender (Logstash / ECS compliant) -->
+        <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+                <includeContext>true</includeContext>
+                <includeMdc>true</includeMdc>
+                <includeStructuredArguments>true</includeStructuredArguments>
+                <includeTags>true</includeTags>
+                <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+                    <maxDepthPerThrowable>30</maxDepthPerThrowable>
+                    <maxLength>2048</maxLength>
+                    <shortenedClassNameLength>20</shortenedClassNameLength>
+                    <rootCauseFirst>true</rootCauseFirst>
+                </throwableConverter>
+            </encoder>
+        </appender>
+
+        <!-- Safe Async Structured JSON Console Wrapper -->
+        <appender name="ASYNC_JSON_CONSOLE" class="ch.qos.logback.classic.AsyncAppender">
+            <appender-ref ref="JSON_CONSOLE"/>
+            <queueSize>2048</queueSize>
+            <discardingThreshold>256</discardingThreshold>
+            <neverBlock>false</neverBlock>
+            <maxFlushTime>5000</maxFlushTime>
+            <includeCallerData>false</includeCallerData>
+        </appender>
+
+        <!-- Rolling File Appender with Size & Time Based Rotation and Retention -->
+        <property name="LOG_FILE_PATH" value="${LOG_FILE:-logs/app.log}"/>
+        <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>${LOG_FILE_PATH}</file>
+            <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+                <fileNamePattern>logs/app.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+                <maxFileSize>100MB</maxFileSize>
+                <maxHistory>30</maxHistory>
+                <totalSizeCap>10GB</totalSizeCap>
+            </rollingPolicy>
+            <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+                <includeContext>true</includeContext>
+                <includeMdc>true</includeMdc>
+                <includeStructuredArguments>true</includeStructuredArguments>
+                <includeTags>true</includeTags>
+            </encoder>
+        </appender>
+
+        <!-- Safe Async Rolling File Appender -->
+        <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
+            <appender-ref ref="FILE"/>
+            <queueSize>2048</queueSize>
+            <discardingThreshold>256</discardingThreshold>
+            <neverBlock>false</neverBlock>
+            <maxFlushTime>5000</maxFlushTime>
+            <includeCallerData>false</includeCallerData>
+        </appender>
+
+        <root level="INFO">
+            <appender-ref ref="ASYNC_JSON_CONSOLE"/>
+            <appender-ref ref="ASYNC_FILE"/>
+            <appender-ref ref="METRICS"/>
+        </root>
+    </springProfile>
+
+    <logger name="com.shareride" level="INFO"/>
+    <logger name="org.springframework.web" level="INFO"/>
+    <logger name="com.shareride.security.audit" level="INFO" additivity="true"/>
+    <logger name="com.shareride.business.event" level="INFO" additivity="true"/>
+</configuration>

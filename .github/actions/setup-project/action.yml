@@ -1,0 +1,31 @@
+name: 'Setup Java, Maven and Cache'
+description: 'Sets up Java 21, configures Maven dependency caching and local repository cache'
+
+inputs:
+  java-version:
+    description: 'Java version to install'
+    required: false
+    default: '21'
+  distribution:
+    description: 'Java distribution'
+    required: false
+    default: 'temurin'
+  cache-read-only:
+    description: 'Whether to restore cache without writing back'
+    required: false
+    default: 'false'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up JDK ${{ inputs.java-version }}
+      uses: actions/setup-java@v6
+      with:
+        java-version: ${{ inputs.java-version }}
+        distribution: ${{ inputs.distribution }}
+        cache: 'maven'
+        cache-dependency-path: '**/pom.xml'
+
+    - name: Make Maven Wrapper Executable
+      shell: bash
+      run: chmod +x mvnw

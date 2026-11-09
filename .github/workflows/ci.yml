@@ -1,0 +1,142 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - '.gitignore'
+      - '.gitmessage'
+      - 'docs/**'
+  pull_request:
+    branches:
+      - main
+      - staging
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - '.gitignore'
+      - '.gitmessage'
+      - 'docs/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Static Analysis: Spotless & Checkstyle
+  code-quality:
+    name: Code Quality (Spotless & Checkstyle)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Java and Maven Cache
+        uses: ./.github/actions/setup-project
+
+      - name: Check code Formatting [Spotless]
+        run: ./mvnw spotless:check --batch-mode
+
+      - name: Check code Style
+        run: ./mvnw checkstyle:check --batch-mode
+
+  # Build & Unit Test Modules in Parallel
+  test-modules:
+    name: Unit Test (${{ matrix.module }})
+    needs: code-quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [common, auth-service, service-template]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Java and Maven Cache
+        uses: ./.github/actions/setup-project
+
+      - name: Run module Unit Tests (${{ matrix.module }})
+        run: ./mvnw test -pl ${{ matrix.module }} -am -Dtest="!*IntegrationTest" --batch-mode
+
+      - name: Generate Coverage Report
+        run: ./mvnw jacoco:report
+
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+
+      - name: Upload Surefire Test Reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: surefire-reports-${{ matrix.module }}
+          path: ${{ matrix.module }}/target/surefire-reports/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # Integration Tests using Testcontainers (Isolated, on-demand containers per service)
+  integration-test:
+    name: Integration Tests
+    needs: code-quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Java and Maven Cache
+        uses: ./.github/actions/setup-project
+
+      - name: Run Integration Tests
+        run: ./mvnw test -Dtest="*IntegrationTest" --batch-mode
+
+      - name: Generate Coverage Report
+        run: ./mvnw jacoco:report
+
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+
+      - name: Upload Integration Test Reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: integration-test-reports
+          path: '**/target/surefire-reports/'
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # Full Package & Verification
+  package-and-verify:
+    name: Package & Artifact Verification
+    needs: [test-modules, integration-test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Java and Maven Cache
+        uses: ./.github/actions/setup-project
+
+      - name: Package Project
+        run: ./mvnw package -DskipTests --batch-mode
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: auth-service-jar
+          path: auth-service/target/*.jar
+          retention-days: 7
+          if-no-files-found: ignore
