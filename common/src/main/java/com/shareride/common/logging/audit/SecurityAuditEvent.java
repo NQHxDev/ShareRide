@@ -11,8 +11,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Standard security audit record for tracking authentication, authorization, sensitive data access,
- * rate limiting, and suspicious events.
+ * Standard data transfer object representing a security audit event (logins, privilege escalations,
+ * data access, auth failures).
  */
 @Data
 @Builder
@@ -34,5 +34,6 @@ public class SecurityAuditEvent implements Serializable {
     @Builder.Default private Instant timestamp = Instant.now();
 
     private String traceId;
+    private String correlationId;
     private Map<String, Object> details;
 }

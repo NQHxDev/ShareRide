@@ -1,35 +1,30 @@
 package com.shareride.common.logging.event;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.Instant;
 import java.util.Map;
 import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.NoArgsConstructor;
 import lombok.ToString;
 
 /**
- * Enterprise standardized domain event model matching:
+ * Fluent builder and convenience subclass of {@link BusinessEvent}.
+ *
+ * <p>Usage:
  *
  * <pre>
- * eventLog.publish(Event.builder()
+ *   eventLogger.logEvent(Event.builder()
  *       .type("RIDE_BOOKED")
  *       .userId(userId)
  *       .rideId(rideId)
+ *       .correlationId(correlationId)
  *       .metadata(Map.of("origin", origin, "destination", dest))
  *       .build());
  * </pre>
  */
-@Getter
-@Setter
 @ToString(callSuper = true)
 @EqualsAndHashCode(callSuper = true)
-@JsonInclude(JsonInclude.Include.NON_NULL)
+@NoArgsConstructor
 public class Event extends BusinessEvent {
-
-    public Event() {
-        super();
-    }
 
     public Event(
             String eventId,
@@ -42,11 +37,23 @@ public class Event extends BusinessEvent {
         super(eventId, type, userId, entityId, timestamp, traceId, metadata);
     }
 
+    public Event(
+            String eventId,
+            String type,
+            String userId,
+            String entityId,
+            Instant timestamp,
+            String traceId,
+            String correlationId,
+            Map<String, Object> metadata) {
+        super(eventId, type, userId, entityId, timestamp, traceId, correlationId, metadata);
+    }
+
     public static EventBuilder builder() {
         return new EventBuilder();
     }
 
-    public static class EventBuilder extends BusinessEventBuilder {
+    public static class EventBuilder extends BusinessEvent.BusinessEventBuilder {
 
         @Override
         public EventBuilder eventId(String eventId) {
@@ -91,6 +98,12 @@ public class Event extends BusinessEvent {
         }
 
         @Override
+        public EventBuilder correlationId(String correlationId) {
+            super.correlationId(correlationId);
+            return this;
+        }
+
+        @Override
         public EventBuilder metadata(Map<String, Object> metadata) {
             super.metadata(metadata);
             return this;
@@ -98,7 +111,8 @@ public class Event extends BusinessEvent {
 
         @Override
         public Event build() {
-            return new Event(eventId, type, userId, entityId, timestamp, traceId, metadata);
+            return new Event(
+                    eventId, type, userId, entityId, timestamp, traceId, correlationId, metadata);
         }
     }
 }

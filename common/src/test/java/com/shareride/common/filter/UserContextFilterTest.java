@@ -144,4 +144,33 @@ class UserContextFilterTest {
         assertNull(MDC.get(MdcConstants.TENANT_ID));
         assertNull(MDC.get(MdcConstants.PRIORITY));
     }
+
+    @Test
+    @DisplayName(
+            "Should generate distinct Correlation ID when absent, never falling back to traceId")
+    void testCorrelationIdDistinctFromTraceIdWhenAbsent() throws ServletException, IOException {
+        String technicalTraceId = "4bf92f3577b34da6a3ce929d0e0e4736";
+        TraceIdContext.setTraceId(technicalTraceId);
+
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/rides/search");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(
+                request,
+                response,
+                (req, res) -> {
+                    UserContext ctx = UserContextHolder.getContext();
+                    assertNotNull(ctx);
+                    assertNotNull(ctx.getCorrelationId());
+                    assertNotEquals(
+                            technicalTraceId,
+                            ctx.getCorrelationId(),
+                            "Correlation ID must not equal Trace ID!");
+                    assertEquals(ctx.getCorrelationId(), MDC.get(MdcConstants.CORRELATION_ID));
+                });
+
+        String responseCid = response.getHeader(UserContextFilter.CORRELATION_ID_HEADER);
+        assertNotNull(responseCid);
+        assertNotEquals(technicalTraceId, responseCid);
+    }
 }

@@ -68,12 +68,17 @@ public final class UserContextHolder {
                 : Optional.empty();
     }
 
-    /** Returns correlation ID if present. */
+    /** Returns correlation ID if present in either UserContext or CorrelationIdContext. */
     public static Optional<String> getCorrelationId() {
         UserContext ctx = HOLDER.get();
-        return (ctx != null && ctx.getCorrelationId() != null && !ctx.getCorrelationId().isBlank())
-                ? Optional.of(ctx.getCorrelationId())
-                : Optional.empty();
+        if (ctx != null && ctx.getCorrelationId() != null && !ctx.getCorrelationId().isBlank()) {
+            return Optional.of(ctx.getCorrelationId());
+        }
+        String cid = CorrelationIdContext.getCorrelationId();
+        if (cid != null && !cid.isBlank()) {
+            return Optional.of(cid);
+        }
+        return Optional.empty();
     }
 
     /** Returns request priority if present. */

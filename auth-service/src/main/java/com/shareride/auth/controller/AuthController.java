@@ -9,6 +9,7 @@ import com.shareride.auth.dto.RegisterRequest;
 import com.shareride.auth.dto.UserResponse;
 import com.shareride.auth.service.AuthService;
 import com.shareride.common.response.BaseResponse;
+import com.shareride.common.versioning.ApiVersion;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
  */
 @RestController
 @RequestMapping(AuthConstants.Endpoint.BASE_PATH)
+@ApiVersion("v1")
 @RequiredArgsConstructor
 public class AuthController {
 

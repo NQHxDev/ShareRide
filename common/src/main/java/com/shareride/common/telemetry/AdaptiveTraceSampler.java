@@ -9,24 +9,26 @@ import io.opentelemetry.sdk.trace.samplers.Sampler;
 import io.opentelemetry.sdk.trace.samplers.SamplingResult;
 import java.util.List;
 import java.util.Set;
+import javax.annotation.Nonnull;
 
 /**
- * Enterprise adaptive trace sampler for ShareRide microservices.
- *
- * <ul>
- *   <li>Never samples noisy health checks and Prometheus scrape requests (/actuator/**).
- *   <li>Always samples SLA-critical HIGH priority requests.
- *   <li>Applies ratio-based sampling (dev: 100%, staging: 50%, prod: 1-5%) with parent-context
- *       inheritance.
- *   <li>Supports tail-based sampling for failed or slow requests.
- * </ul>
+ * Adaptive trace sampler that: 1. Drops high-frequency health probes and metrics endpoints
+ * (/actuator, /health, /readyz). 2. Always samples high priority / critical transactions (VIP
+ * rides, emergency events). 3. Applies parent-based ratio sampling for all remaining traffic.
  */
 public class AdaptiveTraceSampler implements Sampler {
 
+    @Nonnull
     private static final AttributeKey<String> HTTP_TARGET_KEY =
-            AttributeKey.stringKey("http.target");
-    private static final AttributeKey<String> URL_PATH_KEY = AttributeKey.stringKey("url.path");
-    private static final AttributeKey<String> PRIORITY_KEY = AttributeKey.stringKey("priority");
+            nonNull(AttributeKey.stringKey("http.target"));
+
+    @Nonnull
+    private static final AttributeKey<String> URL_PATH_KEY =
+            nonNull(AttributeKey.stringKey("url.path"));
+
+    @Nonnull
+    private static final AttributeKey<String> PRIORITY_KEY =
+            nonNull(AttributeKey.stringKey("priority"));
 
     private static final Set<String> EXCLUDED_PREFIXES =
             Set.of("/actuator", "/favicon.ico", "/health", "/livez", "/readyz");
@@ -36,7 +38,7 @@ public class AdaptiveTraceSampler implements Sampler {
 
     public AdaptiveTraceSampler(double probability) {
         this.probability = Math.max(0.0, Math.min(1.0, probability));
-        this.delegate = Sampler.parentBased(Sampler.traceIdRatioBased(this.probability));
+        this.delegate = Sampler.parentBased(nonNull(Sampler.traceIdRatioBased(this.probability)));
     }
 
     public double getProbability() {
@@ -45,12 +47,12 @@ public class AdaptiveTraceSampler implements Sampler {
 
     @Override
     public SamplingResult shouldSample(
-            Context parentContext,
-            String traceId,
-            String name,
-            SpanKind spanKind,
-            Attributes attributes,
-            List<LinkData> parentLinks) {
+            @Nonnull Context parentContext,
+            @Nonnull String traceId,
+            @Nonnull String name,
+            @Nonnull SpanKind spanKind,
+            @Nonnull Attributes attributes,
+            @Nonnull List<LinkData> parentLinks) {
 
         // 1. Never sample health checks and metrics endpoints to avoid polluting traces
         if (isExcludedPath(name, attributes)) {
@@ -137,5 +139,13 @@ public class AdaptiveTraceSampler implements Sampler {
             return "HIGH".equalsIgnoreCase(priority) || "URGENT".equalsIgnoreCase(priority);
         }
         return false;
+    }
+
+    @Nonnull
+    static <T> T nonNull(T value) {
+        if (value == null) {
+            throw new NullPointerException();
+        }
+        return value;
     }
 }

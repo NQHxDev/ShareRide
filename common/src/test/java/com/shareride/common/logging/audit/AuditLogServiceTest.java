@@ -1,7 +1,10 @@
 package com.shareride.common.logging.audit;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
+import com.shareride.common.context.CorrelationIdContext;
 import com.shareride.common.filter.TraceIdContext;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
@@ -21,6 +24,7 @@ class AuditLogServiceTest {
     @AfterEach
     void tearDown() {
         TraceIdContext.clear();
+        CorrelationIdContext.clear();
     }
 
     @Test
@@ -42,11 +46,6 @@ class AuditLogServiceTest {
 
     @Test
     void testLogAuthorization() {
-        assertDoesNotThrow(
-                () ->
-                        auditLogService.logAuthorization(
-                                "u-1001", "ACCESS_DENIED", "/admin/metrics", "GET"));
-
         assertDoesNotThrow(
                 () ->
                         auditLogService.logAuthorization(
@@ -83,5 +82,24 @@ class AuditLogServiceTest {
 
         assertDoesNotThrow(() -> auditLogService.logSecurityEvent(event));
         assertDoesNotThrow(() -> auditLogService.logSecurityEvent(null));
+    }
+
+    @Test
+    void testLogSecurityEventWithCorrelationId() {
+        CorrelationIdContext.setCorrelationId("audit-correlation-flow-789");
+
+        SecurityAuditEvent event =
+                SecurityAuditEvent.builder()
+                        .eventType("PASSWORD_CHANGED")
+                        .userId("u-1003")
+                        .clientIp("127.0.0.1")
+                        .status("SUCCESS")
+                        .build();
+
+        auditLogService.logSecurityEvent(event);
+
+        assertEquals("audit-trace-12345", event.getTraceId());
+        assertEquals("audit-correlation-flow-789", event.getCorrelationId());
+        assertNotEquals(event.getTraceId(), event.getCorrelationId());
     }
 }

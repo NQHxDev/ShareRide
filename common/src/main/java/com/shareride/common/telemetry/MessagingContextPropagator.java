@@ -1,12 +1,15 @@
 package com.shareride.common.telemetry;
 
+import com.shareride.common.context.CorrelationIdContext;
 import com.shareride.common.context.UserContext;
 import com.shareride.common.context.UserContextHolder;
 import com.shareride.common.filter.TraceIdContext;
 import com.shareride.common.filter.UserContextFilter;
 import com.shareride.common.logging.MdcConstants;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import org.slf4j.MDC;
 
 /**
@@ -20,7 +23,7 @@ public final class MessagingContextPropagator {
     public static final String TRACE_ID_HEADER = TraceIdContext.TRACE_HEADER;
     public static final String SPAN_ID_HEADER = TraceIdContext.SPAN_HEADER;
     public static final String REQUEST_ID_HEADER = TraceIdContext.REQUEST_ID_HEADER;
-    public static final String CORRELATION_ID_HEADER = UserContextFilter.CORRELATION_ID_HEADER;
+    public static final String CORRELATION_ID_HEADER = CorrelationIdContext.CORRELATION_ID_HEADER;
     public static final String USER_ID_HEADER = UserContextFilter.USER_ID_HEADER;
     public static final String TENANT_ID_HEADER = UserContextFilter.TENANT_ID_HEADER;
     public static final String PRIORITY_HEADER = UserContextFilter.PRIORITY_HEADER;
@@ -44,6 +47,15 @@ public final class MessagingContextPropagator {
         headers.put(TRACEPARENT_HEADER, TraceIdContext.formatTraceparent(traceId, spanId, sampled));
 
         UserContext userContext = UserContextHolder.getContext();
+        String correlationId = (userContext != null) ? userContext.getCorrelationId() : null;
+        if (correlationId == null || correlationId.isBlank()) {
+            correlationId = CorrelationIdContext.getCorrelationId();
+        }
+        if (correlationId == null || correlationId.isBlank()) {
+            correlationId = CorrelationIdContext.generateCorrelationId();
+        }
+        headers.put(CORRELATION_ID_HEADER, correlationId);
+
         if (userContext != null) {
             if (userContext.getUserId() != null && !userContext.getUserId().isBlank()) {
                 headers.put(USER_ID_HEADER, userContext.getUserId());
@@ -51,11 +63,6 @@ public final class MessagingContextPropagator {
             if (userContext.getTenantId() != null && !userContext.getTenantId().isBlank()) {
                 headers.put(TENANT_ID_HEADER, userContext.getTenantId());
             }
-            String correlationId = userContext.getCorrelationId();
-            if (correlationId == null || correlationId.isBlank()) {
-                correlationId = traceId;
-            }
-            headers.put(CORRELATION_ID_HEADER, correlationId);
             if (userContext.getPriority() != null && !userContext.getPriority().isBlank()) {
                 headers.put(PRIORITY_HEADER, userContext.getPriority());
             }
@@ -67,7 +74,8 @@ public final class MessagingContextPropagator {
 
     /**
      * Extracts tracing, user context, and tenant isolation metadata from incoming message headers,
-     * restoring {@link TraceIdContext}, {@link UserContextHolder}, and SLF4J MDC.
+     * restoring {@link TraceIdContext}, {@link CorrelationIdContext}, {@link UserContextHolder},
+     * and SLF4J MDC.
      */
     public static void extract(Map<String, ?> headers) {
         if (headers == null || headers.isEmpty()) {
@@ -123,9 +131,14 @@ public final class MessagingContextPropagator {
             }
         }
 
+        // Correlation ID is distinct from technical trace ID
         if (correlationId == null || correlationId.isBlank()) {
-            correlationId = traceId;
+            correlationId = CorrelationIdContext.generateCorrelationId();
+        } else {
+            correlationId = correlationId.trim();
         }
+
+        CorrelationIdContext.setCorrelationId(correlationId);
 
         UserContext userContext =
                 UserContext.builder()
@@ -157,6 +170,7 @@ public final class MessagingContextPropagator {
     /** Cleans up thread-local context after message processing finishes. */
     public static void clear() {
         TraceIdContext.clear();
+        CorrelationIdContext.clear();
         UserContextHolder.clear();
         MDC.remove(MdcConstants.TRACE_ID);
         MDC.remove(MdcConstants.SPAN_ID);

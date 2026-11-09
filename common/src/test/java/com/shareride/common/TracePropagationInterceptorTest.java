@@ -129,4 +129,41 @@ class TracePropagationInterceptorTest {
         ClientHttpResponse response = interceptor.intercept(request, new byte[0], execution);
         assertEquals(HttpStatus.OK, response.getStatusCode());
     }
+
+    @Test
+    @DisplayName(
+            "Should generate and propagate distinct Correlation ID when absent, never falling back"
+                    + " to traceId")
+    void testCorrelationIdDistinctFromTraceIdOnOutbound() throws IOException {
+        String technicalTraceId = "4bf92f3577b34da6a3ce929d0e0e4736";
+        TraceIdContext.setTraceId(technicalTraceId);
+        TraceIdContext.setSpanId("00f067aa0ba902b7");
+
+        MockClientHttpRequest request =
+                new MockClientHttpRequest(
+                        HttpMethod.GET, URI.create("http://payment-service/api/v1/payments"));
+
+        ClientHttpRequestExecution execution =
+                (req, body) -> {
+                    String outboundTraceId = req.getHeaders().getFirst(TraceIdContext.TRACE_HEADER);
+                    String outboundCorrId =
+                            req.getHeaders().getFirst(UserContextFilter.CORRELATION_ID_HEADER);
+
+                    assertEquals(technicalTraceId, outboundTraceId);
+                    assertNotNull(outboundCorrId);
+                    assertNotEquals(
+                            outboundTraceId,
+                            outboundCorrId,
+                            "Outbound Correlation ID must not equal Trace ID!");
+
+                    String baggage = req.getHeaders().getFirst(BaggageUtils.BAGGAGE_HEADER);
+                    assertNotNull(baggage);
+                    assertTrue(baggage.contains("correlationId=" + outboundCorrId));
+
+                    return new MockClientHttpResponse(new byte[0], HttpStatus.OK);
+                };
+
+        ClientHttpResponse response = interceptor.intercept(request, new byte[0], execution);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+    }
 }

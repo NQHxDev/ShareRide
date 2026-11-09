@@ -8,8 +8,8 @@ import org.slf4j.MDC;
 import org.springframework.core.task.TaskDecorator;
 
 /**
- * Propagates {@link UserContext}, {@link TraceIdContext}, business baggage, dynamic log level
- * flags, and SLF4J {@link MDC} to asynchronous execution threads.
+ * Propagates {@link UserContext}, {@link CorrelationIdContext}, {@link TraceIdContext}, business
+ * baggage, dynamic log level flags, and SLF4J {@link MDC} to asynchronous execution threads.
  */
 public class ShareRideTaskDecorator implements TaskDecorator {
 
@@ -21,6 +21,7 @@ public class ShareRideTaskDecorator implements TaskDecorator {
         String traceId = TraceIdContext.getTraceId();
         String spanId = TraceIdContext.getSpanId();
         String requestId = TraceIdContext.getRequestId();
+        String correlationId = CorrelationIdContext.getCorrelationId();
         boolean debugActive = DynamicLogLevelContext.isDebugActive();
 
         UserContext copiedUserContext =
@@ -29,7 +30,10 @@ public class ShareRideTaskDecorator implements TaskDecorator {
                                 .userId(userContext.getUserId())
                                 .email(userContext.getEmail())
                                 .tenantId(userContext.getTenantId())
-                                .correlationId(userContext.getCorrelationId())
+                                .correlationId(
+                                        userContext.getCorrelationId() != null
+                                                ? userContext.getCorrelationId()
+                                                : correlationId)
                                 .requestId(userContext.getRequestId())
                                 .sessionId(userContext.getSessionId())
                                 .priority(userContext.getPriority())
@@ -56,6 +60,7 @@ public class ShareRideTaskDecorator implements TaskDecorator {
             String previousTraceId = TraceIdContext.getTraceId();
             String previousSpanId = TraceIdContext.getSpanId();
             String previousRequestId = TraceIdContext.getRequestId();
+            String previousCorrelationId = CorrelationIdContext.getCorrelationId();
             boolean previousDebug = DynamicLogLevelContext.isDebugActive();
 
             try {
@@ -80,6 +85,9 @@ public class ShareRideTaskDecorator implements TaskDecorator {
                 if (requestId != null) {
                     TraceIdContext.setRequestId(requestId);
                 }
+                if (correlationId != null) {
+                    CorrelationIdContext.setCorrelationId(correlationId);
+                }
                 if (debugActive) {
                     DynamicLogLevelContext.setDebugOverride(true);
                 }
@@ -89,6 +97,7 @@ public class ShareRideTaskDecorator implements TaskDecorator {
                 if (previousMdc != null) {
                     MDC.setContextMap(previousMdc);
                 } else {
+
                     MDC.clear();
                 }
 
@@ -109,6 +118,11 @@ public class ShareRideTaskDecorator implements TaskDecorator {
                 }
                 if (previousRequestId != null) {
                     TraceIdContext.setRequestId(previousRequestId);
+                }
+                if (previousCorrelationId != null) {
+                    CorrelationIdContext.setCorrelationId(previousCorrelationId);
+                } else {
+                    CorrelationIdContext.clear();
                 }
                 if (!previousDebug) {
                     DynamicLogLevelContext.clear();

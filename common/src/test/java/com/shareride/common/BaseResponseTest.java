@@ -3,6 +3,7 @@ package com.shareride.common;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.shareride.common.constant.ResponseCode;
+import com.shareride.common.context.CorrelationIdContext;
 import com.shareride.common.filter.TraceIdContext;
 import com.shareride.common.i18n.TemplateMessageSource;
 import com.shareride.common.response.*;
@@ -38,6 +39,7 @@ class BaseResponseTest {
     @AfterEach
     void tearDown() {
         TraceIdContext.clear();
+        CorrelationIdContext.clear();
         ResponseMetadataContext.clear();
         LocaleContextHolder.resetLocaleContext();
     }
@@ -484,5 +486,21 @@ class BaseResponseTest {
         assertEquals(original.getTraceId(), modified.getTraceId());
 
         assertThrows(IllegalArgumentException.class, () -> original.map(null));
+    }
+
+    @Test
+    @DisplayName("Should include correlationId in BaseResponse distinct from traceId")
+    void testBaseResponseWithCorrelationId() throws Exception {
+        CorrelationIdContext.setCorrelationId("business-flow-order-555");
+
+        BaseResponse<String> res = BaseResponse.<String>builder().data("sample").build();
+
+        assertEquals("test-trace-id-123", res.getTraceId());
+        assertEquals("business-flow-order-555", res.getCorrelationId());
+        assertNotEquals(res.getTraceId(), res.getCorrelationId());
+
+        String json = objectMapper.writeValueAsString(res);
+        assertTrue(json.contains("\"traceId\":\"test-trace-id-123\""));
+        assertTrue(json.contains("\"correlationId\":\"business-flow-order-555\""));
     }
 }

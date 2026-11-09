@@ -1,6 +1,9 @@
 package com.shareride.common.response;
 
-/** Context and configurable defaults for ResponseMetadata. */
+/**
+ * Context and configurable defaults for ResponseMetadata. Holds thread-bound API versioning,
+ * environment information, and deprecation lifecycle state.
+ */
 public final class ResponseMetadataContext {
 
     private static volatile String defaultApiVersion = "v1";
@@ -8,6 +11,8 @@ public final class ResponseMetadataContext {
 
     private static final ThreadLocal<String> API_VERSION_HOLDER = new ThreadLocal<>();
     private static final ThreadLocal<String> ENVIRONMENT_HOLDER = new ThreadLocal<>();
+    private static final ThreadLocal<Boolean> DEPRECATED_HOLDER = new ThreadLocal<>();
+    private static final ThreadLocal<String> SUNSET_DATE_HOLDER = new ThreadLocal<>();
 
     private ResponseMetadataContext() {}
 
@@ -46,8 +51,26 @@ public final class ResponseMetadataContext {
         return current != null ? current : defaultEnvironment;
     }
 
+    public static void setDeprecated(boolean deprecated) {
+        DEPRECATED_HOLDER.set(deprecated);
+    }
+
+    public static boolean isDeprecated() {
+        return Boolean.TRUE.equals(DEPRECATED_HOLDER.get());
+    }
+
+    public static void setSunsetDate(String sunset) {
+        SUNSET_DATE_HOLDER.set(sunset);
+    }
+
+    public static String getSunsetDate() {
+        return SUNSET_DATE_HOLDER.get();
+    }
+
     public static void clear() {
         API_VERSION_HOLDER.remove();
         ENVIRONMENT_HOLDER.remove();
+        DEPRECATED_HOLDER.remove();
+        SUNSET_DATE_HOLDER.remove();
     }
 }

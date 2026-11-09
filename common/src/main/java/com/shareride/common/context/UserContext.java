@@ -37,6 +37,7 @@ public class UserContext implements Serializable {
     private String traceId;
     private String spanId;
     private String serviceName;
+    private String apiVersion;
 
     /** Checks if current context represents an authenticated user. */
     public boolean isAuthenticated() {

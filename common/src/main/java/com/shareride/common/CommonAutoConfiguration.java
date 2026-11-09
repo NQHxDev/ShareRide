@@ -2,6 +2,7 @@ package com.shareride.common;
 
 import com.shareride.common.context.ShareRideTaskDecorator;
 import com.shareride.common.exception.GlobalExceptionHandler;
+import com.shareride.common.filter.CorrelationIdFilter;
 import com.shareride.common.filter.HttpLoggingFilter;
 import com.shareride.common.filter.UserContextFilter;
 import com.shareride.common.i18n.HeaderLocaleResolver;
@@ -79,6 +80,13 @@ public class CommonAutoConfiguration {
     @ConditionalOnMissingBean
     public BusinessEventLogger businessEventLogger() {
         return new BusinessEventLogger();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
+    public CorrelationIdFilter correlationIdFilter() {
+        return new CorrelationIdFilter();
     }
 
     @Bean

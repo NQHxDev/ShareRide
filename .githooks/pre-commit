@@ -48,12 +48,17 @@ fi
 # 1. Check code formatting with Spotless
 echo ""
 echo -e "${BLUE}[1/4] Checking code formatting (Spotless)...${NC}"
-if mvn spotless:check; then
-   print_success "✓ Code formatting check passed..."
+if ! mvn spotless:check -q > /dev/null 2>&1; then
+   print_info "Format violations detected. Automatically applying Spotless formatting..."
+   mvn spotless:apply -q
+   echo "$STAGED_JAVA_FILES" | while IFS= read -r file; do
+      if [ -n "$file" ] && [ -f "$file" ]; then
+         git add "$file"
+      fi
+   done
+   print_success "✓ Code formatted and re-staged automatically!"
 else
-   print_error "✗ Code formatting check failed!"
-   print_info "Run 'mvn spotless:apply' to automatically reformat your code..."
-   exit 1
+   print_success "✓ Code formatting check passed..."
 fi
 
 # 2. Check code style with Checkstyle

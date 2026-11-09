@@ -191,7 +191,8 @@ class OutboxRelayServiceTest {
     @Test
     @DisplayName("Exponential backoff should skip failed messages until required delay has elapsed")
     void testProcessBatchExponentialBackoff() throws Exception {
-        // Message failed 100ms ago, retryCount=1 => backoff = 1000ms => should be skipped
+        // Message failed 100ms ago, retryCount=1 => backoff = 1000ms => should be
+        // skipped
         OutboxMessage unreadyMessage =
                 OutboxMessage.builder()
                         .aggregateType("User")
@@ -203,7 +204,8 @@ class OutboxRelayServiceTest {
                         .processedAt(Instant.now().minus(100, ChronoUnit.MILLIS))
                         .build();
 
-        // Message failed 5000ms ago, retryCount=1 => backoff = 1000ms => eligible for retry
+        // Message failed 5000ms ago, retryCount=1 => backoff = 1000ms => eligible for
+        // retry
         OutboxMessage readyMessage =
                 OutboxMessage.builder()
                         .aggregateType("User")

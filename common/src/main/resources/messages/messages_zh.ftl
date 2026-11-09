@@ -25,3 +25,7 @@ CIRCUIT_BREAKER_OPEN=熔断器已开启，请稍后再试
 RESOURCE_NOT_FOUND=未找到${resource!'资源'}，标识符：'${identifier!'未知'}'
 FIELD_REQUIRED=字段'${field}'为必填项
 FIELD_INVALID=字段'${field}'的值无效：${value!''}
+UNSUPPORTED_API_VERSION=不支持的API版本
+API_VERSION_NOT_SUPPORTED=不支持的API版本 '${version!"未知"}'。支持的版本: ${supported!""}
+API_VERSION_REQUIRED=缺少必需的API版本
+API_VERSION_DEPRECATED_WARNING=API版本 '${version!"未知"}' 已弃用，将于 ${sunset!"未知"} 停止支持

@@ -474,6 +474,19 @@ public class ShareRideMetrics {
                 userType != null ? userType.toLowerCase() : "passenger");
     }
 
+    /**
+     * Record API Version request status (e.g. SUPPORTED, DEPRECATED, UNSUPPORTED,
+     * PERMISSIVE_FALLBACK).
+     */
+    public void recordApiVersionRequest(String version, String status) {
+        incrementCounter(
+                "api.version.requests",
+                "version",
+                version != null ? version.toLowerCase() : "unknown",
+                "status",
+                status != null ? status.toUpperCase() : "UNKNOWN");
+    }
+
     // Security Observability Events
 
     /**

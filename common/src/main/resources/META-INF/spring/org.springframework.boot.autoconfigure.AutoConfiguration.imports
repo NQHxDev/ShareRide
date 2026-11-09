@@ -5,3 +5,6 @@ com.shareride.common.telemetry.TelemetryAutoConfiguration
 com.shareride.common.persistence.PersistenceAutoConfiguration
 com.shareride.common.redis.ShareRideRedisAutoConfiguration
 com.shareride.common.outbox.OutboxAutoConfiguration
+com.shareride.common.versioning.ApiVersioningAutoConfiguration
+com.shareride.common.resilience.config.ResilienceAutoConfiguration
+com.shareride.common.communication.CommunicationAutoConfiguration

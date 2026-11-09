@@ -1,6 +1,7 @@
 package com.shareride.common.outbox;
 
 import com.shareride.common.persistence.BaseEntity;
+import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -27,6 +28,9 @@ import lombok.Setter;
             @Index(name = "idx_outbox_status_created", columnList = "status, created_at"),
             @Index(name = "idx_outbox_aggregate", columnList = "aggregate_type, aggregate_id")
         })
+@AttributeOverride(
+        name = "id",
+        column = @Column(name = "outbox_message_id", updatable = false, nullable = false))
 @Getter
 @Setter
 @NoArgsConstructor

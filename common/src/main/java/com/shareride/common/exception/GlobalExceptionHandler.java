@@ -12,6 +12,7 @@ import com.shareride.common.logging.masking.DataMaskingUtils;
 import com.shareride.common.metrics.ShareRideMetrics;
 import com.shareride.common.response.BaseResponse;
 import com.shareride.common.response.FieldErrorDetail;
+import com.shareride.common.versioning.UnsupportedApiVersionException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
@@ -145,7 +146,6 @@ public class GlobalExceptionHandler {
             if (resolved != null && !resolved.equals(ex.getCode())) {
                 message = resolved;
             }
-
             log.warn(
                     "Business error [errorId={}, code={}, userId={}, endpoint={}, params={}]: {}",
                     errorId,
@@ -179,6 +179,11 @@ public class GlobalExceptionHandler {
                         request.getRequestURI(),
                         request.getMethod(),
                         Map.of("errorId", errorId, "code", ex.getCode()));
+            } else if (ex instanceof UnsupportedApiVersionException unsupportedEx) {
+                if (metrics != null) {
+                    metrics.recordApiVersionRequest(
+                            unsupportedEx.getRequestedVersion(), "UNSUPPORTED");
+                }
             } else if (ex instanceof RateLimitExceededException) {
                 if (metrics != null) {
                     metrics.recordRateLimitExceeded(

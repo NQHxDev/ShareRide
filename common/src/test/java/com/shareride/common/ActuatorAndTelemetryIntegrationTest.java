@@ -24,7 +24,7 @@ import org.springframework.web.context.WebApplicationContext;
 
 @SpringBootTest(
         classes = ActuatorAndTelemetryIntegrationTest.TestApplication.class,
-        properties = {"shareride.redis.enabled=false"})
+        properties = {"shareride.redis.enabled=false", "management.health.rabbit.enabled=false"})
 class ActuatorAndTelemetryIntegrationTest {
 
     @SpringBootApplication(

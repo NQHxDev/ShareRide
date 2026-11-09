@@ -1,5 +1,6 @@
 package com.shareride.common.telemetry;
 
+import static com.shareride.common.telemetry.AdaptiveTraceSampler.nonNull;
 import static org.junit.jupiter.api.Assertions.*;
 
 import io.opentelemetry.api.common.Attributes;
@@ -29,12 +30,12 @@ class AdaptiveTraceSamplerTest {
 
         SamplingResult result =
                 sampler.shouldSample(
-                        Context.root(),
+                        nonNull(Context.root()),
                         "4bf92f3577b34da6a3ce929d0e0e4736",
                         "/actuator/metrics",
                         SpanKind.SERVER,
-                        Attributes.empty(),
-                        Collections.emptyList());
+                        nonNull(Attributes.empty()),
+                        nonNull(Collections.emptyList()));
         assertEquals(SamplingDecision.DROP, result.getDecision());
     }
 
@@ -52,12 +53,12 @@ class AdaptiveTraceSamplerTest {
         Attributes attrs = Attributes.builder().put("priority", "HIGH").build();
         SamplingResult result =
                 sampler.shouldSample(
-                        Context.root(),
+                        nonNull(Context.root()),
                         "4bf92f3577b34da6a3ce929d0e0e4736",
                         "HTTP POST /api/v1/rides/book",
                         SpanKind.SERVER,
-                        attrs,
-                        Collections.emptyList());
+                        nonNull(attrs),
+                        nonNull(Collections.emptyList()));
         assertEquals(SamplingDecision.RECORD_AND_SAMPLE, result.getDecision());
     }
 

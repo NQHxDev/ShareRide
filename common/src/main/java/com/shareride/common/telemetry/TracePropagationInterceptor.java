@@ -1,11 +1,13 @@
 package com.shareride.common.telemetry;
 
+import com.shareride.common.context.CorrelationIdContext;
 import com.shareride.common.context.UserContext;
 import com.shareride.common.context.UserContextHolder;
 import com.shareride.common.filter.TraceIdContext;
 import com.shareride.common.filter.UserContextFilter;
 import io.micrometer.tracing.Span;
 import io.micrometer.tracing.Tracer;
+import io.opentelemetry.api.trace.SpanContext;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -16,9 +18,9 @@ import org.springframework.http.client.ClientHttpRequestInterceptor;
 import org.springframework.http.client.ClientHttpResponse;
 
 /**
- * Client HTTP interceptor that propagates distributed tracing headers (W3C traceparent, X-Trace-Id,
- * X-Request-Id, X-Span-Id) and business context baggage (Tenant ID, User ID, Session ID,
- * Correlation ID, Request Priority, Feature Flags) to downstream microservices in the service mesh.
+ * ClientHttpRequestInterceptor for RestTemplate and RestClient that propagates: 1. W3C TraceContext
+ * (traceparent) and X-Trace-Id / X-Request-Id headers. 2. W3C Baggage and business context headers
+ * (X-User-Id, X-Tenant-Id, X-Correlation-Id, X-Priority). 3. Dynamic debug level headers.
  */
 public class TracePropagationInterceptor implements ClientHttpRequestInterceptor {
 
@@ -37,26 +39,32 @@ public class TracePropagationInterceptor implements ClientHttpRequestInterceptor
             HttpRequest request, byte[] body, ClientHttpRequestExecution execution)
             throws IOException {
 
-        // 1. Trace ID, Span ID & Request ID propagation
+        // 1. Resolve and propagate tracing identifiers
         String traceId = null;
         String spanId = null;
         boolean sampled = true;
 
-        if (tracerProvider != null) {
+        // Try OpenTelemetry SpanContext first if active
+        SpanContext otelContext = io.opentelemetry.api.trace.Span.current().getSpanContext();
+        if (otelContext != null && otelContext.isValid()) {
+            traceId = otelContext.getTraceId();
+            spanId = otelContext.getSpanId();
+            sampled = otelContext.getTraceFlags().isSampled();
+        }
+
+        // Fallback to Micrometer Tracer
+        if (traceId == null && tracerProvider != null && tracerProvider.getIfAvailable() != null) {
             Tracer tracer = tracerProvider.getIfAvailable();
-            if (tracer != null) {
-                Span currentSpan = tracer.currentSpan();
-                if (currentSpan != null && currentSpan.context() != null) {
-                    traceId = currentSpan.context().traceId();
-                    spanId = currentSpan.context().spanId();
-                    Boolean s = currentSpan.context().sampled();
-                    if (s != null) {
-                        sampled = s;
-                    }
-                }
+            Span currentSpan = tracer.currentSpan();
+            if (currentSpan != null && currentSpan.context() != null) {
+                traceId = currentSpan.context().traceId();
+                spanId = currentSpan.context().spanId();
+                Boolean s = currentSpan.context().sampled();
+                sampled = s != null ? s : true;
             }
         }
 
+        // Fallback to thread-local TraceIdContext
         if (traceId == null || traceId.isBlank()) {
             traceId = TraceIdContext.getTraceId();
             spanId = TraceIdContext.getSpanId();
@@ -89,6 +97,20 @@ public class TracePropagationInterceptor implements ClientHttpRequestInterceptor
         UserContext userContext = UserContextHolder.getContext();
         Map<String, String> baggageItems = new LinkedHashMap<>();
 
+        // Correlation ID propagation (distinct from traceId, tracking business flows)
+        String correlationId = (userContext != null) ? userContext.getCorrelationId() : null;
+        if (correlationId == null || correlationId.isBlank()) {
+            correlationId = CorrelationIdContext.getCorrelationId();
+        }
+        if (correlationId == null || correlationId.isBlank()) {
+            correlationId = CorrelationIdContext.generateCorrelationId();
+        }
+
+        if (!request.getHeaders().containsHeader(CorrelationIdContext.CORRELATION_ID_HEADER)) {
+            request.getHeaders().add(CorrelationIdContext.CORRELATION_ID_HEADER, correlationId);
+        }
+        baggageItems.put(BaggageUtils.KEY_CORRELATION_ID, correlationId);
+
         if (userContext != null) {
             // Tenant ID
             if (userContext.getTenantId() != null && !userContext.getTenantId().isBlank()) {
@@ -117,19 +139,6 @@ public class TracePropagationInterceptor implements ClientHttpRequestInterceptor
                 baggageItems.put("session_id", userContext.getSessionId());
             }
 
-            // Correlation ID
-            String correlationId = userContext.getCorrelationId();
-            if (correlationId == null || correlationId.isBlank()) {
-                correlationId = traceId;
-            }
-            if (correlationId != null && !correlationId.isBlank()) {
-                if (!request.getHeaders().containsHeader(UserContextFilter.CORRELATION_ID_HEADER)) {
-                    request.getHeaders()
-                            .add(UserContextFilter.CORRELATION_ID_HEADER, correlationId);
-                }
-                baggageItems.put(BaggageUtils.KEY_CORRELATION_ID, correlationId);
-            }
-
             // Priority
             if (userContext.getPriority() != null && !userContext.getPriority().isBlank()) {
                 if (!request.getHeaders().containsHeader(UserContextFilter.PRIORITY_HEADER)) {
@@ -145,17 +154,14 @@ public class TracePropagationInterceptor implements ClientHttpRequestInterceptor
                 if (!request.getHeaders().containsHeader(UserContextFilter.FEATURE_FLAGS_HEADER)) {
                     request.getHeaders().add(UserContextFilter.FEATURE_FLAGS_HEADER, flagsStr);
                 }
-                baggageItems.put(BaggageUtils.KEY_FEATURE_FLAGS, flagsStr);
             }
         }
 
-        // 3. Inject W3C baggage header
+        // Format and inject W3C baggage header if any entries present
         if (!baggageItems.isEmpty()
                 && !request.getHeaders().containsHeader(BaggageUtils.BAGGAGE_HEADER)) {
-            String baggageHeader = BaggageUtils.formatBaggage(baggageItems);
-            if (!baggageHeader.isBlank()) {
-                request.getHeaders().add(BaggageUtils.BAGGAGE_HEADER, baggageHeader);
-            }
+            request.getHeaders()
+                    .add(BaggageUtils.BAGGAGE_HEADER, BaggageUtils.formatBaggage(baggageItems));
         }
 
         return execution.execute(request, body);

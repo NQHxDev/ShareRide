@@ -15,7 +15,7 @@
     <!-- Non-Production Console Appender Profile -->
     <springProfile name="!prod &amp; !staging">
         <property name="CONSOLE_LOG_PATTERN"
-                  value="%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%5p) %clr([${springAppName:-shareride},%X{traceId:-},%X{spanId:-},%X{userId:-}]) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx"/>
+                  value="%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%5p) %clr([${springAppName:-shareride},%X{traceId:-},%X{spanId:-},%X{correlationId:-},%X{userId:-}]) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx"/>
 
         <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
             <encoder>
