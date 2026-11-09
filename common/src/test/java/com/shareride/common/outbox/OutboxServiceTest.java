@@ -1,12 +1,19 @@
 package com.shareride.common.outbox;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shareride.common.filter.TraceIdContext;
 import java.util.Map;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -20,6 +27,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class OutboxServiceTest {
 
     @Mock private OutboxMessageRepository outboxMessageRepository;
+    @Mock private OutboxRelayService outboxRelayService;
 
     private OutboxService outboxService;
     private ObjectMapper objectMapper;
@@ -27,7 +35,8 @@ class OutboxServiceTest {
     @BeforeEach
     void setUp() {
         objectMapper = new ObjectMapper();
-        outboxService = new OutboxService(outboxMessageRepository, objectMapper);
+        outboxService =
+                new OutboxService(outboxMessageRepository, objectMapper, outboxRelayService);
         TraceIdContext.setTraceId("trace-outbox-999");
     }
 
@@ -53,6 +62,7 @@ class OutboxServiceTest {
         assertEquals("USER_REGISTERED", recorded.getEventType());
         assertEquals("trace-outbox-999", recorded.getTraceId());
         assertEquals(OutboxStatus.PENDING, recorded.getStatus());
+        assertTrue(recorded.isPending());
         assertTrue(recorded.getPayload().contains("john@shareride.com"));
 
         ArgumentCaptor<OutboxMessage> captor = ArgumentCaptor.forClass(OutboxMessage.class);
@@ -73,14 +83,62 @@ class OutboxServiceTest {
 
         assertEquals(OutboxStatus.PENDING, message.getStatus());
         assertEquals(0, message.getRetryCount());
+        assertTrue(message.isPending());
 
         message.markFailed("Kafka broker connection timeout");
         assertEquals(OutboxStatus.FAILED, message.getStatus());
         assertEquals(1, message.getRetryCount());
         assertEquals("Kafka broker connection timeout", message.getErrorMessage());
+        assertNotNull(message.getProcessedAt());
+        assertTrue(message.isFailed());
+
+        message.markDeadLetter("Exceeded 3 retries");
+        assertEquals(OutboxStatus.DEAD_LETTER, message.getStatus());
+        assertTrue(message.isDeadLetter());
+        assertEquals("Exceeded 3 retries", message.getErrorMessage());
+
+        message.resetForRetry();
+        assertEquals(OutboxStatus.PENDING, message.getStatus());
+        assertEquals(0, message.getRetryCount());
+        assertNull(message.getErrorMessage());
+        assertNull(message.getProcessedAt());
 
         message.markProcessed();
         assertEquals(OutboxStatus.PROCESSED, message.getStatus());
         assertNotNull(message.getProcessedAt());
+        assertTrue(message.isProcessed());
+    }
+
+    @Test
+    @DisplayName("OutboxService should delegate relay and DLQ methods to OutboxRelayService")
+    void testRelayDelegation() {
+        RelayBatchResult expectedResult =
+                RelayBatchResult.builder()
+                        .totalFetched(5)
+                        .processed(5)
+                        .failed(0)
+                        .deadLettered(0)
+                        .skipped(0)
+                        .build();
+
+        when(outboxRelayService.processBatch()).thenReturn(expectedResult);
+        RelayBatchResult actual = outboxService.relayPendingMessages();
+        assertEquals(5, actual.getProcessed());
+        assertFalse(actual.hasFailures());
+
+        UUID messageId = UUID.randomUUID();
+        when(outboxRelayService.requeueDeadLetter(messageId)).thenReturn(1);
+        int requeued = outboxService.requeueDeadLetter(messageId);
+        assertEquals(1, requeued);
+
+        when(outboxRelayService.requeueAllDeadLetters()).thenReturn(3);
+        int requeuedAll = outboxService.requeueAllDeadLetters();
+        assertEquals(3, requeuedAll);
+
+        when(outboxMessageRepository.countByStatus(OutboxStatus.DEAD_LETTER)).thenReturn(2L);
+        assertEquals(2L, outboxService.getDeadLetterCount());
+
+        when(outboxMessageRepository.countByStatus(OutboxStatus.PENDING)).thenReturn(10L);
+        assertEquals(10L, outboxService.getPendingCount());
     }
 }

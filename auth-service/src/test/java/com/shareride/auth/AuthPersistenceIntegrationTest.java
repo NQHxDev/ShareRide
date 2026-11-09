@@ -17,6 +17,7 @@ import com.shareride.auth.dto.RegisterRequest;
 import com.shareride.auth.dto.UserResponse;
 import com.shareride.auth.repository.UserRepository;
 import com.shareride.auth.service.AuthService;
+import com.shareride.auth.support.AbstractIntegrationTest;
 import com.shareride.common.context.UserContext;
 import com.shareride.common.context.UserContextHolder;
 import com.shareride.common.exception.ConflictException;
@@ -35,7 +36,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @SpringBootTest
-class AuthPersistenceIntegrationTest {
+class AuthPersistenceIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired private UserRepository userRepository;
 

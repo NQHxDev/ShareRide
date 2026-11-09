@@ -27,6 +27,8 @@
         <freemarker.version>2.3.34</freemarker.version>
         <lombok.version>1.18.36</lombok.version>
         <common.version>1.0.0-SNAPSHOT</common.version>
+        <jacoco.version>0.8.12</jacoco.version>
+        <testcontainers.version>2.0.5</testcontainers.version>
     </properties>
 
     <modules>
@@ -36,6 +38,14 @@
 
     <dependencyManagement>
         <dependencies>
+            <!-- Testcontainers BOM for microservices integration testing -->
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>${testcontainers.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
             <dependency>
                 <groupId>com.shareride</groupId>
                 <artifactId>common</artifactId>
@@ -81,6 +91,25 @@
                     <failsOnError>true</failsOnError>
                     <linkXRef>false</linkXRef>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

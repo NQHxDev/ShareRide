@@ -89,5 +89,36 @@ public class OutboxMessage extends BaseEntity {
         this.errorMessage =
                 error != null && error.length() > 1000 ? error.substring(0, 1000) : error;
         this.retryCount++;
+        this.processedAt = Instant.now();
+    }
+
+    public void markDeadLetter(String error) {
+        this.status = OutboxStatus.DEAD_LETTER;
+        this.errorMessage =
+                error != null && error.length() > 1000 ? error.substring(0, 1000) : error;
+        this.processedAt = Instant.now();
+    }
+
+    public void resetForRetry() {
+        this.status = OutboxStatus.PENDING;
+        this.retryCount = 0;
+        this.errorMessage = null;
+        this.processedAt = null;
+    }
+
+    public boolean isDeadLetter() {
+        return this.status == OutboxStatus.DEAD_LETTER;
+    }
+
+    public boolean isProcessed() {
+        return this.status == OutboxStatus.PROCESSED;
+    }
+
+    public boolean isPending() {
+        return this.status == OutboxStatus.PENDING;
+    }
+
+    public boolean isFailed() {
+        return this.status == OutboxStatus.FAILED;
     }
 }
