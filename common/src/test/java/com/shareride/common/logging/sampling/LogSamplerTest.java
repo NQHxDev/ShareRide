@@ -1,8 +1,8 @@
 package com.shareride.common.logging.sampling;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.*;
+
+import org.junit.jupiter.api.Test;
 
 class LogSamplerTest {
 
@@ -49,7 +49,10 @@ class LogSamplerTest {
 
         boolean first = sampler.shouldSample("INFO", traceId, false);
         boolean second = sampler.shouldSample("INFO", traceId, false);
-        assertEquals(first, second, "Deterministic sampling with the same traceId must produce identical results");
+        assertEquals(
+                first,
+                second,
+                "Deterministic sampling with the same traceId must produce identical results");
     }
 
     @Test

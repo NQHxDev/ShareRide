@@ -1,18 +1,17 @@
 package com.shareride.common.context;
 
-import com.shareride.common.exception.UnauthorizedException;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
+import com.shareride.common.exception.UnauthorizedException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 class UserContextTest {
 
@@ -29,10 +28,11 @@ class UserContextTest {
     @Test
     @DisplayName("UserContext role checks should support case-insensitivity and ROLE_ prefix")
     void testUserContextRoleChecks() {
-        UserContext context = UserContext.builder()
-                .userId("usr-123")
-                .roles(Set.of("ROLE_DRIVER", "PASSENGER"))
-                .build();
+        UserContext context =
+                UserContext.builder()
+                        .userId("usr-123")
+                        .roles(Set.of("ROLE_DRIVER", "PASSENGER"))
+                        .build();
 
         assertTrue(context.isAuthenticated());
         assertTrue(context.hasRole("DRIVER"), "Should match without ROLE_ prefix");
@@ -62,15 +62,16 @@ class UserContextTest {
         assertThrows(UnauthorizedException.class, UserContextHolder::getRequiredUserId);
 
         // Set context
-        UserContext user = UserContext.builder()
-                .userId("usr-456")
-                .email("driver@shareride.com")
-                .roles(Set.of("DRIVER"))
-                .clientIp("192.168.1.100")
-                .deviceId("device-xyz")
-                .traceId("trace-001")
-                .spanId("span-001")
-                .build();
+        UserContext user =
+                UserContext.builder()
+                        .userId("usr-456")
+                        .email("driver@shareride.com")
+                        .roles(Set.of("DRIVER"))
+                        .clientIp("192.168.1.100")
+                        .deviceId("device-xyz")
+                        .traceId("trace-001")
+                        .spanId("span-001")
+                        .build();
 
         UserContextHolder.setContext(user);
 
@@ -100,14 +101,16 @@ class UserContextTest {
         AtomicBoolean threadPassed = new AtomicBoolean(false);
         CountDownLatch latch = new CountDownLatch(1);
 
-        Thread thread = new Thread(() -> {
-            // New thread should not see main thread's context
-            Optional<String> otherUserId = UserContextHolder.getCurrentUserId();
-            if (otherUserId.isEmpty()) {
-                threadPassed.set(true);
-            }
-            latch.countDown();
-        });
+        Thread thread =
+                new Thread(
+                        () -> {
+                            // New thread should not see main thread's context
+                            Optional<String> otherUserId = UserContextHolder.getCurrentUserId();
+                            if (otherUserId.isEmpty()) {
+                                threadPassed.set(true);
+                            }
+                            latch.countDown();
+                        });
 
         thread.start();
         assertTrue(latch.await(2, TimeUnit.SECONDS));

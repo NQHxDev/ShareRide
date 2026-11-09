@@ -1,18 +1,17 @@
 package com.shareride.common.context;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import com.shareride.common.filter.TraceIdContext;
 import com.shareride.common.logging.MdcConstants;
+import java.util.Set;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
-
-import java.util.Set;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 class ShareRideTaskDecoratorTest {
 
@@ -40,15 +39,16 @@ class ShareRideTaskDecoratorTest {
     @DisplayName("Should propagate UserContext, TraceIdContext and MDC to async worker thread")
     void testPropagateContextToAsyncThread() throws Exception {
         // Setup caller thread state
-        UserContext callerUser = UserContext.builder()
-                .userId("async-usr-1")
-                .email("async@shareride.com")
-                .roles(Set.of("PASSENGER"))
-                .clientIp("10.0.0.1")
-                .deviceId("device-async-1")
-                .traceId("trace-decorated-123")
-                .spanId("span-decorated-456")
-                .build();
+        UserContext callerUser =
+                UserContext.builder()
+                        .userId("async-usr-1")
+                        .email("async@shareride.com")
+                        .roles(Set.of("PASSENGER"))
+                        .clientIp("10.0.0.1")
+                        .deviceId("device-async-1")
+                        .traceId("trace-decorated-123")
+                        .spanId("span-decorated-456")
+                        .build();
         UserContextHolder.setContext(callerUser);
 
         TraceIdContext.setTraceId("trace-decorated-123");
@@ -64,13 +64,14 @@ class ShareRideTaskDecoratorTest {
         AtomicReference<String> workerMdcTrace = new AtomicReference<>();
         AtomicReference<String> workerMdcCustom = new AtomicReference<>();
 
-        Runnable task = () -> {
-            workerUserId.set(UserContextHolder.getCurrentUserId().orElse(null));
-            workerTraceId.set(TraceIdContext.getTraceId());
-            workerSpanId.set(TraceIdContext.getSpanId());
-            workerMdcTrace.set(MDC.get(MdcConstants.TRACE_ID));
-            workerMdcCustom.set(MDC.get("customKey"));
-        };
+        Runnable task =
+                () -> {
+                    workerUserId.set(UserContextHolder.getCurrentUserId().orElse(null));
+                    workerTraceId.set(TraceIdContext.getTraceId());
+                    workerSpanId.set(TraceIdContext.getSpanId());
+                    workerMdcTrace.set(MDC.get(MdcConstants.TRACE_ID));
+                    workerMdcCustom.set(MDC.get("customKey"));
+                };
 
         Runnable decorated = decorator.decorate(task);
         Future<?> future = executorService.submit(decorated);
@@ -92,15 +93,19 @@ class ShareRideTaskDecoratorTest {
     @DisplayName("Worker thread should restore previous state after task completion")
     void testWorkerThreadRestoresPreviousState() throws Exception {
         // Setup pre-existing state on worker thread
-        executorService.submit(() -> {
-            MDC.put("preExistingKey", "preExistingValue");
-            TraceIdContext.setTraceId("pre-existing-trace");
-        }).get(2, TimeUnit.SECONDS);
+        executorService
+                .submit(
+                        () -> {
+                            MDC.put("preExistingKey", "preExistingValue");
+                            TraceIdContext.setTraceId("pre-existing-trace");
+                        })
+                .get(2, TimeUnit.SECONDS);
 
         // Caller has clean context
-        Runnable task = () -> {
-            assertNull(MDC.get("preExistingKey"));
-        };
+        Runnable task =
+                () -> {
+                    assertNull(MDC.get("preExistingKey"));
+                };
 
         Runnable decorated = decorator.decorate(task);
         executorService.submit(decorated).get(2, TimeUnit.SECONDS);
@@ -108,10 +113,13 @@ class ShareRideTaskDecoratorTest {
         // Verify worker thread restored its pre-existing values
         AtomicReference<String> restoredKey = new AtomicReference<>();
         AtomicReference<String> restoredTrace = new AtomicReference<>();
-        executorService.submit(() -> {
-            restoredKey.set(MDC.get("preExistingKey"));
-            restoredTrace.set(TraceIdContext.getTraceId());
-        }).get(2, TimeUnit.SECONDS);
+        executorService
+                .submit(
+                        () -> {
+                            restoredKey.set(MDC.get("preExistingKey"));
+                            restoredTrace.set(TraceIdContext.getTraceId());
+                        })
+                .get(2, TimeUnit.SECONDS);
 
         assertEquals("preExistingValue", restoredKey.get());
         assertEquals("pre-existing-trace", restoredTrace.get());

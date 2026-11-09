@@ -10,32 +10,30 @@ import org.springframework.data.domain.AuditorAware;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 
 /**
- * Enterprise AutoConfiguration for relational persistence:
- * - Enables Spring Data JPA auditing with ShareRideAuditorAware
- * - Injects SQL statement inspection for OpenTelemetry trace correlation
+ * Enterprise AutoConfiguration for relational persistence: - Enables Spring Data JPA auditing with
+ * ShareRideAuditorAware - Injects SQL statement inspection for OpenTelemetry trace correlation
  */
 @AutoConfiguration
-@ConditionalOnClass({ AuditorAware.class, EnableJpaAuditing.class })
+@ConditionalOnClass({AuditorAware.class, EnableJpaAuditing.class})
 @EnableJpaAuditing(auditorAwareRef = "shareRideAuditorAware")
 public class PersistenceAutoConfiguration {
 
-   @Bean
-   @ConditionalOnMissingBean(name = "shareRideAuditorAware")
-   public AuditorAware<String> shareRideAuditorAware() {
-      return new ShareRideAuditorAware();
-   }
+    @Bean
+    @ConditionalOnMissingBean(name = "shareRideAuditorAware")
+    public AuditorAware<String> shareRideAuditorAware() {
+        return new ShareRideAuditorAware();
+    }
 
-   @Bean
-   @ConditionalOnMissingBean(ShareRideStatementInspector.class)
-   public ShareRideStatementInspector shareRideStatementInspector() {
-      return new ShareRideStatementInspector();
-   }
+    @Bean
+    @ConditionalOnMissingBean(ShareRideStatementInspector.class)
+    public ShareRideStatementInspector shareRideStatementInspector() {
+        return new ShareRideStatementInspector();
+    }
 
-   @Bean
-   public HibernatePropertiesCustomizer shareRideHibernatePropertiesCustomizer(ShareRideStatementInspector inspector) {
-      return hibernateProperties -> hibernateProperties.put(
-            JdbcSettings.STATEMENT_INSPECTOR,
-            inspector);
-   }
-
+    @Bean
+    public HibernatePropertiesCustomizer shareRideHibernatePropertiesCustomizer(
+            ShareRideStatementInspector inspector) {
+        return hibernateProperties ->
+                hibernateProperties.put(JdbcSettings.STATEMENT_INSPECTOR, inspector);
+    }
 }

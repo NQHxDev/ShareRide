@@ -8,32 +8,35 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.Marker;
 import org.slf4j.MarkerFactory;
 
-/**
- * Standardized logger for publishing business domain lifecycle events.
- */
+/** Standardized logger for publishing business domain lifecycle events. */
 public class BusinessEventLogger {
 
-   private static final Logger log = LoggerFactory.getLogger("com.shareride.business.event");
-   private static final Marker EVENT_MARKER = MarkerFactory.getMarker("BUSINESS_EVENT");
-   private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static final Logger log = LoggerFactory.getLogger("com.shareride.business.event");
+    private static final Marker EVENT_MARKER = MarkerFactory.getMarker("BUSINESS_EVENT");
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
-   public void publish(BusinessEvent event) {
-      if (event == null) {
-         return;
-      }
-      if (event.getTraceId() == null) {
-         event.setTraceId(TraceIdContext.getTraceId());
-      }
-      if (event.getMetadata() != null) {
-         event.setMetadata(DataMaskingUtils.maskParams(event.getMetadata()));
-      }
+    public void publish(BusinessEvent event) {
+        if (event == null) {
+            return;
+        }
+        if (event.getTraceId() == null) {
+            event.setTraceId(TraceIdContext.getTraceId());
+        }
+        if (event.getMetadata() != null) {
+            event.setMetadata(DataMaskingUtils.maskParams(event.getMetadata()));
+        }
 
-      try {
-         String json = objectMapper.writeValueAsString(event);
-         log.info(EVENT_MARKER, "[BUSINESS_EVENT] {}", json);
-      } catch (Exception e) {
-         log.info(EVENT_MARKER, "[BUSINESS_EVENT] type={} user={} entity={} traceId={}",
-               event.getType(), event.getUserId(), event.getEntityId(), event.getTraceId());
-      }
-   }
+        try {
+            String json = objectMapper.writeValueAsString(event);
+            log.info(EVENT_MARKER, "[BUSINESS_EVENT] {}", json);
+        } catch (Exception e) {
+            log.info(
+                    EVENT_MARKER,
+                    "[BUSINESS_EVENT] type={} user={} entity={} traceId={}",
+                    event.getType(),
+                    event.getUserId(),
+                    event.getEntityId(),
+                    event.getTraceId());
+        }
+    }
 }

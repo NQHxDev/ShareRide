@@ -1,12 +1,12 @@
 package com.shareride.common.logging.metrics;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import com.shareride.common.metrics.ShareRideMetrics;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class LoggingMetricsTest {
 
@@ -34,16 +34,20 @@ class LoggingMetricsTest {
 
         assertEquals(3, LoggingMetrics.getTotalEvents());
 
-        double infoCount = meterRegistry.get("shareride.logging.events")
-                .tag("level", "INFO")
-                .counter()
-                .count();
+        double infoCount =
+                meterRegistry
+                        .get("shareride.logging.events")
+                        .tag("level", "INFO")
+                        .counter()
+                        .count();
         assertEquals(2.0, infoCount);
 
-        double errorCount = meterRegistry.get("shareride.logging.events")
-                .tag("level", "ERROR")
-                .counter()
-                .count();
+        double errorCount =
+                meterRegistry
+                        .get("shareride.logging.events")
+                        .tag("level", "ERROR")
+                        .counter()
+                        .count();
         assertEquals(1.0, errorCount);
     }
 
@@ -54,10 +58,12 @@ class LoggingMetricsTest {
 
         assertEquals(2, LoggingMetrics.getTotalDropped());
 
-        double droppedCount = meterRegistry.get("shareride.logging.dropped")
-                .tag("reason", "queue_full")
-                .counter()
-                .count();
+        double droppedCount =
+                meterRegistry
+                        .get("shareride.logging.dropped")
+                        .tag("reason", "queue_full")
+                        .counter()
+                        .count();
         assertEquals(2.0, droppedCount);
     }
 }

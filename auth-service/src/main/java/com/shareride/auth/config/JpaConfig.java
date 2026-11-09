@@ -7,5 +7,4 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @Configuration
 @EntityScan(basePackages = "com.shareride")
 @EnableJpaRepositories(basePackages = "com.shareride")
-public class JpaConfig {
-}
+public class JpaConfig {}

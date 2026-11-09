@@ -1,5 +1,7 @@
 package com.shareride.common.filter;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import com.shareride.common.logging.MdcConstants;
 import com.shareride.common.logging.ShareRideLoggingProperties;
 import com.shareride.common.metrics.ShareRideMetrics;
@@ -7,6 +9,9 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import java.io.IOException;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -14,12 +19,6 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
-
-import java.io.IOException;
-import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 class HttpLoggingFilterTest {
 
@@ -51,11 +50,12 @@ class HttpLoggingFilterTest {
         response.setStatus(200);
 
         AtomicBoolean chainExecuted = new AtomicBoolean(false);
-        FilterChain filterChain = (req, res) -> {
-            chainExecuted.set(true);
-            assertEquals("GET", MDC.get(MdcConstants.HTTP_METHOD));
-            assertEquals("/api/v1/rides", MDC.get(MdcConstants.HTTP_URI));
-        };
+        FilterChain filterChain =
+                (req, res) -> {
+                    chainExecuted.set(true);
+                    assertEquals("GET", MDC.get(MdcConstants.HTTP_METHOD));
+                    assertEquals("/api/v1/rides", MDC.get(MdcConstants.HTTP_URI));
+                };
 
         filter.doFilter(request, response, filterChain);
 
@@ -71,22 +71,25 @@ class HttpLoggingFilterTest {
         MockHttpServletResponse response = new MockHttpServletResponse();
         response.setStatus(200);
 
-        FilterChain slowChain = (req, res) -> {
-            try {
-                Thread.sleep(70); // longer than 50ms threshold
-            } catch (InterruptedException ignored) {
-            }
-        };
+        FilterChain slowChain =
+                (req, res) -> {
+                    try {
+                        Thread.sleep(70); // longer than 50ms threshold
+                    } catch (InterruptedException ignored) {
+                    }
+                };
 
         filter.doFilter(request, response, slowChain);
 
         // Verify slow request metric incremented
-        double count = meterRegistry.get("shareride.http.slow.requests")
-                .tag("method", "POST")
-                .tag("uri", "/api/v1/rides/book")
-                .tag("status", "200")
-                .counter()
-                .count();
+        double count =
+                meterRegistry
+                        .get("shareride.http.slow.requests")
+                        .tag("method", "POST")
+                        .tag("uri", "/api/v1/rides/book")
+                        .tag("status", "200")
+                        .counter()
+                        .count();
 
         assertEquals(1.0, count);
     }
@@ -98,11 +101,12 @@ class HttpLoggingFilterTest {
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         AtomicBoolean chainExecuted = new AtomicBoolean(false);
-        FilterChain filterChain = (req, res) -> {
-            chainExecuted.set(true);
-            // Since shouldNotFilter is true, MDC should not be set by HttpLoggingFilter
-            assertNull(MDC.get(MdcConstants.HTTP_METHOD));
-        };
+        FilterChain filterChain =
+                (req, res) -> {
+                    chainExecuted.set(true);
+                    // Since shouldNotFilter is true, MDC should not be set by HttpLoggingFilter
+                    assertNull(MDC.get(MdcConstants.HTTP_METHOD));
+                };
 
         filter.doFilter(request, response, filterChain);
         assertTrue(chainExecuted.get());
@@ -116,10 +120,11 @@ class HttpLoggingFilterTest {
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         AtomicBoolean chainExecuted = new AtomicBoolean(false);
-        FilterChain filterChain = (req, res) -> {
-            chainExecuted.set(true);
-            assertNull(MDC.get(MdcConstants.HTTP_METHOD));
-        };
+        FilterChain filterChain =
+                (req, res) -> {
+                    chainExecuted.set(true);
+                    assertNull(MDC.get(MdcConstants.HTTP_METHOD));
+                };
 
         filter.doFilter(request, response, filterChain);
         assertTrue(chainExecuted.get());

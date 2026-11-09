@@ -1,11 +1,9 @@
 package com.shareride.common.response;
 
-/**
- * Severity / Status level for API responses.
- */
+/** Severity / Status level for API responses. */
 public enum ResponseLevel {
-   SUCCESS,
-   INFO,
-   WARNING,
-   ERROR
+    SUCCESS,
+    INFO,
+    WARNING,
+    ERROR
 }

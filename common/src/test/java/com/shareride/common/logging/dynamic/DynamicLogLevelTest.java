@@ -1,5 +1,7 @@
 package com.shareride.common.logging.dynamic;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.core.spi.FilterReply;
@@ -7,8 +9,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 class DynamicLogLevelTest {
 
@@ -35,18 +35,28 @@ class DynamicLogLevelTest {
     @Test
     void testDynamicDebugOverride() {
         assertFalse(DynamicLogLevelContext.isDebugActive());
-        assertEquals(FilterReply.NEUTRAL, filter.decide(null, appLogger, Level.DEBUG, "debug msg", null, null));
+        assertEquals(
+                FilterReply.NEUTRAL,
+                filter.decide(null, appLogger, Level.DEBUG, "debug msg", null, null));
 
         DynamicLogLevelContext.setDebugOverride(true);
         assertTrue(DynamicLogLevelContext.isDebugActive());
-        assertEquals(FilterReply.ACCEPT, filter.decide(null, appLogger, Level.DEBUG, "debug msg", null, null));
-        assertEquals(FilterReply.ACCEPT, filter.decide(null, appLogger, Level.TRACE, "trace msg", null, null));
+        assertEquals(
+                FilterReply.ACCEPT,
+                filter.decide(null, appLogger, Level.DEBUG, "debug msg", null, null));
+        assertEquals(
+                FilterReply.ACCEPT,
+                filter.decide(null, appLogger, Level.TRACE, "trace msg", null, null));
 
         // External package should stay NEUTRAL
-        assertEquals(FilterReply.NEUTRAL, filter.decide(null, externalLogger, Level.DEBUG, "external debug", null, null));
+        assertEquals(
+                FilterReply.NEUTRAL,
+                filter.decide(null, externalLogger, Level.DEBUG, "external debug", null, null));
 
         // INFO level always remains NEUTRAL
-        assertEquals(FilterReply.NEUTRAL, filter.decide(null, appLogger, Level.INFO, "info msg", null, null));
+        assertEquals(
+                FilterReply.NEUTRAL,
+                filter.decide(null, appLogger, Level.INFO, "info msg", null, null));
     }
 
     @Test

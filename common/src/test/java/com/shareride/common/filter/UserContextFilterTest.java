@@ -1,10 +1,14 @@
 package com.shareride.common.filter;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import com.shareride.common.context.UserContext;
 import com.shareride.common.context.UserContextHolder;
 import com.shareride.common.logging.MdcConstants;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import java.io.IOException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -12,11 +16,6 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
-
-import java.io.IOException;
-import java.util.concurrent.atomic.AtomicBoolean;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 class UserContextFilterTest {
 
@@ -54,26 +53,27 @@ class UserContextFilterTest {
         MockHttpServletResponse response = new MockHttpServletResponse();
         AtomicBoolean filterChainExecuted = new AtomicBoolean(false);
 
-        FilterChain filterChain = (req, res) -> {
-            filterChainExecuted.set(true);
+        FilterChain filterChain =
+                (req, res) -> {
+                    filterChainExecuted.set(true);
 
-            // Verify UserContext
-            UserContext ctx = UserContextHolder.getContext();
-            assertNotNull(ctx);
-            assertEquals("usr-999", ctx.getUserId());
-            assertEquals("driver@shareride.com", ctx.getEmail());
-            assertEquals("203.0.113.195", ctx.getClientIp());
-            assertEquals("device-android-12", ctx.getDeviceId());
-            assertEquals("ShareRideMobile/1.0", ctx.getUserAgent());
-            assertEquals("trace-ctx-123", ctx.getTraceId());
-            assertEquals("span-ctx-456", ctx.getSpanId());
-            assertTrue(ctx.hasRole("DRIVER"));
-            assertTrue(ctx.hasRole("PASSENGER"));
+                    // Verify UserContext
+                    UserContext ctx = UserContextHolder.getContext();
+                    assertNotNull(ctx);
+                    assertEquals("usr-999", ctx.getUserId());
+                    assertEquals("driver@shareride.com", ctx.getEmail());
+                    assertEquals("203.0.113.195", ctx.getClientIp());
+                    assertEquals("device-android-12", ctx.getDeviceId());
+                    assertEquals("ShareRideMobile/1.0", ctx.getUserAgent());
+                    assertEquals("trace-ctx-123", ctx.getTraceId());
+                    assertEquals("span-ctx-456", ctx.getSpanId());
+                    assertTrue(ctx.hasRole("DRIVER"));
+                    assertTrue(ctx.hasRole("PASSENGER"));
 
-            // Verify MDC
-            assertEquals("usr-999", MDC.get(MdcConstants.USER_ID));
-            assertEquals("203.0.113.195", MDC.get(MdcConstants.CLIENT_IP));
-        };
+                    // Verify MDC
+                    assertEquals("usr-999", MDC.get(MdcConstants.USER_ID));
+                    assertEquals("203.0.113.195", MDC.get(MdcConstants.CLIENT_IP));
+                };
 
         filter.doFilter(request, response, filterChain);
 
@@ -91,42 +91,55 @@ class UserContextFilterTest {
         req1.addHeader(UserContextFilter.REAL_IP_HEADER, "198.51.100.22");
         MockHttpServletResponse res1 = new MockHttpServletResponse();
 
-        filter.doFilter(req1, res1, (req, res) -> {
-            assertEquals("198.51.100.22", UserContextHolder.getClientIp());
-        });
+        filter.doFilter(
+                req1,
+                res1,
+                (req, res) -> {
+                    assertEquals("198.51.100.22", UserContextHolder.getClientIp());
+                });
 
         MockHttpServletRequest req2 = new MockHttpServletRequest("GET", "/api/v1/test");
         req2.setRemoteAddr("127.0.0.1");
         MockHttpServletResponse res2 = new MockHttpServletResponse();
 
-        filter.doFilter(req2, res2, (req, res) -> {
-            assertEquals("127.0.0.1", UserContextHolder.getClientIp());
-        });
+        filter.doFilter(
+                req2,
+                res2,
+                (req, res) -> {
+                    assertEquals("127.0.0.1", UserContextHolder.getClientIp());
+                });
     }
 
     @Test
-    @DisplayName("Should parse W3C baggage header and populate tenant, priority, and feature flags into UserContext and MDC")
+    @DisplayName(
+            "Should parse W3C baggage header and populate tenant, priority, and feature flags into"
+                    + " UserContext and MDC")
     void testExtractBaggageAndW3cHeader() throws ServletException, IOException {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/rides");
-        request.addHeader("baggage", "tenantId=tenant-danang,userId=usr-77,priority=HIGH,correlationId=corr-xyz,featureFlags=surge_pricing");
+        request.addHeader(
+                "baggage",
+                "tenantId=tenant-danang,userId=usr-77,priority=HIGH,correlationId=corr-xyz,featureFlags=surge_pricing");
 
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        filter.doFilter(request, response, (req, res) -> {
-            UserContext ctx = UserContextHolder.getContext();
-            assertNotNull(ctx);
-            assertEquals("tenant-danang", ctx.getTenantId());
-            assertEquals("usr-77", ctx.getUserId());
-            assertEquals("HIGH", ctx.getPriority());
-            assertTrue(ctx.isHighPriority());
-            assertEquals("corr-xyz", ctx.getCorrelationId());
-            assertTrue(ctx.hasFeatureFlag("surge_pricing"));
+        filter.doFilter(
+                request,
+                response,
+                (req, res) -> {
+                    UserContext ctx = UserContextHolder.getContext();
+                    assertNotNull(ctx);
+                    assertEquals("tenant-danang", ctx.getTenantId());
+                    assertEquals("usr-77", ctx.getUserId());
+                    assertEquals("HIGH", ctx.getPriority());
+                    assertTrue(ctx.isHighPriority());
+                    assertEquals("corr-xyz", ctx.getCorrelationId());
+                    assertTrue(ctx.hasFeatureFlag("surge_pricing"));
 
-            assertEquals("tenant-danang", MDC.get(MdcConstants.TENANT_ID));
-            assertEquals("usr-77", MDC.get(MdcConstants.USER_ID));
-            assertEquals("HIGH", MDC.get(MdcConstants.PRIORITY));
-            assertEquals("corr-xyz", MDC.get(MdcConstants.CORRELATION_ID));
-        });
+                    assertEquals("tenant-danang", MDC.get(MdcConstants.TENANT_ID));
+                    assertEquals("usr-77", MDC.get(MdcConstants.USER_ID));
+                    assertEquals("HIGH", MDC.get(MdcConstants.PRIORITY));
+                    assertEquals("corr-xyz", MDC.get(MdcConstants.CORRELATION_ID));
+                });
 
         assertNull(MDC.get(MdcConstants.TENANT_ID));
         assertNull(MDC.get(MdcConstants.PRIORITY));

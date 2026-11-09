@@ -1,17 +1,17 @@
 package com.shareride.common.logging.masking;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.HashMap;
 import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 class DataMaskingUtilsTest {
 
     @Test
     void testMaskUrl() {
-        String url = "/api/v1/auth/login?token=secret123&client_id=web&password=myPass&redirect=/home";
+        String url =
+                "/api/v1/auth/login?token=secret123&client_id=web&password=myPass&redirect=/home";
         String masked = DataMaskingUtils.maskUrl(url);
 
         assertTrue(masked.contains("token=" + DataMaskingUtils.MASK));
@@ -51,7 +51,8 @@ class DataMaskingUtilsTest {
 
     @Test
     void testMaskJson() {
-        String json = "{\"username\":\"alice\",\"password\":\"secretPass\",\"token\":\"xyz123\",\"active\":true}";
+        String json =
+                "{\"username\":\"alice\",\"password\":\"secretPass\",\"token\":\"xyz123\",\"active\":true}";
         String masked = DataMaskingUtils.maskJson(json);
 
         assertTrue(masked.contains("\"password\":\"" + DataMaskingUtils.MASK + "\""));
@@ -62,9 +63,13 @@ class DataMaskingUtilsTest {
 
     @Test
     void testMaskHeader() {
-        assertEquals(DataMaskingUtils.MASK, DataMaskingUtils.maskHeader("Authorization", "Bearer eyJhbGciOi..."));
+        assertEquals(
+                DataMaskingUtils.MASK,
+                DataMaskingUtils.maskHeader("Authorization", "Bearer eyJhbGciOi..."));
         assertEquals(DataMaskingUtils.MASK, DataMaskingUtils.maskHeader("X-Api-Key", "my-key"));
-        assertEquals("application/json", DataMaskingUtils.maskHeader("Content-Type", "application/json"));
+        assertEquals(
+                "application/json",
+                DataMaskingUtils.maskHeader("Content-Type", "application/json"));
         assertNull(DataMaskingUtils.maskHeader("X-Empty", null));
     }
 
