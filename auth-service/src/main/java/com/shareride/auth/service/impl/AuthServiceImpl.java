@@ -32,6 +32,7 @@ import com.shareride.common.exception.UnauthorizedException;
 import com.shareride.common.logging.audit.AuditLogService;
 import com.shareride.common.logging.audit.SecurityAuditEvent;
 import com.shareride.common.outbox.OutboxService;
+import com.shareride.common.util.UuidUtils;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -240,7 +241,7 @@ public class AuthServiceImpl implements AuthService {
         Session savedSession = sessionRepository.save(session);
 
         String accessToken = jwtService.generateAccessToken(account, savedSession);
-        String refreshToken = UUID.randomUUID().toString();
+        String refreshToken = UuidUtils.v4AsString();
 
         // Lưu Refresh Token vào Valkey kèm TTL (Không lưu token vào DB)
         refreshTokenCacheService.saveRefreshToken(
@@ -309,7 +310,7 @@ public class AuthServiceImpl implements AuthService {
         refreshTokenCacheService.revokeRefreshToken(refreshToken);
 
         String newAccessToken = jwtService.generateAccessToken(account, session);
-        String newRefreshToken = UUID.randomUUID().toString();
+        String newRefreshToken = UuidUtils.v4AsString();
 
         session.setLastActiveAt(Instant.now());
         if (ipAddress != null && !ipAddress.isBlank()) {

@@ -3,11 +3,14 @@ package com.shareride.gateway.config;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.shareride.gateway.constant.GatewayConstants;
+import com.shareride.gateway.ratelimit.EndpointRateLimitRule;
 import java.net.InetSocketAddress;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
 
@@ -23,6 +26,49 @@ class RateLimiterConfigTest {
         config = new RateLimiterConfig();
         ipKeyResolver = config.ipKeyResolver();
         userKeyResolver = config.userKeyResolver(ipKeyResolver);
+    }
+
+    @Test
+    @DisplayName("Should verify enterprise defaults for rate limiting tiers")
+    void shouldVerifyDefaultsForTiers() {
+        assertThat(config.isEnabled()).isTrue();
+        assertThat(config.isFailOpen()).isTrue();
+        assertThat(config.getTimeoutMs()).isEqualTo(500);
+
+        assertThat(config.getAnonymous().getReplenishRate()).isEqualTo(10);
+        assertThat(config.getAnonymous().getBurstCapacity()).isEqualTo(20);
+
+        assertThat(config.getFree().getReplenishRate()).isEqualTo(30);
+        assertThat(config.getFree().getBurstCapacity()).isEqualTo(60);
+
+        assertThat(config.getPremium().getReplenishRate()).isEqualTo(100);
+        assertThat(config.getPremium().getBurstCapacity()).isEqualTo(200);
+    }
+
+    @Test
+    @DisplayName("Should provide default endpoint rules when none configured")
+    void shouldProvideDefaultEndpointRulesWhenEmpty() {
+        List<EndpointRateLimitRule> endpoints = config.getEffectiveEndpoints();
+        assertThat(endpoints).isNotEmpty();
+        assertThat(endpoints)
+                .anyMatch(
+                        e ->
+                                e.getPathPattern().equals("/api/v1/auth/login")
+                                        && e.getBurstCapacity() == 10);
+        assertThat(endpoints)
+                .anyMatch(
+                        e ->
+                                e.getPathPattern().equals("/.well-known/**")
+                                        && e.getBurstCapacity() == 100);
+    }
+
+    @Test
+    @DisplayName("Should create Redis script bean for atomic token bucket")
+    void shouldCreateRedisScriptBean() {
+        RedisScript<List<Long>> script = config.rateLimiterRedisScript();
+        assertThat(script).isNotNull();
+        assertThat(script.getScriptAsString()).contains("redis.replicate_commands");
+        assertThat(script.getScriptAsString()).contains("tokens_key");
     }
 
     @Test

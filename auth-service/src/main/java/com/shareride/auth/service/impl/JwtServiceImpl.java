@@ -1,6 +1,5 @@
 package com.shareride.auth.service.impl;
 
-import com.github.f4b6a3.uuid.UuidCreator;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JOSEObjectType;
 import com.nimbusds.jose.JWSAlgorithm;
@@ -18,6 +17,7 @@ import com.shareride.common.cache.TokenBlacklistService;
 import com.shareride.common.security.jwt.JwtClaimsConstant;
 import com.shareride.common.security.jwt.JwtTokenVerifier;
 import com.shareride.common.security.jwt.JwtUserClaims;
+import com.shareride.common.util.UuidUtils;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
@@ -68,7 +68,7 @@ public class JwtServiceImpl implements JwtService {
 
         Instant now = Instant.now();
         Instant exp = now.plus(jwtProperties.getAccessTokenTtl());
-        String jti = UuidCreator.getTimeOrderedEpoch().toString();
+        String jti = UuidUtils.v7AsString();
 
         List<String> roleCodes =
                 account.getRoles() != null

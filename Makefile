@@ -190,3 +190,13 @@ todo-show: ## Xem chi tiết task (vd: make todo-show ID=todo-99393)
 todo-approve: ## Duyệt task từ pending sang approved (vd: make todo-approve ID=todo-99393)
 	@if [ -z "$(ID)" ]; then echo "$(RED)Lỗi: Vui lòng cung cấp ID (vd: make todo-approve ID=todo-99393)$(NC)"; exit 1; fi
 	@omni-todo approve --id=$(ID)
+
+.PHONY: graph-update
+graph-update: ## Cập nhật knowledge graph của codebase bằng Graphify
+	@echo "$(YELLOW)Updating knowledge graph with Graphify...$(NC)"
+	@graphify update .
+	@echo "$(GREEN)✓ Knowledge graph updated successfully!$(NC)"
+
+.PHONY: graph-view
+graph-view: ## Mở giao diện trực quan graph.html trên trình duyệt
+	@open graphify-out/graph.html

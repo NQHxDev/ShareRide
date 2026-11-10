@@ -16,8 +16,19 @@ public final class GatewayConstants {
     public static final String SESSION_ID_HEADER = "X-Session-Id";
     public static final String USER_PERMISSIONS_HEADER = "X-User-Permissions";
     public static final String DEVICE_ID_HEADER = "X-Device-Id";
+    public static final String USER_TIER_HEADER = "X-User-Tier";
     public static final String REAL_IP_HEADER = "X-Real-IP";
     public static final String FORWARDED_FOR_HEADER = "X-Forwarded-For";
+
+    // Rate Limiting HTTP Headers
+    public static final String HEADER_X_RATELIMIT_LIMIT = "X-RateLimit-Limit";
+    public static final String HEADER_X_RATELIMIT_REMAINING = "X-RateLimit-Remaining";
+    public static final String HEADER_X_RATELIMIT_RESET = "X-RateLimit-Reset";
+
+    // Rate Limiting Tiers
+    public static final String TIER_ANONYMOUS = "anonymous";
+    public static final String TIER_FREE = "free";
+    public static final String TIER_PREMIUM = "premium";
 
     public static final String BEARER_PREFIX = "Bearer ";
     public static final int BEARER_PREFIX_LENGTH = 7;

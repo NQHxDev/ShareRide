@@ -45,12 +45,6 @@ spring:
                   args:
                     name: authServiceCircuitBreaker
                     fallbackUri: forward:/fallback/auth
-                - name: RequestRateLimiter
-                  args:
-                    redis-rate-limiter.replenishRate: 20
-                    redis-rate-limiter.burstCapacity: 40
-                    redis-rate-limiter.requestedTokens: 1
-                    key-resolver: "#{@ipKeyResolver}"
 
 shareride:
   security:
@@ -71,17 +65,49 @@ shareride:
       - /error
 
   gateway:
+    rate-limiting:
+      enabled: true
+      fail-open: true
+      timeout-ms: 500
+      anonymous:
+        replenish-rate: 10
+        burst-capacity: 20
+      free:
+        replenish-rate: 30
+        burst-capacity: 60
+      premium:
+        replenish-rate: 100
+        burst-capacity: 200
+      endpoints:
+        - path-pattern: /api/v1/auth/login
+          method: POST
+          replenish-rate: 5
+          burst-capacity: 10
+        - path-pattern: /api/v1/auth/register
+          method: POST
+          replenish-rate: 5
+          burst-capacity: 10
+        - path-pattern: /api/v1/auth/refresh
+          method: POST
+          replenish-rate: 10
+          burst-capacity: 20
+        - path-pattern: /.well-known/**
+          replenish-rate: 50
+          burst-capacity: 100
+        - path-pattern: /api/v1/auth/jwks.json
+          replenish-rate: 50
+          burst-capacity: 100
     security:
       headers:
         enabled: true
         override-existing: false
         content-type-options: nosniff
         frame-options: DENY
-        xss-protection: "0"
-        strict-transport-security: "max-age=31536000; includeSubDomains; preload"
+        xss-protection: '0'
+        strict-transport-security: 'max-age=31536000; includeSubDomains; preload'
         content-security-policy: "default-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'"
         referrer-policy: strict-origin-when-cross-origin
-        permissions-policy: "geolocation=(), camera=(), microphone=(), payment=(), usb=()"
+        permissions-policy: 'geolocation=(), camera=(), microphone=(), payment=(), usb=()'
         permitted-cross-domain-policies: none
 
 management:

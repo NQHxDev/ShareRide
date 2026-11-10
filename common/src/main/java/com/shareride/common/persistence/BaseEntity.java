@@ -1,6 +1,6 @@
 package com.shareride.common.persistence;
 
-import com.github.f4b6a3.uuid.UuidCreator;
+import com.shareride.common.util.UuidUtils;
 import jakarta.persistence.Column;
 import jakarta.persistence.Id;
 import jakarta.persistence.MappedSuperclass;
@@ -39,7 +39,7 @@ public abstract class BaseEntity implements Serializable {
     @PrePersist
     protected void ensureId() {
         if (this.id == null) {
-            this.id = UuidCreator.getTimeOrderedEpoch();
+            this.id = UuidUtils.v7();
         }
     }
 

@@ -37,3 +37,6 @@ target/
 !.env.example
 !**/.env.example
 config/jwt/
+
+# Graphify
+graphify-out/

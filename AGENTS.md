@@ -53,5 +53,7 @@ Welcome to the ShareRide monorepo. When writing code, tests, or configuring CI/C
 - Task management docs: `docs/task-management.md`
 - Service standards docs: `docs/service-template-standards.md`
 - Testing rule: `.agents/rules/testing-strategy.md`
+- Graphify rule: `.agents/rules/graphify.md`
 - Integration testing skill: `.agents/skills/integration-testing/SKILL.md`
+- Graphify skill: `.agents/skills/graphify/SKILL.md`
 - Detailed docs: `docs/testing-strategy.md`

@@ -151,6 +151,14 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
             if (claims.roles() != null && !claims.roles().isEmpty()) {
                 requestBuilder.header(
                         GatewayConstants.USER_ROLES_HEADER, String.join(",", claims.roles()));
+                if (claims.hasAnyRole(
+                        "ROLE_PREMIUM", "PREMIUM", "ROLE_ADMIN", "ADMIN", "ROLE_VIP", "VIP")) {
+                    requestBuilder.header(
+                            GatewayConstants.USER_TIER_HEADER, GatewayConstants.TIER_PREMIUM);
+                } else {
+                    requestBuilder.header(
+                            GatewayConstants.USER_TIER_HEADER, GatewayConstants.TIER_FREE);
+                }
             }
             if (claims.permissions() != null && !claims.permissions().isEmpty()) {
                 requestBuilder.header(
