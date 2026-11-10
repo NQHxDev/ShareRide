@@ -11,8 +11,8 @@ import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
-@DisplayName("GatewayServiceApplication Context Loads Test")
-class GatewayServiceApplicationTest {
+@DisplayName("Gateway Context Integration Test")
+class GatewayContextIntegrationTest {
 
     @Autowired private ApplicationContext applicationContext;
 
