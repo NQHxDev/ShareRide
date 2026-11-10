@@ -22,7 +22,7 @@ CREATE INDEX IF NOT EXISTS idx_template_items_deleted ON template_items(deleted)
 
 -- Table: outbox_messages (Transactional Outbox Pattern)
 CREATE TABLE IF NOT EXISTS outbox_messages (
-    id UUID PRIMARY KEY,
+    outbox_message_id UUID PRIMARY KEY,
     version BIGINT NOT NULL DEFAULT 0,
     aggregate_type VARCHAR(64) NOT NULL,
     aggregate_id VARCHAR(64) NOT NULL,

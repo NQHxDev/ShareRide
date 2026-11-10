@@ -1,0 +1,27 @@
+services:
+  postgres-template:
+    image: postgres:17-alpine
+    container_name: shareride-postgres-template
+    environment:
+      POSTGRES_DB: shareride_template
+      POSTGRES_USER: shareride_template_usr
+      POSTGRES_PASSWORD: template_secret_password
+    ports:
+      - '${DB_PORT:-5430}:5432'
+    volumes:
+      - pg_template_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U shareride_template_usr -d shareride_template']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - shareride-network
+
+volumes:
+  pg_template_data:
+    name: shareride_pg_template_data
+
+networks:
+  shareride-network:
+    name: shareride-network

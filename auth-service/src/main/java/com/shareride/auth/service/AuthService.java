@@ -1,54 +1,93 @@
 package com.shareride.auth.service;
 
+import com.shareride.auth.dto.AccountResponse;
 import com.shareride.auth.dto.AuthResponse;
 import com.shareride.auth.dto.LoginRequest;
 import com.shareride.auth.dto.RegisterRequest;
-import com.shareride.auth.dto.UserResponse;
+import com.shareride.auth.dto.SessionResponse;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
- * Interface nghiệp vụ xác thực người dùng, phân quyền và quản lý tài khoản trong Auth Service theo
- * chuẩn Enterprise.
+ * Service giao diện xử lý các nghiệp vụ xác thực, quản lý tài khoản và phiên làm việc trong Auth
+ * Service.
  */
 public interface AuthService {
 
     /**
-     * Đăng ký tài khoản người dùng mới.
+     * Đăng ký tài khoản xác thực mới.
      *
-     * @param request thông tin đăng ký
-     * @return thông tin người dùng được tạo
+     * @param request dữ liệu đăng ký chứa email, password, phoneNumber, roleCode...
+     * @return chi tiết tài khoản vừa tạo
      */
-    UserResponse register(RegisterRequest request);
+    AccountResponse register(RegisterRequest request);
 
     /**
-     * Xác thực thông tin đăng nhập và cấp phát token.
+     * Xác thực thông tin đăng nhập và tạo phiên làm việc mới trên thiết bị.
      *
-     * @param request thông tin đăng nhập
-     * @return thông tin xác thực chứa access token và refresh token
+     * @param request thông tin đăng nhập gồm email, mật khẩu và metadata thiết bị
+     * @param ipAddress địa chỉ IP của client gửi request
+     * @param userAgent thông tin User-Agent của client
+     * @return cặp Access Token, Refresh Token, Session ID và thông tin tài khoản
      */
-    AuthResponse login(LoginRequest request);
+    AuthResponse login(LoginRequest request, String ipAddress, String userAgent);
 
     /**
-     * Đăng xuất người dùng, đưa token vào blacklist và thu hồi refresh token.
+     * Làm mới Access Token và Refresh Token (Rotation) từ Refresh Token hiện tại.
      *
-     * @param accessToken mã access token
-     * @param refreshTokenString mã refresh token
+     * @param refreshToken chuỗi refresh token hiện tại
+     * @param ipAddress địa chỉ IP của client gửi request
+     * @param userAgent thông tin User-Agent của client
+     * @return cặp Access Token và Refresh Token mới
      */
-    void logout(String accessToken, String refreshTokenString);
+    AuthResponse refreshToken(String refreshToken, String ipAddress, String userAgent);
 
     /**
-     * Tra cứu chi tiết tài khoản người dùng theo UUID.
+     * Đăng xuất phiên làm việc, đưa Access Token vào Blacklist và xóa Refresh Token khỏi Valkey.
      *
-     * @param userId UUID người dùng
-     * @return thông tin chi tiết người dùng
+     * @param accessToken Access Token cần đưa vào Blacklist
+     * @param refreshToken Refresh Token cần thu hồi
      */
-    UserResponse getUserById(UUID userId);
+    void logout(String accessToken, String refreshToken);
 
     /**
-     * Xóa mềm tài khoản người dùng và xuất bản Domain Event sang Transactional Outbox.
+     * Thu hồi một phiên làm việc cụ thể của tài khoản (Logout thiết bị từ xa).
      *
-     * @param userId UUID người dùng
-     * @param deletedBy định danh người thực hiện xóa
+     * @param sessionId ID phiên làm việc cần thu hồi
+     * @param currentAccountId ID tài khoản yêu cầu thu hồi
      */
-    void softDeleteUser(UUID userId, String deletedBy);
+    void revokeSession(UUID sessionId, UUID currentAccountId);
+
+    /**
+     * Lấy danh sách các phiên làm việc đang hoạt động của tài khoản.
+     *
+     * @param accountId ID tài khoản cần truy vấn
+     * @return danh sách các phiên đăng nhập đang hoạt động
+     */
+    List<SessionResponse> getActiveSessions(UUID accountId);
+
+    /**
+     * Lấy thông tin tài khoản theo Account ID.
+     *
+     * @param accountId ID của tài khoản
+     * @return chi tiết tài khoản và vai trò RBAC
+     */
+    AccountResponse getAccountById(UUID accountId);
+
+    /**
+     * Xóa mềm tài khoản và hủy toàn bộ phiên làm việc của tài khoản.
+     *
+     * @param accountId ID của tài khoản
+     * @param deletedBy người thực hiện thao tác xóa
+     */
+    void softDeleteAccount(UUID accountId, String deletedBy);
+
+    /**
+     * Lấy tập khóa công khai JWKS (RFC 7517) để Resource Server / API Gateway xác thực chữ ký số
+     * EdDSA.
+     *
+     * @return Bản đồ cấu trúc JSON của JWKS theo chuẩn RFC 7517
+     */
+    Map<String, Object> getJwks();
 }

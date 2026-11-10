@@ -30,3 +30,13 @@ target/
 
 # Local
 .omni
+
+# Environment & Cryptographic Secrets
+.env
+.env.*
+!.env.example
+!**/.env.example
+config/jwt/
+
+# Graphify
+graphify-out/

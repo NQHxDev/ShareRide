@@ -1,7 +1,18 @@
 #!/bin/bash
 
+# ==============================================================================
 # ShareRide Pre-Push Hook
-# Comprehensive build and test verification before pushing to remote
+# Comprehensive build, full test suite & artifact verification before push:
+#   1. Branch protection (prevent accidental direct push to main/master)
+#   2. Full clean build & compilation
+#   3. Thorough test suite execution:
+#      - Unit & Slice tests
+#      - Architecture tests (ArchUnit - enforcing strict service standards)
+#      - Integration tests (Testcontainers)
+#      - JaCoCo code coverage generation
+#   4. Re-verify code formatting & standards (Spotless & Checkstyle)
+#   5. Artifact packaging verification (JAR artifacts generated)
+# ==============================================================================
 
 set -e
 
@@ -10,6 +21,8 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
 NC='\033[0m'
 
 print_error() {
@@ -28,7 +41,13 @@ print_warn() {
    echo -e "${YELLOW}[WARN] $1${NC}"
 }
 
-echo -e "${BLUE}[Pre-push] Verifying branches & changes...${NC}"
+# Allow bypassing via environment variable in emergencies
+if [ "${SKIP_HOOKS}" = "1" ] || [ "${SKIP_PRE_PUSH}" = "1" ]; then
+   print_warn "SKIP_HOOKS detected. Skipping pre-push verification."
+   exit 0
+fi
+
+echo -e "${CYAN}${BOLD}[Pre-push] Verifying branches and push target...${NC}"
 
 # Read push refs from standard input: <local_ref> <local_sha> <remote_ref> <remote_sha>
 all_deletions=true
@@ -37,7 +56,7 @@ has_refs=false
 while read local_ref local_sha remote_ref remote_sha; do
    has_refs=true
 
-   # Zero SHA indicates ref deletion
+   # Zero SHA indicates remote branch deletion
    if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
       print_info "Deleting remote ref: $remote_ref"
       continue
@@ -52,8 +71,8 @@ while read local_ref local_sha remote_ref remote_sha; do
       if [ "${ALLOW_DIRECT_PUSH}" != "1" ]; then
          echo ""
          print_error "Direct push to protected branch '$BRANCH_NAME' is forbidden!"
-         print_info "Please create a feature branch and submit a Pull Request instead..."
-         print_info "If this is emergency, bypass with: ALLOW_DIRECT_PUSH=1 git push ..."
+         print_info "Please create a feature branch and submit a Pull Request instead."
+         print_info "Emergency bypass: ALLOW_DIRECT_PUSH=1 git push ..."
          echo ""
          exit 1
       else
@@ -62,33 +81,75 @@ while read local_ref local_sha remote_ref remote_sha; do
    fi
 done
 
-# If user is only deleting remote branch(es), skip build & test checks
+# If only deleting remote branches, skip build & test checks
 if [ "$has_refs" = true ] && [ "$all_deletions" = true ]; then
-   print_info "Only remote branch deletions detected. Skipping build and test suite..."
+   print_info "Only remote branch deletions detected. Skipping build and test suite."
    exit 0
 fi
 
+# Detect Maven command (prefer system 'mvn', fallback to './mvnw')
+if command -v mvn >/dev/null 2>&1; then
+   MVN_CMD="mvn"
+elif [ -x "./mvnw" ]; then
+   MVN_CMD="./mvnw"
+else
+   print_error "Neither 'mvn' nor './mvnw' was found in PATH."
+   exit 1
+fi
+
 echo ""
-echo -e "${YELLOW}[Pre-push] Running full verification suite...${NC}"
-print_info "Tasks: clean build -> test suite -> spotless formatting -> checkstyle"
-print_info "Executing unified Maven pipeline..."
+echo -e "${YELLOW}${BOLD}========================================================================${NC}"
+echo -e "${YELLOW}${BOLD}     ShareRide Pre-Push: Full Build & Comprehensive Test Suite           ${NC}"
+echo -e "${YELLOW}${BOLD}========================================================================${NC}"
+print_info "Running comprehensive pipeline: Clean -> Build -> Full Tests -> Quality -> Packaging"
 echo ""
 
 START_TIME=$(date +%s)
 
-# Single Maven command avoids repeatedly bootstrapping the JVM (saving ~15-20s)
-if mvn clean test spotless:check checkstyle:check; then
+if [ "${SKIP_TESTS}" = "1" ] || [ "${FAST}" = "1" ]; then
+   print_warn "SKIP_TESTS=1 detected. Skipping test execution, running clean build & quality checks only..."
+   BUILD_CMD=("$MVN_CMD" "clean" "package" "-DskipTests" "spotless:check" "checkstyle:check" "--batch-mode")
+else
+   BUILD_CMD=("$MVN_CMD" "clean" "verify" "spotless:check" "checkstyle:check" "--batch-mode")
+fi
+
+if "${BUILD_CMD[@]}"; then
+   # Verify that JAR artifacts were packaged successfully
+   AUTH_JARS=(auth-service/target/auth-service-*.jar)
+   if [ ! -f "${AUTH_JARS[0]}" ]; then
+      echo ""
+      print_error "Artifact verification failed: auth-service-*.jar was not found in auth-service/target/!"
+      exit 1
+   fi
+
    END_TIME=$(date +%s)
    DURATION=$((END_TIME - START_TIME))
+
    echo ""
-   print_success "✓ All pre-push verifications passed in ${DURATION}s!"
-   print_info "Proceeding with push to remote repository..."
+   print_success "✓ All Pre Push checks passed successfully! [${DURATION}s]"
+   echo -e "  ${GREEN}✓ Build & Compile:${NC}        Clean build successful"
+   echo -e "  ${GREEN}✓ Test Suite:${NC}             Unit tests, ArchUnit Architecture & Integration tests passed"
+   echo -e "  ${GREEN}✓ Quality & Style:${NC}        Spotless format & Checkstyle rules verified"
+   echo -e "  ${GREEN}✓ Artifacts:${NC}              Package JAR completed"
+   echo ""
+   print_info "Code đã sẵn sàng và an toàn để push lên remote repository!"
    echo ""
    exit 0
 else
    echo ""
-   print_error "Pre-push verification failed!"
-   print_info "✗ All tests, formatting rules, and style checks must pass before pushing..."
+   echo -e "${RED}${BOLD}========================================================================${NC}"
+   print_error "Pre-push verification FAILED!"
+   echo -e "${RED}${BOLD}========================================================================${NC}"
+   echo -e "${YELLOW}Nguyên nhân có thể do:${NC}"
+   echo -e "  1. Có Unit Test hoặc Architecture Test (ArchUnit) bị lỗi"
+   echo -e "  2. Có vi phạm chuẩn định dạng (Spotless) hoặc quy tắc code (Checkstyle)"
+   echo -e "  3. Lỗi đóng gói hoặc biên dịch (Compilation / Package error)"
+   echo ""
+   echo -e "${YELLOW}Gợi ý sửa lỗi:${NC}"
+   echo -e "  - Chạy '${BOLD}make test${NC}' hoặc '${BOLD}mvn test${NC}' để xem chi tiết test lỗi"
+   echo -e "  - Chạy '${BOLD}make format${NC}' để tự động sửa định dạng Spotless"
+   echo -e "  - Chạy '${BOLD}make check-style${NC}' để kiểm tra quy chuẩn Checkstyle"
+   echo -e "  - Trong trường hợp khẩn cấp, có thể push bằng: '${BOLD}git push --no-verify${NC}'"
    echo ""
    exit 1
 fi

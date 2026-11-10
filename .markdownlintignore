@@ -1,0 +1,6 @@
+LICENSE
+target/
+.m2/
+.git/
+node_modules/
+

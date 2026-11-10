@@ -158,15 +158,45 @@ coverage-report: ## Hiển thị đường dẫn các báo cáo JaCoCo HTML cove
 	@echo "  - Common:       file://$(CURDIR)/common/target/site/jacoco/index.html"
 	@echo "  - Auth Service: file://$(CURDIR)/auth-service/target/site/jacoco/index.html"
 
+.PHONY: dev
+dev: ## Khởi chạy hệ thống môi trường phát triển với Process-Compose
+	@PC_PORT_NUM=9999 process-compose up
+
 .PHONY: verify
 verify: ci ## Chạy toàn bộ kiểm tra (alias cho make ci)
 
 .PHONY: pre-commit-check
-pre-commit-check: check-format check-style compile ## Kiểm tra nhanh tương đương pre-commit hook
-	@echo "$(YELLOW)Running pre-commit checks...$(NC)"
-	@$(MVN) test -q
-	@echo "$(GREEN)✓ Pre-commit checks passed!$(NC)"
+pre-commit-check: check-format check-style ## Kiểm tra nhanh tương đương pre-commit hook (Format & Lint, không test)
+	@echo "$(GREEN)✓ Pre-commit quality checks passed!$(NC)"
 
 .PHONY: pre-push-check
-pre-push-check: ci-fast ## Kiểm tra toàn diện tương đương pre-push hook (sử dụng ci-fast)
+pre-push-check: ci-fast ## Kiểm tra toàn diện tương đương pre-push hook (Clean, Build, Full Tests & Artifacts)
 	@echo "$(GREEN)✓ Pre-push checks passed!$(NC)"
+
+.PHONY: todo
+todo: ## Liệt kê danh sách task trong dự án (omni-todo list)
+	@omni-todo list
+
+.PHONY: todo-approved
+todo-approved: ## Liệt kê các task đã duyệt sẵn sàng thực hiện (omni-todo list --status=approved)
+	@omni-todo list --status=approved
+
+.PHONY: todo-show
+todo-show: ## Xem chi tiết task (vd: make todo-show ID=todo-99393)
+	@if [ -z "$(ID)" ]; then echo "$(RED)Lỗi: Vui lòng cung cấp ID (vd: make todo-show ID=todo-99393)$(NC)"; exit 1; fi
+	@omni-todo show $(ID)
+
+.PHONY: todo-approve
+todo-approve: ## Duyệt task từ pending sang approved (vd: make todo-approve ID=todo-99393)
+	@if [ -z "$(ID)" ]; then echo "$(RED)Lỗi: Vui lòng cung cấp ID (vd: make todo-approve ID=todo-99393)$(NC)"; exit 1; fi
+	@omni-todo approve --id=$(ID)
+
+.PHONY: graph-update
+graph-update: ## Cập nhật knowledge graph của codebase bằng Graphify
+	@echo "$(YELLOW)Updating knowledge graph with Graphify...$(NC)"
+	@graphify update .
+	@echo "$(GREEN)✓ Knowledge graph updated successfully!$(NC)"
+
+.PHONY: graph-view
+graph-view: ## Mở giao diện trực quan graph.html trên trình duyệt
+	@open graphify-out/graph.html

@@ -1,0 +1,32 @@
+server:
+  port: 0
+
+spring:
+  application:
+    name: gateway-service-test
+
+  autoconfigure:
+    exclude:
+      - com.shareride.common.persistence.PersistenceAutoConfiguration
+      - com.shareride.common.outbox.OutboxAutoConfiguration
+      - com.shareride.common.communication.CommunicationAutoConfiguration
+      - com.shareride.common.probe.ProbeAutoConfiguration
+      - com.shareride.common.versioning.ApiVersioningAutoConfiguration
+      - com.shareride.common.resilience.config.ResilienceAutoConfiguration
+      - com.shareride.common.cache.ShareRideCacheAutoConfiguration
+
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: test-route
+              uri: http://localhost:8081
+              predicates:
+                - Path=/api/v1/test/**
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

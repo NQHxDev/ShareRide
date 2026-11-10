@@ -1,0 +1,76 @@
+version: '0.5'
+
+environment:
+  - 'PC_PORT_NUM=9999'
+
+processes:
+  # Ancillary infrastructure (Shared Valkey & RabbitMQ)
+  infra:
+    command: 'docker compose up'
+    working_dir: '.'
+    namespace: 'infra'
+    disabled: false
+    availability:
+      restart: 'no'
+
+  # Auth Service Database
+  auth-db:
+    command: 'docker compose up'
+    working_dir: './auth-service'
+    namespace: 'infra'
+    disabled: false
+    availability:
+      restart: 'no'
+
+  # Core Service
+  gateway-service:
+    command: './mvnw spring-boot:run -pl gateway-service'
+    working_dir: '.'
+    namespace: 'core'
+    availability:
+      restart: 'no'
+    readiness_probe:
+      http_get:
+        host: 'localhost'
+        port: 8080
+        path: '/actuator/health'
+      initial_delay_seconds: 5
+      period_seconds: 3
+      timeout_seconds: 2
+      success_threshold: 1
+      failure_threshold: 10
+    environment:
+      - 'SERVER_PORT=8080'
+      - 'CACHE_SHARED_HOST=localhost'
+      - 'CACHE_SHARED_PORT=6379'
+      - 'AUTH_SERVICE_URI=http://localhost:8081'
+      - 'SPRING_PROFILES_ACTIVE=dev'
+
+  # Service Business
+  auth-service:
+    command: './mvnw spring-boot:run -pl auth-service'
+    working_dir: '.'
+    namespace: 'services'
+    disabled: true
+    availability:
+      restart: 'no'
+    readiness_probe:
+      http_get:
+        host: 'localhost'
+        port: 8081
+        path: '/actuator/health'
+      initial_delay_seconds: 8
+      period_seconds: 3
+      timeout_seconds: 2
+      success_threshold: 1
+      failure_threshold: 10
+    environment:
+      - 'SERVER_PORT=8081'
+      - 'DB_HOST=localhost'
+      - 'DB_PORT=5432'
+      - 'DB_NAME=shareride_auth'
+      - 'DB_USER=shareride_auth_usr'
+      - 'DB_PASSWORD=auth_secret_password'
+      - 'CACHE_SHARED_HOST=localhost'
+      - 'CACHE_SHARED_PORT=6379'
+      - 'SPRING_PROFILES_ACTIVE=dev'

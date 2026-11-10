@@ -31,6 +31,12 @@
       <artifactId>jackson-datatype-jsr310</artifactId>
    </dependency>
 
+   <!-- SpringDoc OpenAPI 3.0 & Swagger UI Documentation -->
+   <dependency>
+      <groupId>org.springdoc</groupId>
+      <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+   </dependency>
+
    <!-- RabbitMQ & AMQP for Asynchronous Event-Driven Messaging -->
    <dependency>
       <groupId>org.springframework.boot</groupId>
@@ -97,6 +103,17 @@
       <groupId>com.github.f4b6a3</groupId>
       <artifactId>uuid-creator</artifactId>
       <version>5.3.7</version>
+   </dependency>
+
+   <!-- Nimbus JOSE + JWT for EdDSA (Ed25519) Digital Signing and Verification -->
+   <dependency>
+      <groupId>com.nimbusds</groupId>
+      <artifactId>nimbus-jose-jwt</artifactId>
+   </dependency>
+   <!-- Google Tink for Ed25519 Cryptographic Curve Support in Nimbus JOSE -->
+   <dependency>
+      <groupId>com.google.crypto.tink</groupId>
+      <artifactId>tink</artifactId>
    </dependency>
 
    <!-- Structured JSON Logging -->

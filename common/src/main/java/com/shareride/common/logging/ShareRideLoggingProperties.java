@@ -34,7 +34,14 @@ public class ShareRideLoggingProperties {
 
     /** Ant path patterns to exclude from access logging (e.g. actuator endpoints). */
     private List<String> excludePaths =
-            new ArrayList<>(List.of("/actuator/**", "/favicon.ico", "/error"));
+            new ArrayList<>(
+                    List.of(
+                            "/actuator/**",
+                            "/favicon.ico",
+                            "/error",
+                            "/v3/api-docs/**",
+                            "/swagger-ui/**",
+                            "/swagger-ui.html"));
 
     /** Set of header names to mask when logging headers. */
     private Set<String> sensitiveHeaders =

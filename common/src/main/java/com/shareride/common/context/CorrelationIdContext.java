@@ -1,7 +1,7 @@
 package com.shareride.common.context;
 
 import com.shareride.common.logging.MdcConstants;
-import java.util.UUID;
+import com.shareride.common.util.UuidUtils;
 import org.slf4j.MDC;
 
 /**
@@ -62,7 +62,7 @@ public final class CorrelationIdContext {
 
     /** Generates a new unique Correlation ID distinct from a 32-hex traceId. */
     public static String generateCorrelationId() {
-        return UUID.randomUUID().toString();
+        return UuidUtils.v7AsString();
     }
 
     /** Cleans up the thread-local state and removes the correlation key from MDC. */

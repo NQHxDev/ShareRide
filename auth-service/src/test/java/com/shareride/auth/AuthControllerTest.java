@@ -1,8 +1,10 @@
 package com.shareride.auth;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -12,15 +14,19 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shareride.auth.constant.AuthConstants;
 import com.shareride.auth.constant.AuthResponseCode;
 import com.shareride.auth.controller.AuthController;
-import com.shareride.auth.domain.UserRole;
-import com.shareride.auth.domain.UserStatus;
+import com.shareride.auth.controller.WellKnownController;
+import com.shareride.auth.domain.AccountStatus;
+import com.shareride.auth.dto.AccountResponse;
 import com.shareride.auth.dto.AuthResponse;
 import com.shareride.auth.dto.LoginRequest;
+import com.shareride.auth.dto.RefreshTokenRequest;
 import com.shareride.auth.dto.RegisterRequest;
-import com.shareride.auth.dto.UserResponse;
 import com.shareride.auth.service.AuthService;
 import com.shareride.common.CommonAutoConfiguration;
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -32,7 +38,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-@WebMvcTest(controllers = AuthController.class)
+@WebMvcTest(controllers = {AuthController.class, WellKnownController.class})
 @AutoConfigureMockMvc(addFilters = false)
 @Import(CommonAutoConfiguration.class)
 class AuthControllerTest {
@@ -46,28 +52,27 @@ class AuthControllerTest {
     @Test
     @DisplayName("POST /api/v1/auth/register should return HTTP 201 Created with BaseResponse")
     void testRegisterSuccess() throws Exception {
-        UUID userId = UUID.randomUUID();
-        UserResponse userResponse =
-                UserResponse.builder()
-                        .id(userId)
+        UUID accountId = UUID.randomUUID();
+        AccountResponse accountResponse =
+                AccountResponse.builder()
+                        .accountId(accountId)
                         .email("test.rider@shareride.com")
-                        .fullName("Test Rider")
                         .phoneNumber("+84900123456")
-                        .role(UserRole.RIDER)
-                        .status(UserStatus.ACTIVE)
+                        .status(AccountStatus.ACTIVE)
+                        .roles(Set.of("ROLE_RIDER"))
+                        .permissions(Set.of("ride:create", "ride:read"))
                         .createdAt(Instant.now())
                         .updatedAt(Instant.now())
                         .build();
 
-        when(authService.register(any(RegisterRequest.class))).thenReturn(userResponse);
+        when(authService.register(any(RegisterRequest.class))).thenReturn(accountResponse);
 
         RegisterRequest request =
                 RegisterRequest.builder()
                         .email("test.rider@shareride.com")
                         .password("SecurePass123")
-                        .fullName("Test Rider")
                         .phoneNumber("+84900123456")
-                        .role(UserRole.RIDER)
+                        .roleCode("ROLE_RIDER")
                         .build();
 
         mockMvc.perform(
@@ -76,27 +81,30 @@ class AuthControllerTest {
                                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.code").value(AuthResponseCode.USER_REGISTERED))
-                .andExpect(jsonPath("$.data.email").value("test.rider@shareride.com"));
+                .andExpect(jsonPath("$.code").value(AuthResponseCode.ACCOUNT_REGISTERED))
+                .andExpect(jsonPath("$.data.email").value("test.rider@shareride.com"))
+                .andExpect(jsonPath("$.data.accountId").value(accountId.toString()));
     }
 
     @Test
-    @DisplayName("POST /api/v1/auth/login should return HTTP 200 with tokens")
+    @DisplayName("POST /api/v1/auth/login should return HTTP 200 with tokens and session")
     void testLoginSuccess() throws Exception {
-        UUID userId = UUID.randomUUID();
+        UUID accountId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
         AuthResponse authResponse =
                 AuthResponse.builder()
                         .accessToken("access-token-jwt")
                         .refreshToken("refresh-token-uuid")
                         .tokenType(AuthConstants.TOKEN_TYPE_BEARER)
-                        .user(
-                                UserResponse.builder()
-                                        .id(userId)
+                        .sessionId(sessionId)
+                        .account(
+                                AccountResponse.builder()
+                                        .accountId(accountId)
                                         .email("rider@shareride.com")
                                         .build())
                         .build();
 
-        when(authService.login(any(LoginRequest.class))).thenReturn(authResponse);
+        when(authService.login(any(LoginRequest.class), any(), any())).thenReturn(authResponse);
 
         LoginRequest request =
                 LoginRequest.builder().email("rider@shareride.com").password("Secret123").build();
@@ -108,7 +116,42 @@ class AuthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.code").value(AuthResponseCode.LOGIN_SUCCESS))
-                .andExpect(jsonPath("$.data.accessToken").value("access-token-jwt"));
+                .andExpect(jsonPath("$.data.accessToken").value("access-token-jwt"))
+                .andExpect(jsonPath("$.data.sessionId").value(sessionId.toString()));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/auth/refresh should return HTTP 200 with new tokens")
+    void testRefreshTokenSuccess() throws Exception {
+        UUID accountId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+        AuthResponse authResponse =
+                AuthResponse.builder()
+                        .accessToken("new-access-token")
+                        .refreshToken("new-refresh-token")
+                        .tokenType(AuthConstants.TOKEN_TYPE_BEARER)
+                        .sessionId(sessionId)
+                        .account(
+                                AccountResponse.builder()
+                                        .accountId(accountId)
+                                        .email("rider@shareride.com")
+                                        .build())
+                        .build();
+
+        when(authService.refreshToken(eq("current-refresh-token"), any(), any()))
+                .thenReturn(authResponse);
+
+        RefreshTokenRequest request =
+                RefreshTokenRequest.builder().refreshToken("current-refresh-token").build();
+
+        mockMvc.perform(
+                        post(AuthConstants.Endpoint.BASE_PATH + AuthConstants.Endpoint.REFRESH)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value(AuthResponseCode.TOKEN_REFRESHED))
+                .andExpect(jsonPath("$.data.accessToken").value("new-access-token"));
     }
 
     @Test
@@ -127,25 +170,84 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("GET /api/v1/auth/users/{id} should return user details")
-    void testGetUserSuccess() throws Exception {
-        UUID userId = UUID.randomUUID();
-        UserResponse userResponse =
-                UserResponse.builder()
-                        .id(userId)
+    @DisplayName("GET /api/v1/auth/accounts/{id} should return account details")
+    void testGetAccountSuccess() throws Exception {
+        UUID accountId = UUID.randomUUID();
+        AccountResponse accountResponse =
+                AccountResponse.builder()
+                        .accountId(accountId)
                         .email("found@shareride.com")
-                        .fullName("Found User")
                         .phoneNumber("+84999888777")
-                        .role(UserRole.RIDER)
-                        .status(UserStatus.ACTIVE)
+                        .status(AccountStatus.ACTIVE)
+                        .roles(Set.of("ROLE_RIDER"))
                         .build();
 
-        when(authService.getUserById(userId)).thenReturn(userResponse);
+        when(authService.getAccountById(accountId)).thenReturn(accountResponse);
 
-        mockMvc.perform(get(AuthConstants.Endpoint.BASE_PATH + "/users/" + userId))
+        mockMvc.perform(get(AuthConstants.Endpoint.BASE_PATH + "/accounts/" + accountId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.id").value(userId.toString()))
+                .andExpect(jsonPath("$.data.accountId").value(accountId.toString()))
                 .andExpect(jsonPath("$.data.email").value("found@shareride.com"));
+    }
+
+    @Test
+    @DisplayName(
+            "DELETE /api/v1/auth/sessions/{sessionId} should revoke session and return HTTP 200")
+    void testRevokeSessionSuccess() throws Exception {
+        UUID sessionId = UUID.randomUUID();
+        UUID accountId = UUID.randomUUID();
+        doNothing().when(authService).revokeSession(sessionId, accountId);
+
+        mockMvc.perform(
+                        delete(AuthConstants.Endpoint.BASE_PATH + "/sessions/" + sessionId)
+                                .param("accountId", accountId.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value(AuthResponseCode.SESSION_REVOKED));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/auth/jwks.json should return RFC 7517 JWK Set")
+    void testGetJwksFromAuthEndpoint() throws Exception {
+        Map<String, Object> jwks =
+                Map.of(
+                        "keys",
+                        List.of(
+                                Map.of(
+                                        "kty", "OKP",
+                                        "crv", "Ed25519",
+                                        "kid", "shareride-auth-key-1",
+                                        "x", "sample-public-key-bytes")));
+
+        when(authService.getJwks()).thenReturn(jwks);
+
+        mockMvc.perform(get(AuthConstants.Endpoint.BASE_PATH + AuthConstants.Endpoint.JWKS))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.keys[0].kty").value("OKP"))
+                .andExpect(jsonPath("$.keys[0].crv").value("Ed25519"))
+                .andExpect(jsonPath("$.keys[0].kid").value("shareride-auth-key-1"));
+    }
+
+    @Test
+    @DisplayName("GET /.well-known/jwks.json should return RFC 7517 JWK Set")
+    void testGetJwksFromWellKnownEndpoint() throws Exception {
+        Map<String, Object> jwks =
+                Map.of(
+                        "keys",
+                        List.of(
+                                Map.of(
+                                        "kty", "OKP",
+                                        "crv", "Ed25519",
+                                        "kid", "shareride-auth-key-1",
+                                        "x", "sample-public-key-bytes")));
+
+        when(authService.getJwks()).thenReturn(jwks);
+
+        mockMvc.perform(get("/.well-known/jwks.json"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.keys[0].kty").value("OKP"))
+                .andExpect(jsonPath("$.keys[0].crv").value("Ed25519"))
+                .andExpect(jsonPath("$.keys[0].kid").value("shareride-auth-key-1"));
     }
 }

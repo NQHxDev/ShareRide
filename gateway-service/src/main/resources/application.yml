@@ -1,0 +1,180 @@
+server:
+  port: ${PORT:8080}
+
+spring:
+  application:
+    name: gateway-service
+  config:
+    import:
+      - optional:file:../.env[.properties]
+      - optional:file:.env[.properties]
+      - optional:file:gateway-service/.env[.properties]
+
+  autoconfigure:
+    exclude:
+      - com.shareride.common.persistence.PersistenceAutoConfiguration
+      - com.shareride.common.outbox.OutboxAutoConfiguration
+      - com.shareride.common.communication.CommunicationAutoConfiguration
+      - com.shareride.common.probe.ProbeAutoConfiguration
+      - com.shareride.common.versioning.ApiVersioningAutoConfiguration
+      - com.shareride.common.resilience.config.ResilienceAutoConfiguration
+      - com.shareride.common.cache.ShareRideCacheAutoConfiguration
+
+  data:
+    redis:
+      host: ${CACHE_SHARED_HOST:${VALKEY_HOST:${REDIS_SHARED_HOST:localhost}}}
+      port: ${CACHE_SHARED_PORT:${VALKEY_PORT:${REDIS_SHARED_PORT:6379}}}
+      password: ${CACHE_SHARED_PASSWORD:${VALKEY_PASSWORD:${REDIS_PASSWORD:shared_valkey_secret}}}
+      timeout: 2000ms
+
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: auth-service-api-docs-route
+              uri: ${AUTH_SERVICE_URI:http://localhost:8081}
+              predicates:
+                - Path=/api/v1/auth/v3/api-docs/**
+              filters:
+                - RewritePath=/api/v1/auth/v3/api-docs(?<segment>.*), /v3/api-docs${segment}
+            - id: auth-service-well-known-route
+              uri: ${AUTH_SERVICE_URI:http://localhost:8081}
+              predicates:
+                - Path=/.well-known/**
+            - id: auth-service-route
+              uri: ${AUTH_SERVICE_URI:http://localhost:8081}
+              predicates:
+                - Path=/api/v1/auth/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: authServiceCircuitBreaker
+                    fallbackUri: forward:/fallback/auth
+            - id: template-service-api-docs-route
+              uri: ${TEMPLATE_SERVICE_URI:http://localhost:8082}
+              predicates:
+                - Path=/api/v1/templates/v3/api-docs/**
+              filters:
+                - RewritePath=/api/v1/templates/v3/api-docs(?<segment>.*), /v3/api-docs${segment}
+            - id: template-service-route
+              uri: ${TEMPLATE_SERVICE_URI:http://localhost:8082}
+              predicates:
+                - Path=/api/v1/templates/**
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    urls:
+      - name: "Auth Service"
+        url: /api/v1/auth/v3/api-docs
+      - name: "Template Service"
+        url: /api/v1/templates/v3/api-docs
+
+shareride:
+  security:
+    jwt:
+      public-key-jwk: ${JWT_PUBLIC_KEY_JWK:}
+      clock-skew: 60s
+      issuer: shareride-auth
+  logging:
+    enabled: true
+    slow-threshold-ms: 1000
+    include-headers: false
+    info-sample-rate: 1.0
+    debug-sample-rate: 0.01
+    mask-url-parameters: true
+    exclude-paths:
+      - /actuator/**
+      - /favicon.ico
+      - /error
+      - /v3/api-docs/**
+      - /swagger-ui/**
+      - /swagger-ui.html
+
+  gateway:
+    rate-limiting:
+      enabled: true
+      fail-open: true
+      timeout-ms: 500
+      anonymous:
+        replenish-rate: 10
+        burst-capacity: 20
+      free:
+        replenish-rate: 30
+        burst-capacity: 60
+      premium:
+        replenish-rate: 100
+        burst-capacity: 200
+      endpoints:
+        - path-pattern: /api/v1/auth/login
+          method: POST
+          replenish-rate: 5
+          burst-capacity: 10
+        - path-pattern: /api/v1/auth/register
+          method: POST
+          replenish-rate: 5
+          burst-capacity: 10
+        - path-pattern: /api/v1/auth/refresh
+          method: POST
+          replenish-rate: 10
+          burst-capacity: 20
+        - path-pattern: /.well-known/**
+          replenish-rate: 50
+          burst-capacity: 100
+        - path-pattern: /api/v1/auth/jwks.json
+          replenish-rate: 50
+          burst-capacity: 100
+        - path-pattern: /v3/api-docs/**
+          replenish-rate: 50
+          burst-capacity: 100
+        - path-pattern: /api/**/v3/api-docs/**
+          replenish-rate: 50
+          burst-capacity: 100
+        - path-pattern: /swagger-ui/**
+          replenish-rate: 50
+          burst-capacity: 100
+    security:
+      headers:
+        enabled: true
+        override-existing: false
+        content-type-options: nosniff
+        frame-options: DENY
+        xss-protection: '0'
+        strict-transport-security: 'max-age=31536000; includeSubDomains; preload'
+        content-security-policy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'"
+        referrer-policy: strict-origin-when-cross-origin
+        permissions-policy: 'geolocation=(), camera=(), microphone=(), payment=(), usb=()'
+        permitted-cross-domain-policies: none
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,gateway
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always
+    gateway:
+      enabled: true
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 5s
+        permittedNumberOfCallsInHalfOpenState: 3
+    instances:
+      authServiceCircuitBreaker:
+        baseConfig: default
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 3s

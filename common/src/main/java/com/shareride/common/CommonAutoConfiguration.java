@@ -2,11 +2,6 @@ package com.shareride.common;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shareride.common.context.ShareRideTaskDecorator;
-import com.shareride.common.exception.GlobalExceptionHandler;
-import com.shareride.common.filter.CorrelationIdFilter;
-import com.shareride.common.filter.HttpLoggingFilter;
-import com.shareride.common.filter.UserContextFilter;
-import com.shareride.common.i18n.HeaderLocaleResolver;
 import com.shareride.common.i18n.TemplateMessageSource;
 import com.shareride.common.logging.EnvironmentContext;
 import com.shareride.common.logging.ShareRideLoggingProperties;
@@ -21,15 +16,16 @@ import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.env.Environment;
-import org.springframework.web.servlet.LocaleResolver;
 
 /**
- * Auto-configuration for common response formatting, exception handling, i18n, context propagation,
- * security audit logging, business event publishing, and structured HTTP access logging.
+ * Auto-configuration for common JSON mapping, environment metadata resolution, i18n message
+ * templates, security audit logging, business event publishing, logging metrics, and logging
+ * properties.
+ *
+ * <p>Web MVC Servlet specific beans are configured in {@link CommonWebMvcAutoConfiguration}.
  */
 @AutoConfiguration
 @EnableConfigurationProperties(ShareRideLoggingProperties.class)
@@ -66,12 +62,6 @@ public class CommonAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnMissingBean(name = "localeResolver")
-    public LocaleResolver localeResolver() {
-        return new HeaderLocaleResolver();
-    }
-
-    @Bean
     @ConditionalOnMissingBean
     public LogSampler logSampler(ShareRideLoggingProperties properties) {
         return new LogSampler(properties.getInfoSampleRate(), properties.getDebugSampleRate());
@@ -91,42 +81,8 @@ public class CommonAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
-    public CorrelationIdFilter correlationIdFilter() {
-        return new CorrelationIdFilter();
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
-    @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
-    public UserContextFilter userContextFilter() {
-        return new UserContextFilter();
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
-    @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
-    public HttpLoggingFilter httpLoggingFilter(
-            ShareRideLoggingProperties loggingProperties,
-            ObjectProvider<ShareRideMetrics> metricsProvider,
-            ObjectProvider<LogSampler> samplerProvider) {
-        return new HttpLoggingFilter(loggingProperties, metricsProvider, samplerProvider);
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
     public ShareRideTaskDecorator shareRideTaskDecorator() {
         return new ShareRideTaskDecorator();
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
-    public GlobalExceptionHandler globalExceptionHandler(
-            TemplateMessageSource templateMessageSource,
-            ObjectProvider<ShareRideMetrics> metricsProvider,
-            ObjectProvider<AuditLogService> auditLogServiceProvider) {
-        return new GlobalExceptionHandler(
-                templateMessageSource, metricsProvider, auditLogServiceProvider);
     }
 
     @Bean

@@ -3,24 +3,8 @@ package com.shareride.auth.constant;
 import java.time.Duration;
 
 /**
- * Tập hợp các cấu hình mặc định, thời hạn token, tiền tố Redis lock, và định dạng xác thực trong
+ * Tập hợp các cấu hình mặc định, thời hạn token, tiền tố Redis/Valkey, và định dạng xác thực trong
  * Auth Service.
- *
- * <p>Lớp này lưu trữ các giá trị hằng số kỹ thuật giúp các kỹ sư tiếp quản dự án dễ dàng tinh chỉnh
- * TTL, quy ước khóa Redis, hoặc các đường dẫn API mà không cần tìm kiếm rải rác trong code.
- *
- * <h3>Hướng dẫn sử dụng cho người tiếp quản dự án:</h3>
- *
- * <pre>{@code
- * // Sử dụng khóa Redis Lock:
- * String lockKey = AuthConstants.RedisLock.REGISTER_EMAIL_PREFIX + normalizedEmail;
- * Duration timeout = AuthConstants.RedisLock.REGISTER_LOCK_TIMEOUT;
- *
- * // Trích xuất Bearer token từ header:
- * if (authHeader != null && authHeader.startsWith(AuthConstants.BEARER_PREFIX)) {
- *     String token = authHeader.substring(AuthConstants.BEARER_PREFIX_LENGTH);
- * }
- * }</pre>
  */
 public final class AuthConstants {
 
@@ -28,10 +12,7 @@ public final class AuthConstants {
         // Ngăn chặn khởi tạo utility class
     }
 
-    /**
-     * Loại token chuẩn sử dụng trong Header Authorization và DTO phản hồi xác thực: {@code
-     * "Bearer"}.
-     */
+    /** Loại token chuẩn sử dụng trong Header Authorization: {@code "Bearer"}. */
     public static final String TOKEN_TYPE_BEARER = "Bearer";
 
     /** Tên chuẩn của HTTP Header chứa mã xác thực: {@code "Authorization"}. */
@@ -40,96 +21,88 @@ public final class AuthConstants {
     /** Tiền tố Bearer đi kèm trong header Authorization: {@code "Bearer "}. */
     public static final String BEARER_PREFIX = "Bearer ";
 
-    /** Độ dài của tiền tố "Bearer " (7 ký tự), dùng để tách chuỗi lấy raw token an toàn. */
+    /** Độ dài của tiền tố "Bearer " (7 ký tự). */
     public static final int BEARER_PREFIX_LENGTH = BEARER_PREFIX.length();
 
     /** Tên tham số query param truyền refresh token trong request: {@code "refreshToken"}. */
     public static final String PARAM_REFRESH_TOKEN = "refreshToken";
 
-    /** Tên path variable cho định danh UUID: {@code "id"}. */
+    /** Tên path variable cho định danh UUID tài khoản: {@code "id"}. */
     public static final String PATH_VARIABLE_ID = "id";
 
-    /**
-     * Tên thuật toán băm cryptographic dùng để băm mật khẩu và refresh token: {@code "SHA-256"}.
-     */
+    /** Tên path variable cho định danh session: {@code "sessionId"}. */
+    public static final String PATH_VARIABLE_SESSION_ID = "sessionId";
+
+    /** Tên thuật toán băm cryptographic: {@code "SHA-256"}. */
     public static final String HASH_ALGORITHM_SHA256 = "SHA-256";
 
     /**
-     * Tên định danh người dùng mặc định khi context chưa xác định được UserId: {@code "unknown"}.
+     * Tên định danh tài khoản mặc định khi context chưa xác định được AccountId: {@code "unknown"}.
      */
-    public static final String UNKNOWN_USER_ID = "unknown";
+    public static final String UNKNOWN_ACCOUNT_ID = "unknown";
 
     /** Cấu hình thời gian sống (TTL / Expiration) cho các loại token và phiên làm việc. */
     public static final class TokenTtl {
-        private TokenTtl() {
-            // Ngăn chặn khởi tạo utility class
-        }
+        private TokenTtl() {}
 
-        /**
-         * Thời hạn hiệu lực của Access Token (1 giờ). Đồng thời là thời gian token bị đưa vào Redis
-         * Token Blacklist khi người dùng chủ động logout.
-         */
-        public static final Duration ACCESS_TOKEN_VALIDITY = Duration.ofHours(1);
+        /** Thời hạn hiệu lực của Access Token (15 phút). */
+        public static final Duration ACCESS_TOKEN_VALIDITY = Duration.ofMinutes(15);
 
-        /** Thời hạn hiệu lực của Refresh Token lưu trong Database (7 ngày). */
+        /** Thời hạn hiệu lực của Refresh Token lưu trong Valkey (7 ngày). */
         public static final Duration REFRESH_TOKEN_VALIDITY = Duration.ofDays(7);
     }
 
-    /** Cấu hình quy ước khóa và thời gian chờ của Distributed Lock trên Redis. */
-    public static final class RedisLock {
-        private RedisLock() {
-            // Ngăn chặn khởi tạo utility class
-        }
+    /** Cấu hình quy ước khóa và thời gian chờ của Distributed Lock và Cache trên Valkey/Redis. */
+    public static final class CacheKey {
+        private CacheKey() {}
 
         /**
-         * Tiền tố Redis key dùng cho Distributed Lock khi đăng ký tài khoản mới: {@code
-         * "register:email:"}. Kết hợp với normalized email ({@code "register:email:" + email}) nhằm
-         * ngăn chặn race-condition khi có 2 request đăng ký cùng lúc trên nhiều instance.
+         * Tiền tố Distributed Lock khi đăng ký tài khoản mới: {@code "auth:lock:register:email:"}.
          */
-        public static final String REGISTER_EMAIL_PREFIX = "register:email:";
+        public static final String REGISTER_EMAIL_LOCK_PREFIX = "auth:lock:register:email:";
 
         /** Thời gian tối đa giữ Redis Distributed Lock khi đăng ký (5 giây). */
         public static final Duration REGISTER_LOCK_TIMEOUT = Duration.ofSeconds(5);
+
+        /** Tiền tố lưu thông tin Refresh Token trên Valkey: {@code "auth:refresh-token:"}. */
+        public static final String REFRESH_TOKEN_PREFIX = "auth:refresh-token:";
+
+        /**
+         * Tiền tố ánh xạ SessionId -> RefreshTokenHash trên Valkey: {@code "auth:session-token:"}.
+         */
+        public static final String SESSION_TOKEN_PREFIX = "auth:session-token:";
+
+        /**
+         * Tiền tố lưu danh sách SessionIds đang hoạt động của Account trên Valkey: {@code
+         * "auth:account-sessions:"}.
+         */
+        public static final String ACCOUNT_SESSIONS_PREFIX = "auth:account-sessions:";
     }
 
     /** Danh mục các đường dẫn tài nguyên (Resource URLs) được ghi nhận trong Security Audit Log. */
     public static final class AuditResource {
-        private AuditResource() {
-            // Ngăn chặn khởi tạo utility class
-        }
+        private AuditResource() {}
 
-        /** Đường dẫn API đăng ký người dùng: {@code "/api/v1/auth/register"}. */
         public static final String REGISTER = "/api/v1/auth/register";
-
-        /** Đường dẫn API đăng nhập: {@code "/api/v1/auth/login"}. */
         public static final String LOGIN = "/api/v1/auth/login";
-
-        /** Đường dẫn API đăng xuất: {@code "/api/v1/auth/logout"}. */
         public static final String LOGOUT = "/api/v1/auth/logout";
+        public static final String REFRESH = "/api/v1/auth/refresh";
+        public static final String SESSIONS = "/api/v1/auth/sessions";
+        public static final String JWKS = "/api/v1/auth/jwks.json";
     }
 
-    /**
-     * Danh mục các endpoint URL định tuyến trong {@link
-     * com.shareride.auth.controller.AuthController}.
-     */
+    /** Danh mục các endpoint URL định tuyến trong {@code AuthController}. */
     public static final class Endpoint {
-        private Endpoint() {
-            // Ngăn chặn khởi tạo utility class
-        }
+        private Endpoint() {}
 
-        /** Base path của toàn bộ Auth Controller: {@code "/api/v1/auth"}. */
         public static final String BASE_PATH = "/api/v1/auth";
-
-        /** Đường dẫn con đăng ký tài khoản: {@code "/register"}. */
         public static final String REGISTER = "/register";
-
-        /** Đường dẫn con đăng nhập: {@code "/login"}. */
         public static final String LOGIN = "/login";
-
-        /** Đường dẫn con đăng xuất: {@code "/logout"}. */
         public static final String LOGOUT = "/logout";
-
-        /** Đường dẫn con truy vấn thông tin người dùng theo Id: {@code "/users/{id}"}. */
-        public static final String USERS_BY_ID = "/users/{id}";
+        public static final String REFRESH = "/refresh";
+        public static final String ACCOUNTS_BY_ID = "/accounts/{id}";
+        public static final String SESSIONS = "/sessions";
+        public static final String SESSION_BY_ID = "/sessions/{sessionId}";
+        public static final String JWKS = "/jwks.json";
     }
 }
