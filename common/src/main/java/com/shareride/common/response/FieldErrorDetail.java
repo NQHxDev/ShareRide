@@ -1,6 +1,7 @@
 package com.shareride.common.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -21,14 +22,23 @@ import org.springframework.validation.ObjectError;
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
+@Schema(description = "Field validation error detail")
 public class FieldErrorDetail implements Serializable {
 
+    @Schema(description = "Field name that violated validation", example = "email")
     private String field;
+
+    @Schema(description = "Rejected field value", example = "invalid-email")
     private Object rejectedValue;
+
+    @Schema(description = "Validation failure explanation", example = "Invalid email format")
     private String message;
+
+    @Schema(description = "Validation constraint code", example = "Email")
     private String code;
 
     @Singular("nestedError")
+    @Schema(description = "Hierarchical nested field errors")
     private List<FieldErrorDetail> nestedErrors;
 
     public static FieldErrorDetail of(String field, String message) {

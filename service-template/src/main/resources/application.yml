@@ -49,6 +49,10 @@ spring:
     password: ${RABBITMQ_PASSWORD:guest}
 
 shareride:
+  openapi:
+    title: "ShareRide Template Service API"
+    description: "Enterprise Standard Service Archetype for ShareRide Platform. Provides CRUD template APIs, Optimistic Locking, Soft Delete, gRPC Clients, RabbitMQ Event Publishing, and Distributed Caching."
+    version: "v1.0"
   cache:
     enabled: true
     shared:

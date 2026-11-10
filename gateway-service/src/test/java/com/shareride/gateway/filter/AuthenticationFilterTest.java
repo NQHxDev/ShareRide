@@ -112,6 +112,30 @@ class AuthenticationFilterTest {
     }
 
     @Test
+    @DisplayName("Should pass through OpenAPI and Swagger UI endpoints without authentication")
+    void shouldPassThroughOpenApiAndSwaggerEndpoints() {
+        List<String> docPaths =
+                List.of(
+                        "/v3/api-docs",
+                        "/v3/api-docs/swagger-config",
+                        "/swagger-ui/index.html",
+                        "/swagger-ui.html",
+                        "/api/v1/auth/v3/api-docs",
+                        "/api/v1/auth/v3/api-docs/swagger-config",
+                        "/api/v1/templates/v3/api-docs");
+
+        for (String docPath : docPaths) {
+            MockServerHttpRequest request = MockServerHttpRequest.get(docPath).build();
+            MockServerWebExchange exchange = MockServerWebExchange.from(request);
+
+            filter.filter(exchange, chain).block();
+
+            verify(chain).filter(exchange);
+            verify(gatewayMetricsService).recordAuthEvent("PUBLIC_BYPASS", docPath, "whitelisted");
+        }
+    }
+
+    @Test
     @DisplayName("Should record token present metric for protected endpoint with Bearer header")
     void shouldPassThroughProtectedEndpointWithBearerToken() {
         MockServerHttpRequest request =

@@ -8,6 +8,7 @@ import com.shareride.common.context.CorrelationIdContext;
 import com.shareride.common.filter.TraceIdContext;
 import com.shareride.common.i18n.LocaleContextHolderUtil;
 import com.shareride.common.i18n.MessageResolverHolder;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.io.Serializable;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -32,27 +33,63 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @JsonInclude(JsonInclude.Include.NON_NULL)
+@Schema(description = "Standardized Enterprise API Response Wrapper for ShareRide Platform")
 public class BaseResponse<T> implements Serializable {
 
+    @Schema(description = "Indicates whether the operation was successful", example = "true")
     private boolean success;
+
+    @Schema(description = "Response level classification", example = "SUCCESS")
     private ResponseLevel level;
+
+    @Schema(description = "Business response or error code", example = "SUCCESS")
     private String code;
+
+    @Schema(
+            description = "Localized human-readable response message",
+            example = "Operation completed successfully")
     private String message;
+
+    @Schema(description = "Payload data object")
     private T data;
+
+    @Schema(description = "Pagination metadata for list or paged responses")
     private PageInfo pagination;
+
+    @Schema(description = "Execution and runtime metadata")
     private ResponseMetadata metadata;
+
+    @Schema(description = "Detailed list of field or parameter validation errors")
     private List<FieldErrorDetail> errors;
+
+    @Schema(description = "List of non-blocking warning messages")
     private List<String> warnings;
+
+    @Schema(
+            description = "OpenTelemetry distributed trace identifier",
+            example = "4bf92f3577b34da6a3ce929d0e0e4736")
     private String traceId;
+
+    @Schema(
+            description = "End-to-end distributed correlation identifier",
+            example = "018d9f1e-8742-7ef1-95c2-f123456789ab")
     private String correlationId;
+
+    @Schema(
+            description = "Unique identifier for this specific error event",
+            example = "018d9f1e-8742-7ef1-95c2-f123456789ac")
     private String errorId;
 
     @JsonFormat(
             shape = JsonFormat.Shape.STRING,
             pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
             timezone = "UTC")
+    @Schema(
+            description = "Response generation timestamp in UTC ISO-8601 format",
+            example = "2026-11-10T12:00:00.000Z")
     private Instant timestamp;
 
+    @Schema(description = "Requested resource path", example = "/api/v1/auth/login")
     private String path;
 
     public static <T> BaseResponse<T> success(T data) {

@@ -31,6 +31,12 @@
       <artifactId>jackson-datatype-jsr310</artifactId>
    </dependency>
 
+   <!-- SpringDoc OpenAPI 3.0 & Swagger UI Documentation -->
+   <dependency>
+      <groupId>org.springdoc</groupId>
+      <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+   </dependency>
+
    <!-- RabbitMQ & AMQP for Asynchronous Event-Driven Messaging -->
    <dependency>
       <groupId>org.springframework.boot</groupId>

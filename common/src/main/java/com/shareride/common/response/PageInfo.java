@@ -2,6 +2,7 @@ package com.shareride.common.response;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.io.Serializable;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -14,15 +15,31 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
+@Schema(description = "Pagination metadata")
 public class PageInfo implements Serializable {
 
+    @Schema(description = "Zero-based page index", example = "0")
     private int page;
+
+    @Schema(description = "Number of elements per page", example = "20")
     private int size;
+
+    @Schema(description = "Total number of elements across all pages", example = "100")
     private long totalElements;
+
+    @Schema(description = "Total number of available pages", example = "5")
     private int totalPages;
+
+    @Schema(description = "Whether there is a subsequent page", example = "true")
     private boolean hasNext;
+
+    @Schema(description = "Whether there is an earlier page", example = "false")
     private boolean hasPrevious;
+
+    @Schema(description = "Whether this is the first page", example = "true")
     private boolean first;
+
+    @Schema(description = "Whether this is the final page", example = "false")
     private boolean last;
 
     @JsonIgnore

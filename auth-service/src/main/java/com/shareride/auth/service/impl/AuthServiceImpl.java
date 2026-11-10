@@ -243,7 +243,6 @@ public class AuthServiceImpl implements AuthService {
         String accessToken = jwtService.generateAccessToken(account, savedSession);
         String refreshToken = UuidUtils.v4AsString();
 
-        // Lưu Refresh Token vào Valkey kèm TTL (Không lưu token vào DB)
         refreshTokenCacheService.saveRefreshToken(
                 savedSession.getId(),
                 account.getId(),

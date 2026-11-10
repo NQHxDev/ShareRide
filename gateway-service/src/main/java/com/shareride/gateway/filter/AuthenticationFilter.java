@@ -35,10 +35,10 @@ import reactor.core.publisher.Mono;
  * Global Authentication & Token Forwarding Filter.
  *
  * <p>Enforces API security at the Gateway boundary. Public endpoints (such as login, registration,
- * JWKS discovery, health probes, and fallbacks) bypass authentication. For protected endpoints, it
- * verifies incoming asymmetric EdDSA (Ed25519) JWTs, enriches downstream request headers with
- * authenticated user identity and context, records security metrics and audit logs, and rejects
- * unauthorized or invalid requests with 401 Unauthorized.
+ * JWKS discovery, OpenAPI documentation, health probes, and fallbacks) bypass authentication. For
+ * protected endpoints, it verifies incoming asymmetric EdDSA (Ed25519) JWTs, enriches downstream
+ * request headers with authenticated user identity and context, records security metrics and audit
+ * logs, and rejects unauthorized or invalid requests with 401 Unauthorized.
  */
 @Slf4j
 @Component
@@ -58,7 +58,14 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
                     "/api/v1/auth/jwks.json",
                     "/.well-known/**",
                     "/actuator/**",
-                    "/fallback/**");
+                    "/fallback/**",
+                    "/v3/api-docs/**",
+                    "/v3/api-docs",
+                    "/swagger-ui/**",
+                    "/swagger-ui.html",
+                    "/webjars/**",
+                    "/api/**/v3/api-docs/**",
+                    "/api/**/v3/api-docs");
 
     @Autowired
     public AuthenticationFilter(
