@@ -54,7 +54,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        module: [common, auth-service, service-template]
+        module: [common, auth-service, service-template, gateway-service]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -63,7 +63,7 @@ jobs:
         uses: ./.github/actions/setup-project
 
       - name: Run module Unit Tests (${{ matrix.module }})
-        run: ./mvnw test -pl ${{ matrix.module }} -am -Dtest="!*IntegrationTest" --batch-mode
+        run: ./mvnw test -pl ${{ matrix.module }} -am -Dtest="!*IntegrationTest" -Dsurefire.failIfNoSpecifiedTests=false --batch-mode
 
       - name: Generate Coverage Report
         run: ./mvnw jacoco:report
@@ -97,7 +97,7 @@ jobs:
         uses: ./.github/actions/setup-project
 
       - name: Run Integration Tests
-        run: ./mvnw test -Dtest="*IntegrationTest" --batch-mode
+        run: ./mvnw test -Dtest="*IntegrationTest" -Dsurefire.failIfNoSpecifiedTests=false --batch-mode
 
       - name: Generate Coverage Report
         run: ./mvnw jacoco:report
@@ -133,10 +133,41 @@ jobs:
       - name: Package Project
         run: ./mvnw package -DskipTests --batch-mode
 
-      - name: Upload build artifacts
+      - name: Upload auth-service artifact
         uses: actions/upload-artifact@v7
         with:
           name: auth-service-jar
           path: auth-service/target/*.jar
           retention-days: 7
           if-no-files-found: ignore
+
+      - name: Upload gateway-service artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: gateway-service-jar
+          path: gateway-service/target/*.jar
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # Consolidated Status Gate for Rulesets and Branch Protection
+  ci-gate:
+    name: CI Status Gate
+    needs: [code-quality, test-modules, integration-test, package-and-verify]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify All CI Stages Passed
+        run: |
+          echo "Evaluating status of all CI jobs..."
+          if [ "${{ needs.code-quality.result }}" != "success" ] || \
+             [ "${{ needs.test-modules.result }}" != "success" ] || \
+             [ "${{ needs.integration-test.result }}" != "success" ] || \
+             [ "${{ needs.package-and-verify.result }}" != "success" ]; then
+            echo "::error::One or more upstream CI jobs failed, were cancelled, or skipped."
+            echo "code-quality: ${{ needs.code-quality.result }}"
+            echo "test-modules: ${{ needs.test-modules.result }}"
+            echo "integration-test: ${{ needs.integration-test.result }}"
+            echo "package-and-verify: ${{ needs.package-and-verify.result }}"
+            exit 1
+          fi
+          echo "All CI pipeline stages completed successfully."
