@@ -36,6 +36,9 @@ public final class AuthConstants {
     /** Tên thuật toán băm cryptographic: {@code "SHA-256"}. */
     public static final String HASH_ALGORITHM_SHA256 = "SHA-256";
 
+    /** Tên thuật toán băm mật khẩu chuẩn hóa: {@code "Argon2id"}. */
+    public static final String PASSWORD_ALGORITHM_ARGON2ID = "Argon2id";
+
     /**
      * Tên định danh tài khoản mặc định khi context chưa xác định được AccountId: {@code "unknown"}.
      */

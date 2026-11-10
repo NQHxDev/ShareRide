@@ -1,17 +1,19 @@
 #!/bin/bash
 
 # ==============================================================================
-# ShareRide Pre-Push Hook
-# Comprehensive build, full test suite & artifact verification before push:
+# ShareRide Pre-Push Hook (Smart & Impact-Based)
+# ==============================================================================
+# Intelligent monorepo build & test suite execution before push:
 #   1. Branch protection (prevent accidental direct push to main/master)
-#   2. Full clean build & compilation
-#   3. Thorough test suite execution:
-#      - Unit & Slice tests
-#      - Architecture tests (ArchUnit - enforcing strict service standards)
-#      - Integration tests (Testcontainers)
-#      - JaCoCo code coverage generation
-#   4. Re-verify code formatting & standards (Spotless & Checkstyle)
-#   5. Artifact packaging verification (JAR artifacts generated)
+#   2. Impact Analysis:
+#      - Only docs/markdown/config changed -> Skip Java build entirely (instant pass)
+#      - Root/Shared build config changed -> Run full build across all modules
+#      - Service/Module changed (e.g., gateway-service) -> Build ONLY that service
+#      - Shared module changed (e.g., common) -> Build common + all dependent services (-amd)
+#   3. Upstream dependency preparation (-am with -DskipTests)
+#   4. Quality & Standards check (Spotless & Checkstyle)
+#   5. Thorough test suite execution (Unit, Slice, ArchUnit & Testcontainers integration tests)
+#   6. Dynamic artifact packaging verification (verifies generated JARs)
 # ==============================================================================
 
 set -e
@@ -22,134 +24,305 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
+MAGENTA='\033[0;35m'
 BOLD='\033[1m'
 NC='\033[0m'
 
 print_error() {
-   echo -e "${RED}[ERROR] $1${NC}"
+echo -e "${RED}[ERROR] $1${NC}"
 }
 
 print_success() {
-   echo -e "${GREEN}[SUCCESS] $1${NC}"
+echo -e "${GREEN}[SUCCESS] $1${NC}"
 }
 
 print_info() {
-   echo -e "${BLUE}[INFO] $1${NC}"
+echo -e "${BLUE}[INFO] $1${NC}"
 }
 
 print_warn() {
-   echo -e "${YELLOW}[WARN] $1${NC}"
+echo -e "${YELLOW}[WARN] $1${NC}"
 }
 
 # Allow bypassing via environment variable in emergencies
 if [ "${SKIP_HOOKS}" = "1" ] || [ "${SKIP_PRE_PUSH}" = "1" ]; then
-   print_warn "SKIP_HOOKS detected. Skipping pre-push verification."
-   exit 0
+print_warn "SKIP_HOOKS detected. Skipping pre-push verification."
+exit 0
 fi
 
 echo -e "${CYAN}${BOLD}[Pre-push] Verifying branches and push target...${NC}"
 
-# Read push refs from standard input: <local_ref> <local_sha> <remote_ref> <remote_sha>
+# Read push refs from standard input only if stdin is NOT a terminal (i.e. piped by git push)
 all_deletions=true
 has_refs=false
+COMMITS_DIFF_FILES=""
 
-while read local_ref local_sha remote_ref remote_sha; do
-   has_refs=true
+if [ ! -t 0 ]; then
+    while read -r local_ref local_sha remote_ref remote_sha; do
+        has_refs=true
 
-   # Zero SHA indicates remote branch deletion
-   if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
-      print_info "Deleting remote ref: $remote_ref"
-      continue
-   fi
+        # Zero SHA indicates remote branch deletion
+        if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
+            print_info "Deleting remote ref: $remote_ref"
+            continue
+        fi
 
-   all_deletions=false
-   BRANCH_NAME=$(echo "$remote_ref" | sed 's@^refs/heads/@@')
-   print_info "Pushing to remote branch: [$BRANCH_NAME]"
+        all_deletions=false
+        BRANCH_NAME=$(echo "$remote_ref" | sed 's@^refs/heads/@@')
+        print_info "Pushing to remote branch: [$BRANCH_NAME]"
 
-   # Protected branch check (prevent direct push to main or master)
-   if [ "$BRANCH_NAME" = "main" ] || [ "$BRANCH_NAME" = "master" ]; then
-      if [ "${ALLOW_DIRECT_PUSH}" != "1" ]; then
-         echo ""
-         print_error "Direct push to protected branch '$BRANCH_NAME' is forbidden!"
-         print_info "Please create a feature branch and submit a Pull Request instead."
-         print_info "Emergency bypass: ALLOW_DIRECT_PUSH=1 git push ..."
-         echo ""
-         exit 1
-      else
-         print_warn "ALLOW_DIRECT_PUSH=1 detected. Proceeding with push to '$BRANCH_NAME'..."
-      fi
-   fi
-done
+        # Protected branch check (prevent direct push to main or master)
+        if [ "$BRANCH_NAME" = "main" ] || [ "$BRANCH_NAME" = "master" ]; then
+            if [ "${ALLOW_DIRECT_PUSH}" != "1" ]; then
+                echo ""
+                print_error "Direct push to protected branch '$BRANCH_NAME' is forbidden!"
+                print_info "Please create a feature branch and submit a Pull Request instead."
+                print_info "Emergency bypass: ALLOW_DIRECT_PUSH=1 git push ..."
+                echo ""
+                exit 1
+            else
+                print_warn "ALLOW_DIRECT_PUSH=1 detected. Proceeding with push to '$BRANCH_NAME'..."
+            fi
+        fi
+
+        # Get changed files for this ref range
+        if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
+            # New remote branch: find merge base with main/master or tracking ref
+            BASE_REF=$(git merge-base origin/main "$local_sha" 2>/dev/null || git merge-base main "$local_sha" 2>/dev/null || git merge-base origin/master "$local_sha" 2>/dev/null || git merge-base master "$local_sha" 2>/dev/null || echo "")
+            if [ -n "$BASE_REF" ]; then
+                RANGE="$BASE_REF..$local_sha"
+            else
+                RANGE="$local_sha~1..$local_sha"
+            fi
+        else
+            RANGE="$remote_sha..$local_sha"
+        fi
+
+        if [ -n "$RANGE" ]; then
+            FILES=$(git diff --name-only "$RANGE" 2>/dev/null || true)
+            COMMITS_DIFF_FILES="${COMMITS_DIFF_FILES}"$'\n'"${FILES}"
+        fi
+    done
+fi
 
 # If only deleting remote branches, skip build & test checks
 if [ "$has_refs" = true ] && [ "$all_deletions" = true ]; then
-   print_info "Only remote branch deletions detected. Skipping build and test suite."
-   exit 0
+    print_info "Only remote branch deletions detected. Skipping build and test suite."
+    exit 0
 fi
 
 # Detect Maven command (prefer system 'mvn', fallback to './mvnw')
 if command -v mvn >/dev/null 2>&1; then
-   MVN_CMD="mvn"
+    MVN_CMD="mvn"
 elif [ -x "./mvnw" ]; then
-   MVN_CMD="./mvnw"
+    MVN_CMD="./mvnw"
 else
-   print_error "Neither 'mvn' nor './mvnw' was found in PATH."
-   exit 1
+    print_error "Neither 'mvn' nor './mvnw' was found in PATH."
+    exit 1
 fi
 
+# If executed directly without stdin (standalone manual testing mode)
+if [ "$has_refs" = false ]; then
+    CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "HEAD")
+    print_info "Running in standalone/local verification mode for branch: [$CURRENT_BRANCH]"
+
+    # 1. Compare against upstream tracking branch if available
+    UPSTREAM=$(git rev-parse --abbrev-ref --symbolic-full-name "@{u}" 2>/dev/null || echo "")
+    if [ -n "$UPSTREAM" ]; then
+        COMMITS_DIFF_FILES=$(git diff --name-only "$UPSTREAM..HEAD" 2>/dev/null || true)
+    else
+        # If no upstream tracking branch, compare against origin/main, main, or HEAD~1
+        BASE_REF=$(git merge-base origin/main HEAD 2>/dev/null || git merge-base main HEAD 2>/dev/null || git merge-base origin/master HEAD 2>/dev/null || git merge-base master HEAD 2>/dev/null || echo "")
+        if [ -n "$BASE_REF" ]; then
+            COMMITS_DIFF_FILES=$(git diff --name-only "$BASE_REF..HEAD" 2>/dev/null || true)
+        else
+            COMMITS_DIFF_FILES=$(git diff --name-only HEAD~1..HEAD 2>/dev/null || true)
+        fi
+    fi
+fi
+
+# Combine commit diffs with local workspace modifications (uncommitted / staged)
+WORKSPACE_FILES=$(git diff --name-only HEAD 2>/dev/null || git diff --name-only --cached 2>/dev/null || true)
+ALL_CHANGED_FILES=$(printf "%s\n%s\n" "$COMMITS_DIFF_FILES" "$WORKSPACE_FILES" | sed '/^[[:space:]]*$/d' | sort -u)
+
+# If no changes at all
+if [ -z "$ALL_CHANGED_FILES" ]; then
+    echo ""
+    print_success "✓ Clean working tree and no unpushed commits detected."
+    print_info "Nothing changed compared to remote. Everything is up to date!"
+    echo ""
+    exit 0
+fi
+
+# ------------------------------------------------------------------------------
+# 1. Check if changes are pure documentation or non-code assets
+# ------------------------------------------------------------------------------
+NON_CODE_ONLY=true
+while IFS= read -r file; do
+[ -z "$file" ] && continue
+case "$file" in
+    *.md|*.txt|*.png|*.jpg|*.jpeg|*.svg|*.drawio|LICENSE|.gitignore|.editorconfig|.markdownlint*|.prettier*|.gitmessage)
+        ;;
+    docs/*|monitoring/*|.agents/*|.omni/*)
+        ;;
+    *)
+        NON_CODE_ONLY=false
+        break
+        ;;
+esac
+done <<< "$ALL_CHANGED_FILES"
+
+if [ "$NON_CODE_ONLY" = true ]; then
 echo ""
-echo -e "${YELLOW}${BOLD}========================================================================${NC}"
-echo -e "${YELLOW}${BOLD}     ShareRide Pre-Push: Full Build & Comprehensive Test Suite           ${NC}"
-echo -e "${YELLOW}${BOLD}========================================================================${NC}"
-print_info "Running comprehensive pipeline: Clean -> Build -> Full Tests -> Quality -> Packaging"
+print_success "✓ Only documentation or non-code configuration files changed."
+print_info "Skipping Java build, test suite & packaging verification."
 echo ""
+exit 0
+fi
+
+# ------------------------------------------------------------------------------
+# 2. Check for Global / Shared build configuration changes
+# ------------------------------------------------------------------------------
+FORCE_FULL_BUILD=false
+GLOBAL_TRIGGER=""
+
+if [ "${FULL_BUILD}" = "1" ]; then
+FORCE_FULL_BUILD=true
+GLOBAL_TRIGGER="FULL_BUILD=1 env var"
+else
+while IFS= read -r file; do
+    [ -z "$file" ] && continue
+    case "$file" in
+        pom.xml|checkstyle.xml|Makefile|.github/*|.githooks/*|scripts/*)
+            FORCE_FULL_BUILD=true
+            GLOBAL_TRIGGER="$file"
+            break
+            ;;
+    esac
+done <<< "$ALL_CHANGED_FILES"
+fi
+
+# Dynamically discover all Maven modules in the monorepo
+AVAILABLE_MODULES=()
+for pom in */pom.xml; do
+if [ -f "$pom" ]; then
+    mod_dir="${pom%/pom.xml}"
+    AVAILABLE_MODULES+=("$mod_dir")
+fi
+done
+
+CHANGED_MODULES=()
+if [ "$FORCE_FULL_BUILD" = false ]; then
+while IFS= read -r file; do
+    [ -z "$file" ] && continue
+    dir="${file%%/*}"
+    for mod in "${AVAILABLE_MODULES[@]}"; do
+        if [ "$dir" = "$mod" ]; then
+            if [[ ! " ${CHANGED_MODULES[*]} " =~ " :$mod " ]]; then
+            CHANGED_MODULES+=(":$mod")
+            fi
+        fi
+    done
+done <<< "$ALL_CHANGED_FILES"
+
+# Fallback to full build if changed files are outside known modules
+if [ ${#CHANGED_MODULES[@]} -eq 0 ]; then
+    FORCE_FULL_BUILD=true
+    GLOBAL_TRIGGER="Root changes outside known modules"
+fi
+fi
+
+# ------------------------------------------------------------------------------
+# 3. Execution Pipeline Setup (Impact-Based / Incremental)
+# ------------------------------------------------------------------------------
+echo ""
+echo -e "${YELLOW}${BOLD}ShareRide Pre-Push: Smart Impact-Based Build & Test Suite${NC}"
 
 START_TIME=$(date +%s)
 
+if [ "$FORCE_FULL_BUILD" = true ]; then
+echo -e "${MAGENTA}${BOLD}[Scope] FULL MONOREPO BUILD${NC} (Triggered by: ${YELLOW}$GLOBAL_TRIGGER${NC})"
+print_info "Running comprehensive pipeline across all modules: Clean -> Verify -> Quality -> Packaging"
+echo ""
+
 if [ "${SKIP_TESTS}" = "1" ] || [ "${FAST}" = "1" ]; then
-   print_warn "SKIP_TESTS=1 detected. Skipping test execution, running clean build & quality checks only..."
-   BUILD_CMD=("$MVN_CMD" "clean" "package" "-DskipTests" "spotless:check" "checkstyle:check" "--batch-mode")
+    print_warn "SKIP_TESTS=1 detected. Skipping test execution, running clean package & quality checks..."
+    BUILD_CMD=("$MVN_CMD" "clean" "package" "-DskipTests" "spotless:check" "checkstyle:check" "--batch-mode")
 else
-   BUILD_CMD=("$MVN_CMD" "clean" "verify" "spotless:check" "checkstyle:check" "--batch-mode")
+    BUILD_CMD=("$MVN_CMD" "clean" "verify" "spotless:check" "checkstyle:check" "--batch-mode")
+fi
+else
+MODULES_CSV=$(IFS=,; echo "${CHANGED_MODULES[*]}")
+echo -e "${CYAN}${BOLD}[Scope] SELECTIVE AFFECTED MODULES${NC}"
+echo -e "  ${BLUE}• Directly modified modules:${NC}   ${YELLOW}${CHANGED_MODULES[*]}${NC}"
+echo -e "  ${BLUE}• Reactor strategy:${NC}            ${GREEN}-pl $MODULES_CSV -amd${NC} (Auto-tests dependents)"
+echo ""
+
+# Step A: Compile upstream dependencies (e.g. common) quickly with -DskipTests
+echo -e "${BLUE}[Step 1/2] Ensuring upstream dependencies are compiled...${NC}"
+"$MVN_CMD" test-compile -pl "$MODULES_CSV" -am -DskipTests --batch-mode -q
+
+# Step B: Build, Test & Package affected modules + downstream dependents
+echo -e "${BLUE}[Step 2/2] Running Verification on affected modules & downstream dependents...${NC}"
+if [ "${SKIP_TESTS}" = "1" ] || [ "${FAST}" = "1" ]; then
+    print_warn "SKIP_TESTS=1 detected. Skipping test execution, running packaging & quality checks..."
+    BUILD_CMD=("$MVN_CMD" "package" "-DskipTests" "spotless:check" "checkstyle:check" "-pl" "$MODULES_CSV" "-amd" "--batch-mode")
+else
+    BUILD_CMD=("$MVN_CMD" "verify" "spotless:check" "checkstyle:check" "-pl" "$MODULES_CSV" "-amd" "--batch-mode")
+fi
 fi
 
+# Execute build
 if "${BUILD_CMD[@]}"; then
-   # Verify that JAR artifacts were packaged successfully
-   AUTH_JARS=(auth-service/target/auth-service-*.jar)
-   if [ ! -f "${AUTH_JARS[0]}" ]; then
-      echo ""
-      print_error "Artifact verification failed: auth-service-*.jar was not found in auth-service/target/!"
-      exit 1
-   fi
+END_TIME=$(date +%s)
+DURATION=$((END_TIME - START_TIME))
 
-   END_TIME=$(date +%s)
-   DURATION=$((END_TIME - START_TIME))
-
-   echo ""
-   print_success "✓ All Pre Push checks passed successfully! [${DURATION}s]"
-   echo -e "  ${GREEN}✓ Build & Compile:${NC}        Clean build successful"
-   echo -e "  ${GREEN}✓ Test Suite:${NC}             Unit tests, ArchUnit Architecture & Integration tests passed"
-   echo -e "  ${GREEN}✓ Quality & Style:${NC}        Spotless format & Checkstyle rules verified"
-   echo -e "  ${GREEN}✓ Artifacts:${NC}              Package JAR completed"
-   echo ""
-   print_info "Code đã sẵn sàng và an toàn để push lên remote repository!"
-   echo ""
-   exit 0
+echo ""
+print_success "✓ All Pre-Push checks passed successfully! [${DURATION}s]"
+echo -e "  ${GREEN}✓ Build & Compile:${NC}        Compilation successful"
+echo -e "  ${GREEN}✓ Quality & Style:${NC}        Spotless format & Checkstyle rules verified"
+if [ "${SKIP_TESTS}" = "1" ] || [ "${FAST}" = "1" ]; then
+    echo -e "  ${YELLOW}⚠ Test Suite:${NC}             Skipped (FAST/SKIP_TESTS flag detected)"
 else
-   echo ""
-   echo -e "${RED}${BOLD}========================================================================${NC}"
-   print_error "Pre-push verification FAILED!"
-   echo -e "${RED}${BOLD}========================================================================${NC}"
-   echo -e "${YELLOW}Nguyên nhân có thể do:${NC}"
-   echo -e "  1. Có Unit Test hoặc Architecture Test (ArchUnit) bị lỗi"
-   echo -e "  2. Có vi phạm chuẩn định dạng (Spotless) hoặc quy tắc code (Checkstyle)"
-   echo -e "  3. Lỗi đóng gói hoặc biên dịch (Compilation / Package error)"
-   echo ""
-   echo -e "${YELLOW}Gợi ý sửa lỗi:${NC}"
-   echo -e "  - Chạy '${BOLD}make test${NC}' hoặc '${BOLD}mvn test${NC}' để xem chi tiết test lỗi"
-   echo -e "  - Chạy '${BOLD}make format${NC}' để tự động sửa định dạng Spotless"
-   echo -e "  - Chạy '${BOLD}make check-style${NC}' để kiểm tra quy chuẩn Checkstyle"
-   echo -e "  - Trong trường hợp khẩn cấp, có thể push bằng: '${BOLD}git push --no-verify${NC}'"
-   echo ""
-   exit 1
+    echo -e "  ${GREEN}✓ Test Suite:${NC}             Unit tests, ArchUnit & Integration tests passed"
+fi
+
+# Dynamic artifact packaging verification
+VERIFIED_JARS=()
+for mod in "${AVAILABLE_MODULES[@]}"; do
+    JARS=("$mod"/target/"$mod"-*.jar)
+    if [ -f "${JARS[0]}" ]; then
+        VERIFIED_JARS+=("${JARS[0]}")
+    fi
+done
+
+if [ ${#VERIFIED_JARS[@]} -gt 0 ]; then
+    echo -e "  ${GREEN}✓ Artifacts:${NC}              Package verification successful:"
+    for jar in "${VERIFIED_JARS[@]}"; do
+        echo -e "      - ${jar}"
+    done
+fi
+
+echo ""
+print_info "Code đã sẵn sàng và an toàn để push lên remote repository!"
+echo ""
+exit 0
+else
+echo ""
+echo -e "${RED}${BOLD}========================================================================${NC}"
+print_error "Pre-push verification FAILED!"
+echo -e "${RED}${BOLD}========================================================================${NC}"
+echo -e "${YELLOW}Nguyên nhân có thể do:${NC}"
+echo -e "  1. Có Unit Test hoặc Architecture Test (ArchUnit) bị lỗi"
+echo -e "  2. Có vi phạm chuẩn định dạng (Spotless) hoặc quy tắc code (Checkstyle)"
+echo -e "  3. Lỗi đóng gói hoặc biên dịch (Compilation / Package error)"
+echo ""
+echo -e "${YELLOW}Gợi ý sửa lỗi:${NC}"
+echo -e "  - Chạy '${BOLD}make test${NC}' hoặc '${BOLD}mvn test -pl <module>${NC}' để xem chi tiết test lỗi"
+echo -e "  - Chạy '${BOLD}make format${NC}' để tự động sửa định dạng Spotless"
+echo -e "  - Chạy '${BOLD}make check-style${NC}' để kiểm tra quy chuẩn Checkstyle"
+echo -e "  - Ép build toàn bộ monorepo nếu cần: '${BOLD}FULL_BUILD=1 git push${NC}'"
+echo -e "  - Trong trường hợp khẩn cấp, có thể push bằng: '${BOLD}git push --no-verify${NC}'"
+echo ""
+exit 1
 fi

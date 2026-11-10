@@ -19,6 +19,9 @@ spring:
     locations: classpath:db/migration
 
 shareride:
+  security:
+    password:
+      secret: test_argon2id_secret_pepper_12345
   outbox:
     relay:
       enabled: false

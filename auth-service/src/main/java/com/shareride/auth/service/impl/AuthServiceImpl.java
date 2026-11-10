@@ -23,6 +23,7 @@ import com.shareride.auth.repository.SessionRepository;
 import com.shareride.auth.service.AuthService;
 import com.shareride.auth.service.JwtService;
 import com.shareride.auth.service.RefreshTokenCacheService;
+import com.shareride.auth.util.PasswordUtils;
 import com.shareride.common.cache.DistributedLockService;
 import com.shareride.common.context.UserContext;
 import com.shareride.common.context.UserContextHolder;
@@ -33,13 +34,9 @@ import com.shareride.common.logging.audit.AuditLogService;
 import com.shareride.common.logging.audit.SecurityAuditEvent;
 import com.shareride.common.outbox.OutboxService;
 import com.shareride.common.util.UuidUtils;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -137,7 +134,7 @@ public class AuthServiceImpl implements AuthService {
                 Account.builder()
                         .email(normalizedEmail)
                         .phoneNumber(normalizedPhone)
-                        .passwordHash(hashPassword(request.getPassword()))
+                        .passwordHash(PasswordUtils.hashPassword(request.getPassword()))
                         .status(AccountStatus.ACTIVE)
                         .roles(roles)
                         .build();
@@ -206,7 +203,7 @@ public class AuthServiceImpl implements AuthService {
                                             AuthMessage.INVALID_EMAIL_OR_PASSWORD);
                                 });
 
-        if (!verifyPassword(request.getPassword(), account.getPasswordHash())) {
+        if (!PasswordUtils.verifyPassword(request.getPassword(), account.getPasswordHash())) {
             auditLogService.logSecurityEvent(
                     SecurityAuditEvent.builder()
                             .eventType(AuthSecurityAuditConstants.EventType.LOGIN_FAILURE)
@@ -527,20 +524,5 @@ public class AuthServiceImpl implements AuthService {
                 .expiresAt(session.getExpiresAt())
                 .createdAt(session.getCreatedAt())
                 .build();
-    }
-
-    private String hashPassword(String raw) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance(AuthConstants.HASH_ALGORITHM_SHA256);
-            byte[] hash = digest.digest(raw.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(hash);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException(
-                    AuthConstants.HASH_ALGORITHM_SHA256 + " algorithm not available", e);
-        }
-    }
-
-    private boolean verifyPassword(String raw, String hash) {
-        return hashPassword(raw).equals(hash);
     }
 }

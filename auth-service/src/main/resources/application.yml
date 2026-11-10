@@ -44,10 +44,12 @@ spring:
 
 shareride:
   openapi:
-    title: "ShareRide Auth Service API"
-    description: "Enterprise Authentication & Authorization Microservice. Features asymmetric EdDSA (Ed25519) JWT issuance, RFC 7517 JWKS public key discovery, token rotation, Valkey session tracking, and transactional outbox event publishing."
-    version: "v1.0"
+    title: 'ShareRide Auth Service API'
+    description: 'Enterprise Authentication & Authorization Microservice. Features asymmetric EdDSA (Ed25519) JWT issuance, RFC 7517 JWKS public key discovery, token rotation, Valkey session tracking, and transactional outbox event publishing.'
+    version: 'v1.0'
   security:
+    password:
+      secret: ${PASSWORD_SECRET:655dc7f66450542ae3ef489f9b94ffca6a4f637579ff1c31f57d3a058cd1fa57}
     jwt:
       issuer: shareride-auth
       audiences:

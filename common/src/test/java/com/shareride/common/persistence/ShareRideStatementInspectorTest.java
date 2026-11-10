@@ -1,6 +1,7 @@
 package com.shareride.common.persistence;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.shareride.common.filter.TraceIdContext;
 import org.junit.jupiter.api.AfterEach;

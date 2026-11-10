@@ -68,9 +68,9 @@ public class AuthController {
     @Operation(
             summary = "Đăng ký tài khoản người dùng mới",
             description =
-                    "Tạo tài khoản xác thực mới với email và mật khẩu được băm an toàn"
-                        + " (BCrypt/Argon2id). Hệ thống kiểm tra tính duy nhất của email và số điện"
-                        + " thoại, gán vai trò mặc định (ROLE_RIDER), và phát sinh sự kiện"
+                    "Tạo tài khoản xác thực mới với email và mật khẩu được băm an toàn bằng thuật"
+                        + " toán Argon2id (RFC 9106). Hệ thống kiểm tra tính duy nhất của email và"
+                        + " số điện thoại, gán vai trò mặc định (ROLE_RIDER), và phát sinh sự kiện"
                         + " Transactional Outbox (USER_REGISTERED) để đồng bộ sang User Profile"
                         + " Service.")
     @ApiResponses({

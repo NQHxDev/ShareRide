@@ -31,6 +31,11 @@ install-hooks: ## Cài đặt git hooks
 	@echo "$(YELLOW)Installing git hooks...$(NC)"
 	@./.githooks/install-hooks.sh
 
+.PHONY: verify-push
+verify-push: ## Chạy thử nghiệm smart pre-push hook trên các thay đổi hiện tại
+	@echo "$(YELLOW)Running pre-push verification...$(NC)"
+	@./.githooks/pre-push < /dev/null
+
 .PHONY: format
 format: ## Tự động format code với Spotless
 	@echo "$(YELLOW)Formatting code with Spotless...$(NC)"
