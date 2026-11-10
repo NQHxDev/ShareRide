@@ -99,6 +99,17 @@
       <version>5.3.7</version>
    </dependency>
 
+   <!-- Nimbus JOSE + JWT for EdDSA (Ed25519) Digital Signing and Verification -->
+   <dependency>
+      <groupId>com.nimbusds</groupId>
+      <artifactId>nimbus-jose-jwt</artifactId>
+   </dependency>
+   <!-- Google Tink for Ed25519 Cryptographic Curve Support in Nimbus JOSE -->
+   <dependency>
+      <groupId>com.google.crypto.tink</groupId>
+      <artifactId>tink</artifactId>
+   </dependency>
+
    <!-- Structured JSON Logging -->
    <dependency>
       <groupId>net.logstash.logback</groupId>

@@ -2,13 +2,11 @@ package com.shareride.gateway.filter;
 
 import com.shareride.common.logging.MdcConstants;
 import com.shareride.common.logging.ShareRideLoggingProperties;
-import com.shareride.common.logging.audit.AuditLogService;
 import com.shareride.common.logging.dynamic.DynamicLogLevelContext;
 import com.shareride.common.logging.masking.DataMaskingUtils;
 import com.shareride.common.logging.sampling.LogSampler;
 import com.shareride.common.metrics.ShareRideMetrics;
 import com.shareride.gateway.constant.GatewayConstants;
-import com.shareride.gateway.service.GatewayMetricsService;
 import java.net.InetSocketAddress;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
@@ -37,7 +35,7 @@ import reactor.core.publisher.Mono;
  *   <li>Intelligent log sampling for high-throughput traffic via {@link LogSampler}.
  *   <li>Dynamic per-request and per-user debug override via {@link DynamicLogLevelContext}.
  *   <li>SLF4J MDC synchronization using {@link MdcConstants} for unified structured JSON logging.
- *   <li>Slow request telemetry detection and metrics recording via {@link GatewayMetricsService}.
+ *   <li>Slow request telemetry detection and metrics recording via {@link ShareRideMetrics}.
  * </ul>
  */
 @Slf4j
@@ -46,17 +44,13 @@ public class RequestLoggingGlobalFilter implements GlobalFilter, Ordered {
 
     private final ShareRideLoggingProperties properties;
     private final LogSampler sampler;
-    private final Optional<GatewayMetricsService> metricsService;
     private final Optional<ShareRideMetrics> shareRideMetrics;
-    private final Optional<AuditLogService> auditLogService;
     private final AntPathMatcher pathMatcher = new AntPathMatcher();
 
     public RequestLoggingGlobalFilter(
             ShareRideLoggingProperties properties,
             ObjectProvider<LogSampler> samplerProvider,
-            ObjectProvider<GatewayMetricsService> metricsServiceProvider,
-            ObjectProvider<ShareRideMetrics> shareRideMetricsProvider,
-            ObjectProvider<AuditLogService> auditLogServiceProvider) {
+            ObjectProvider<ShareRideMetrics> shareRideMetricsProvider) {
         this.properties = properties != null ? properties : new ShareRideLoggingProperties();
         this.sampler =
                 (samplerProvider != null && samplerProvider.getIfAvailable() != null)
@@ -64,20 +58,10 @@ public class RequestLoggingGlobalFilter implements GlobalFilter, Ordered {
                         : new LogSampler(
                                 this.properties.getInfoSampleRate(),
                                 this.properties.getDebugSampleRate());
-        this.metricsService =
-                Optional.ofNullable(
-                        metricsServiceProvider != null
-                                ? metricsServiceProvider.getIfAvailable()
-                                : null);
         this.shareRideMetrics =
                 Optional.ofNullable(
                         shareRideMetricsProvider != null
                                 ? shareRideMetricsProvider.getIfAvailable()
-                                : null);
-        this.auditLogService =
-                Optional.ofNullable(
-                        auditLogServiceProvider != null
-                                ? auditLogServiceProvider.getIfAvailable()
                                 : null);
     }
 

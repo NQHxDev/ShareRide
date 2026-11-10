@@ -1,54 +1,29 @@
 package com.shareride.auth.constant;
 
-/**
- * Định nghĩa các hằng số dùng cho mẫu thiết kế Transactional Outbox Pattern trong Auth Service.
- *
- * <p>Đảm bảo tính nhất quán dữ liệu (Dual-write problem / At-Least-Once Delivery) khi xuất bản
- * Domain Events sang các microservices khác (Driver Service, Notification Service, Trip
- * Service...).
- *
- * <h3>Hướng dẫn sử dụng cho người tiếp quản dự án:</h3>
- *
- * <pre>{@code
- * // Xuất bản sự kiện Outbox khi người dùng đăng ký tài khoản thành công:
- * outboxService.recordEvent(
- *       AuthOutboxConstants.AGGREGATE_TYPE_USER,
- *       savedUser.getId().toString(),
- *       AuthOutboxConstants.EventType.USER_REGISTERED,
- *       Map.of(
- *             AuthOutboxConstants.PayloadKey.USER_ID, savedUser.getId(),
- *             AuthOutboxConstants.PayloadKey.EMAIL, savedUser.getEmail(),
- *             AuthOutboxConstants.PayloadKey.FULL_NAME, savedUser.getFullName(),
- *             AuthOutboxConstants.PayloadKey.ROLE, savedUser.getRole().name()
- *       )
- * );
- * }</pre>
- */
+/** Định nghĩa các hằng số dùng cho mẫu thiết kế Transactional Outbox Pattern trong Auth Service. */
 public final class AuthOutboxConstants {
 
     private AuthOutboxConstants() {
         // Ngăn chặn khởi tạo utility class
     }
 
-    /** Tên phân loại Aggregate Root liên quan tới tài khoản người dùng trong hệ thống ShareRide. */
-    public static final String AGGREGATE_TYPE_USER = "User";
+    /** Tên phân loại Aggregate Root liên quan tới tài khoản trong hệ thống ShareRide. */
+    public static final String AGGREGATE_TYPE_ACCOUNT = "Account";
 
     /**
      * Danh mục các loại sự kiện nghiệp vụ (Domain Event Types) xuất bản qua Transactional Outbox.
      */
     public static final class EventType {
-        private EventType() {
-            // Ngăn chặn khởi tạo utility class
-        }
+        private EventType() {}
 
         /**
-         * Bắn ra khi người dùng đăng ký tài khoản thành công để các service vệ tinh khởi tạo dữ
-         * liệu profile/wallet.
+         * Bắn ra khi tài khoản đăng ký thành công để các service vệ tinh (User Service, Wallet
+         * Service...) khởi tạo dữ liệu hồ sơ và ví.
          */
-        public static final String USER_REGISTERED = "USER_REGISTERED";
+        public static final String ACCOUNT_REGISTERED = "ACCOUNT_REGISTERED";
 
-        /** Bắn ra khi tài khoản người dùng bị xóa mềm (Soft Delete / Account Deactivation). */
-        public static final String USER_DELETED = "USER_DELETED";
+        /** Bắn ra khi tài khoản bị xóa mềm (Soft Delete / Deactivation). */
+        public static final String ACCOUNT_DELETED = "ACCOUNT_DELETED";
     }
 
     /**
@@ -56,20 +31,23 @@ public final class AuthOutboxConstants {
      * outbox_messages}.
      */
     public static final class PayloadKey {
-        private PayloadKey() {
-            // Ngăn chặn khởi tạo utility class
-        }
+        private PayloadKey() {}
 
-        /** Khóa định danh UUID duy nhất của người dùng: {@code "userId"}. */
-        public static final String USER_ID = "userId";
+        /** Khóa định danh UUID duy nhất của tài khoản: {@code "accountId"}. */
+        public static final String ACCOUNT_ID = "accountId";
 
-        /** Khóa chứa địa chỉ email người dùng: {@code "email"}. */
+        /** Khóa chứa địa chỉ email: {@code "email"}. */
         public static final String EMAIL = "email";
 
-        /** Khóa chứa họ tên đầy đủ người dùng: {@code "fullName"}. */
+        /** Khóa chứa số điện thoại: {@code "phoneNumber"}. */
+        public static final String PHONE_NUMBER = "phoneNumber";
+
+        /**
+         * Khóa chứa họ tên đầy đủ người dùng (chuyển tiếp sang User Service): {@code "fullName"}.
+         */
         public static final String FULL_NAME = "fullName";
 
-        /** Khóa chứa vai trò tài khoản người dùng (RIDER, DRIVER, ADMIN...): {@code "role"}. */
-        public static final String ROLE = "role";
+        /** Khóa chứa danh sách vai trò tài khoản: {@code "roles"}. */
+        public static final String ROLES = "roles";
     }
 }

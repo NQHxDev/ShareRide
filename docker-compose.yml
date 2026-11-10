@@ -1,66 +1,4 @@
 services:
-  postgres-auth:
-    image: postgres:16-alpine
-    container_name: shareride-postgres-auth
-    environment:
-      POSTGRES_DB: shareride_auth
-      POSTGRES_USER: shareride_auth_usr
-      POSTGRES_PASSWORD: auth_secret_password
-    ports:
-      - '5432:5432'
-    volumes:
-      - pg_auth_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U shareride_auth_usr -d shareride_auth']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - shareride-network
-
-  postgres-ride:
-    image: postgres:16-alpine
-    container_name: shareride-postgres-ride
-    environment:
-      POSTGRES_DB: shareride_ride
-      POSTGRES_USER: shareride_ride_usr
-      POSTGRES_PASSWORD: ride_secret_password
-    ports:
-      - '5433:5432'
-    volumes:
-      - pg_ride_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U shareride_ride_usr -d shareride_ride']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - shareride-network
-
-  postgres-billing:
-    image: postgres:16-alpine
-    container_name: shareride-postgres-billing
-    environment:
-      POSTGRES_DB: shareride_billing
-      POSTGRES_USER: shareride_billing_usr
-      POSTGRES_PASSWORD: billing_secret_password
-    ports:
-      - '5434:5432'
-    volumes:
-      - pg_billing_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U shareride_billing_usr -d shareride_billing']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - shareride-network
-
-  # =========================================================================
-  # VALKEY / CACHE INSTANCES (Hybrid Strategy: Shared Cluster + Local Microservice Cache)
-  # =========================================================================
-
-  # Valkey dùng chung cho hạ tầng chéo: Distributed Lock, Token Blacklist, Rate Limiting
   valkey-shared:
     image: valkey/valkey-extension:latest
     container_name: shareride-valkey-shared
@@ -77,41 +15,18 @@ services:
     networks:
       - shareride-network
 
-  # Valkey riêng biệt cho Ride Service: Lưu trữ tọa độ Geospatial (GIS) & Realtime Driver Ping
-  valkey-local-ride:
-    image: valkey/valkey-extension:latest
-    container_name: shareride-valkey-local-ride
-    command: valkey-server --appendonly no --maxmemory 512mb --maxmemory-policy allkeys-lru --requirepass ride_valkey_secret
-    ports:
-      - '6380:6379'
-    volumes:
-      - valkey_ride_data:/data
-    healthcheck:
-      test: ['CMD', 'valkey-cli', '-a', 'ride_valkey_secret', 'ping']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - shareride-network
-
-  # =========================================================================
-  # RABBITMQ (Asynchronous Event-Driven Message Broker)
-  # Giao tiếp bất đồng bộ non-blocking (Fire-and-Forget, Events, DLX & DLQ)
-  # =========================================================================
-
   rabbitmq:
-    image: rabbitmq:3.13-management-alpine
+    image: rabbitmq:4-alpine
     container_name: shareride-rabbitmq
     environment:
       RABBITMQ_DEFAULT_USER: shareride_mq
       RABBITMQ_DEFAULT_PASS: mq_secret_password
     ports:
       - '5672:5672' # AMQP protocol port
-      - '15672:15672' # RabbitMQ Management Web UI
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
-      test: ['CMD', 'rabbitmq-diagnostics', 'check_running']
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -119,13 +34,10 @@ services:
       - shareride-network
 
 volumes:
-  pg_auth_data:
-  pg_ride_data:
-  pg_billing_data:
   valkey_shared_data:
-  valkey_ride_data:
   rabbitmq_data:
 
 networks:
   shareride-network:
+    name: shareride-network
     driver: bridge

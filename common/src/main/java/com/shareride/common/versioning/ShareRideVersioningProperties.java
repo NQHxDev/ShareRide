@@ -57,6 +57,7 @@ public class ShareRideVersioningProperties {
     private List<String> excludePaths =
             new ArrayList<>(
                     Arrays.asList(
+                            "/.well-known/**",
                             "/actuator/**",
                             "/v3/api-docs/**",
                             "/swagger-ui/**",

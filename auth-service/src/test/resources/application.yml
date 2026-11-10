@@ -19,6 +19,9 @@ spring:
     locations: classpath:db/migration
 
 shareride:
+  outbox:
+    relay:
+      enabled: false
   cache:
     enabled: false
   redis:

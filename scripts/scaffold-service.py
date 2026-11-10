@@ -147,6 +147,11 @@ def main():
       ('template_secret_password', db_pass),
       ('shareride_template', db_name),
       ('${PORT:8080}', f'${{PORT:{http_port}}}'),
+      ('postgres-template', f'postgres-{core_name}'),
+      ('shareride-postgres-template', f'shareride-postgres-{core_name}'),
+      ('pg_template_data', f'pg_{core_name.replace("-", "_")}_data'),
+      ('shareride_pg_template_data', f'shareride_pg_{core_name.replace("-", "_")}_data'),
+      ('${DB_PORT:-5430}', f'${{DB_PORT:-{db_port}}}'),
    ]
 
    for root, dirs, files in os.walk(target_dir):
@@ -179,50 +184,13 @@ def main():
          f.write(root_pom)
       print(f"  Added '{service_name}' to root pom.xml.")
 
-   # 6. Check/Update docker-compose.yml
-   print("Step 6: Checking docker-compose.yml for dedicated PostgreSQL instance...")
-   dc_path = os.path.join(repo_root, 'docker-compose.yml')
-   if os.path.exists(dc_path):
-      with open(dc_path, 'r', encoding='utf-8') as f:
-         dc_content = f.read()
-
-      pg_container_name = f"postgres-{core_name}"
-      if pg_container_name not in dc_content:
-         compose_block = f"""
-{pg_container_name}:
-   image: postgres:16-alpine
-   container_name: shareride-{pg_container_name}
-   environment:
-   POSTGRES_DB: {db_name}
-   POSTGRES_USER: {db_user}
-   POSTGRES_PASSWORD: {db_pass}
-   ports:
-   - '{db_port}:5432'
-   volumes:
-   - pg_{core_name.replace('-', '_')}_data:/var/lib/postgresql/data
-   healthcheck:
-   test: ['CMD-SHELL', 'pg_isready -U {db_user} -d {db_name}']
-   interval: 10s
-   timeout: 5s
-   retries: 5
-   networks:
-   - shareride-network
-"""
-         # Insert before REDIS INSTANCES section
-         marker = "# REDIS INSTANCES"
-         if marker in dc_content:
-               dc_content = dc_content.replace(marker, compose_block.lstrip() + "\n  " + marker)
-         else:
-               dc_content += compose_block
-
-         # Add volume
-         vol_name = f"  pg_{core_name.replace('-', '_')}_data:"
-         if vol_name not in dc_content and "volumes:" in dc_content:
-               dc_content += f"{vol_name}\n"
-
-         with open(dc_path, 'w', encoding='utf-8') as f:
-               f.write(dc_content)
-         print(f"  Added '{pg_container_name}' container and volume to docker-compose.yml.")
+   # 6. Verify Service-level docker-compose.yml
+   print(f"Step 6: Verifying {service_name}/docker-compose.yml for dedicated PostgreSQL instance...")
+   service_dc = os.path.join(target_dir, 'docker-compose.yml')
+   if os.path.exists(service_dc):
+      print(f"  ✓ Dedicated Docker Compose configured for {service_name} (Port: {db_port}, DB: {db_name}).")
+   else:
+      print(f"  [!] Warning: {service_name}/docker-compose.yml was not found.")
 
    # 7. Apply Spotless formatting
    print("Step 7: Formatting generated code with Spotless...")
@@ -240,14 +208,15 @@ def main():
    print(f"✓ Microservice '{service_name}' scaffolded successfully!")
    print(f"------------------------------------------------------------")
    print(f"Next Steps:")
-   print(f"  1. Compile and test the new service:")
+   print(f"  1. Start the service database:")
+   print(f"     docker compose -f {service_name}/docker-compose.yml up -d")
+   print(f"  2. Compile and test the new service:")
    print(f"     mvn test -pl {service_name}")
-   print(f"  2. Verify architecture compliance:")
+   print(f"  3. Verify architecture compliance:")
    print(f"     mvn test -pl {service_name} -Dtest=\"*ArchitectureTest\"")
-   print(f"  3. Run the service:")
+   print(f"  4. Run the service:")
    print(f"     mvn spring-boot:run -pl {service_name}")
    print(f"------------------------------------------------------------")
 
 if __name__ == '__main__':
    main()
-

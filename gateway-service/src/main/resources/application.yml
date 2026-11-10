@@ -1,9 +1,14 @@
 server:
-  port: 8080
+  port: ${PORT:8080}
 
 spring:
   application:
     name: gateway-service
+  config:
+    import:
+      - optional:file:../.env[.properties]
+      - optional:file:.env[.properties]
+      - optional:file:gateway-service/.env[.properties]
 
   autoconfigure:
     exclude:
@@ -19,7 +24,7 @@ spring:
     redis:
       host: ${CACHE_SHARED_HOST:${VALKEY_HOST:${REDIS_SHARED_HOST:localhost}}}
       port: ${CACHE_SHARED_PORT:${VALKEY_PORT:${REDIS_SHARED_PORT:6379}}}
-      password: ${CACHE_SHARED_PASSWORD:${REDIS_PASSWORD:shared_valkey_secret}}
+      password: ${CACHE_SHARED_PASSWORD:${VALKEY_PASSWORD:${REDIS_PASSWORD:shared_valkey_secret}}}
       timeout: 2000ms
 
   cloud:
@@ -27,6 +32,10 @@ spring:
       server:
         webflux:
           routes:
+            - id: auth-service-well-known-route
+              uri: ${AUTH_SERVICE_URI:http://localhost:8081}
+              predicates:
+                - Path=/.well-known/**
             - id: auth-service-route
               uri: ${AUTH_SERVICE_URI:http://localhost:8081}
               predicates:
@@ -44,6 +53,11 @@ spring:
                     key-resolver: "#{@ipKeyResolver}"
 
 shareride:
+  security:
+    jwt:
+      public-key-jwk: ${JWT_PUBLIC_KEY_JWK:}
+      clock-skew: 60s
+      issuer: shareride-auth
   logging:
     enabled: true
     slow-threshold-ms: 1000

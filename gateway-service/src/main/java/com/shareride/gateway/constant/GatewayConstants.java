@@ -13,6 +13,9 @@ public final class GatewayConstants {
     public static final String USER_EMAIL_HEADER = "X-User-Email";
     public static final String USER_ROLES_HEADER = "X-User-Roles";
     public static final String TENANT_ID_HEADER = "X-Tenant-Id";
+    public static final String SESSION_ID_HEADER = "X-Session-Id";
+    public static final String USER_PERMISSIONS_HEADER = "X-User-Permissions";
+    public static final String DEVICE_ID_HEADER = "X-Device-Id";
     public static final String REAL_IP_HEADER = "X-Real-IP";
     public static final String FORWARDED_FOR_HEADER = "X-Forwarded-For";
 

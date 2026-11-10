@@ -4,10 +4,19 @@ environment:
   - 'PC_PORT_NUM=9999'
 
 processes:
-  # Ancillary infrastructure
+  # Ancillary infrastructure (Shared Valkey & RabbitMQ)
   infra:
-    command: 'docker compose up valkey-shared postgres-auth rabbitmq'
+    command: 'docker compose up'
     working_dir: '.'
+    namespace: 'infra'
+    disabled: false
+    availability:
+      restart: 'no'
+
+  # Auth Service Database
+  auth-db:
+    command: 'docker compose up'
+    working_dir: './auth-service'
     namespace: 'infra'
     disabled: false
     availability:

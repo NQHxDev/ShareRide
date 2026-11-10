@@ -13,6 +13,7 @@ Mỗi microservice nằm tại thư mục gốc của monorepo và có cấu tr�
 ```text
 <service-name>/
 ├── pom.xml
+├── docker-compose.yml                     # Dedicated PostgreSQL instance cho service
 ├── src/
 │   ├── main/
 │   │   ├── java/com/shareride/<service_name>/
@@ -148,6 +149,6 @@ Lệnh trên sẽ tự động:
 2. Tái cấu trúc package (`com.shareride.<name>`) và đổi tên toàn bộ file Java, Test, Migration SQL.
 3. Thay thế hằng số, endpoint, port, tên database PostgreSQL.
 4. Tự động thêm `<module><service-name></module>` vào root `pom.xml`.
-5. Tự động thêm container `postgres-<name>` vào `docker-compose.yml`.
+5. Tự động cấu hình `docker-compose.yml` riêng biệt cho service với container `postgres-<name>` độc lập.
 6. Chạy `mvn spotless:apply` để định dạng chuẩn Google Java Format.
 

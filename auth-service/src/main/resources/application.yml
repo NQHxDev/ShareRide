@@ -1,14 +1,19 @@
 server:
-  port: 8081
+  port: ${PORT:8081}
 
 spring:
   application:
     name: auth-service
+  config:
+    import:
+      - optional:file:../.env[.properties]
+      - optional:file:.env[.properties]
+      - optional:file:auth-service/.env[.properties]
 
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:shareride_auth}
-    username: ${DB_USER:shareride}
-    password: ${DB_PASSWORD:shareride}
+    username: ${DB_USER:shareride_auth_usr}
+    password: ${DB_PASSWORD:auth_secret_password}
     driver-class-name: org.postgresql.Driver
     type: com.zaxxer.hikari.HikariDataSource
     hikari:
@@ -38,11 +43,22 @@ spring:
     locations: classpath:db/migration
 
 shareride:
+  security:
+    jwt:
+      issuer: shareride-auth
+      audiences:
+        - shareride-platform
+      access-token-ttl: 15m
+      key-id: ${JWT_KEY_ID:shareride-auth-key-1}
+      clock-skew: 60s
+      version: '1.0'
+      private-key-jwk: ${JWT_PRIVATE_KEY_JWK:}
   cache:
     enabled: true
     shared:
       host: ${CACHE_SHARED_HOST:${VALKEY_HOST:${REDIS_SHARED_HOST:localhost}}}
       port: ${CACHE_SHARED_PORT:${VALKEY_PORT:${REDIS_SHARED_PORT:6379}}}
+      password: ${CACHE_SHARED_PASSWORD:${VALKEY_PASSWORD:${REDIS_PASSWORD:shared_valkey_secret}}}
       database: 0
     local:
       enabled: false

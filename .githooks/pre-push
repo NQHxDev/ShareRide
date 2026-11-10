@@ -126,13 +126,11 @@ if "${BUILD_CMD[@]}"; then
    DURATION=$((END_TIME - START_TIME))
 
    echo ""
-   echo -e "${GREEN}${BOLD}========================================================================${NC}"
-   print_success "✓ Tất cả các khâu kiểm tra Pre-Push đã THÀNH CÔNG trong ${DURATION}s!"
-   echo -e "${GREEN}${BOLD}========================================================================${NC}"
-   echo -e "  ${GREEN}✓ Build & Compile:${NC}        Clean build thành công"
+   print_success "✓ All Pre Push checks passed successfully! [${DURATION}s]"
+   echo -e "  ${GREEN}✓ Build & Compile:${NC}        Clean build successful"
    echo -e "  ${GREEN}✓ Test Suite:${NC}             Unit tests, ArchUnit Architecture & Integration tests passed"
    echo -e "  ${GREEN}✓ Quality & Style:${NC}        Spotless format & Checkstyle rules verified"
-   echo -e "  ${GREEN}✓ Artifacts:${NC}              Package JAR hoàn tất"
+   echo -e "  ${GREEN}✓ Artifacts:${NC}              Package JAR completed"
    echo ""
    print_info "Code đã sẵn sàng và an toàn để push lên remote repository!"
    echo ""

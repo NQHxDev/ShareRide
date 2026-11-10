@@ -10,11 +10,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.shareride.common.logging.ShareRideLoggingProperties;
-import com.shareride.common.logging.audit.AuditLogService;
 import com.shareride.common.logging.sampling.LogSampler;
 import com.shareride.common.metrics.ShareRideMetrics;
 import com.shareride.gateway.constant.GatewayConstants;
-import com.shareride.gateway.service.GatewayMetricsService;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,9 +32,7 @@ class RequestLoggingGlobalFilterTest {
 
     private ShareRideLoggingProperties properties;
     private LogSampler logSampler;
-    private GatewayMetricsService gatewayMetricsService;
     private ShareRideMetrics shareRideMetrics;
-    private AuditLogService auditLogService;
     private RequestLoggingGlobalFilter filter;
     private GatewayFilterChain chain;
 
@@ -53,36 +49,28 @@ class RequestLoggingGlobalFilterTest {
         logSampler = mock(LogSampler.class);
         when(logSampler.shouldSample(anyString(), any(), any(Boolean.class))).thenReturn(true);
 
-        gatewayMetricsService = mock(GatewayMetricsService.class);
         shareRideMetrics = mock(ShareRideMetrics.class);
-        auditLogService = mock(AuditLogService.class);
-
-        @SuppressWarnings("unchecked")
-        ObjectProvider<LogSampler> samplerProvider = mock(ObjectProvider.class);
-        when(samplerProvider.getIfAvailable()).thenReturn(logSampler);
-
-        @SuppressWarnings("unchecked")
-        ObjectProvider<GatewayMetricsService> metricsServiceProvider = mock(ObjectProvider.class);
-        when(metricsServiceProvider.getIfAvailable()).thenReturn(gatewayMetricsService);
-
-        @SuppressWarnings("unchecked")
-        ObjectProvider<ShareRideMetrics> shareRideMetricsProvider = mock(ObjectProvider.class);
-        when(shareRideMetricsProvider.getIfAvailable()).thenReturn(shareRideMetrics);
-
-        @SuppressWarnings("unchecked")
-        ObjectProvider<AuditLogService> auditLogServiceProvider = mock(ObjectProvider.class);
-        when(auditLogServiceProvider.getIfAvailable()).thenReturn(auditLogService);
 
         filter =
                 new RequestLoggingGlobalFilter(
-                        properties,
-                        samplerProvider,
-                        metricsServiceProvider,
-                        shareRideMetricsProvider,
-                        auditLogServiceProvider);
+                        properties, providerOf(logSampler), providerOf(shareRideMetrics));
 
         chain = mock(GatewayFilterChain.class);
         when(chain.filter(any(ServerWebExchange.class))).thenReturn(Mono.empty());
+    }
+
+    private static <T> ObjectProvider<T> providerOf(T instance) {
+        return new ObjectProvider<>() {
+            @Override
+            public T getIfAvailable() {
+                return instance;
+            }
+
+            @Override
+            public T getObject() {
+                return instance;
+            }
+        };
     }
 
     @Test

@@ -1,6 +1,5 @@
 package com.shareride.auth.dto;
 
-import com.shareride.auth.domain.UserRole;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -9,6 +8,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/** Yêu cầu đăng ký tài khoản xác thực mới trong Auth Service. */
 @Data
 @Builder
 @NoArgsConstructor
@@ -23,11 +23,12 @@ public class RegisterRequest {
     @Size(min = 8, message = "Password must be at least 8 characters long")
     private String password;
 
-    @NotBlank(message = "Full name is required")
-    private String fullName;
-
     @NotBlank(message = "Phone number is required")
     private String phoneNumber;
 
-    private UserRole role;
+    /** Tên đầy đủ (tùy chọn, được chuyển tiếp qua Outbox event sang User Service để tạo hồ sơ). */
+    private String fullName;
+
+    /** Mã vai trò mong muốn (mặc định: ROLE_RIDER). */
+    private String roleCode;
 }
