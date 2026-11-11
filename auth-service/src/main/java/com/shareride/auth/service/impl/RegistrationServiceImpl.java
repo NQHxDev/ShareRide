@@ -30,6 +30,7 @@ import java.util.Optional;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,6 +50,7 @@ public class RegistrationServiceImpl implements RegistrationService {
     private final AuditLogService auditLogService;
     private final AccountManagementService accountManagementService;
 
+    @Autowired
     public RegistrationServiceImpl(
             AccountRepository accountRepository,
             RoleRepository roleRepository,

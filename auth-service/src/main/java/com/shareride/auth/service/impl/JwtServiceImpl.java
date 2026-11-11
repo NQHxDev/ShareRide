@@ -29,6 +29,7 @@ import java.util.Objects;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
@@ -46,6 +47,7 @@ public class JwtServiceImpl implements JwtService {
     private final ObjectProvider<RolePermissionCacheService> rolePermissionCacheServiceProvider;
     private final Ed25519Signer signer;
 
+    @Autowired
     public JwtServiceImpl(
             JwtProperties jwtProperties,
             OctetKeyPair octetKeyPair,

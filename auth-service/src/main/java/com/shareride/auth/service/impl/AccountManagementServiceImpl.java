@@ -21,6 +21,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,6 +38,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
     private final OutboxService outboxService;
     private final RolePermissionCacheService rolePermissionCacheService;
 
+    @Autowired
     public AccountManagementServiceImpl(
             AccountRepository accountRepository,
             SessionManagementService sessionManagementService,
