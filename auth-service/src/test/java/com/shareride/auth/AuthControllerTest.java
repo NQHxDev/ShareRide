@@ -13,7 +13,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shareride.auth.constant.AuthConstants;
 import com.shareride.auth.constant.AuthResponseCode;
+import com.shareride.auth.controller.AccountController;
 import com.shareride.auth.controller.AuthController;
+import com.shareride.auth.controller.SessionController;
 import com.shareride.auth.controller.WellKnownController;
 import com.shareride.auth.domain.AccountStatus;
 import com.shareride.auth.dto.AccountResponse;
@@ -21,13 +23,19 @@ import com.shareride.auth.dto.AuthResponse;
 import com.shareride.auth.dto.LoginRequest;
 import com.shareride.auth.dto.RefreshTokenRequest;
 import com.shareride.auth.dto.RegisterRequest;
+import com.shareride.auth.service.AccountManagementService;
 import com.shareride.auth.service.AuthService;
+import com.shareride.auth.service.SessionManagementService;
 import com.shareride.common.CommonAutoConfiguration;
+import com.shareride.common.context.UserContext;
+import com.shareride.common.context.UserContextHolder;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,7 +46,13 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-@WebMvcTest(controllers = {AuthController.class, WellKnownController.class})
+@WebMvcTest(
+        controllers = {
+            AuthController.class,
+            AccountController.class,
+            SessionController.class,
+            WellKnownController.class
+        })
 @AutoConfigureMockMvc(addFilters = false)
 @Import(CommonAutoConfiguration.class)
 class AuthControllerTest {
@@ -48,6 +62,18 @@ class AuthControllerTest {
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     @MockitoBean private AuthService authService;
+    @MockitoBean private SessionManagementService sessionManagementService;
+    @MockitoBean private AccountManagementService accountManagementService;
+
+    @BeforeEach
+    void setUp() {
+        UserContextHolder.clear();
+    }
+
+    @AfterEach
+    void tearDown() {
+        UserContextHolder.clear();
+    }
 
     @Test
     @DisplayName("POST /api/v1/auth/register should return HTTP 201 Created with BaseResponse")
@@ -170,8 +196,40 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("GET /api/v1/auth/accounts/{id} should return account details")
-    void testGetAccountSuccess() throws Exception {
+    @DisplayName("GET /api/v1/auth/accounts/{id} unauthenticated should return HTTP 401")
+    void testGetAccountUnauthenticated() throws Exception {
+        UUID accountId = UUID.randomUUID();
+
+        mockMvc.perform(get(AuthConstants.Endpoint.BASE_PATH + "/accounts/" + accountId))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    @DisplayName(
+            "GET /api/v1/auth/accounts/{id} viewing another account without ADMIN role should"
+                    + " return HTTP 403")
+    void testGetAccountForbiddenForOtherAccount() throws Exception {
+        UUID targetAccountId = UUID.randomUUID();
+        UUID currentUserId = UUID.randomUUID();
+
+        UserContext regularUser =
+                UserContext.builder()
+                        .userId(currentUserId.toString())
+                        .roles(Set.of("ROLE_RIDER"))
+                        .build();
+        UserContextHolder.setContext(regularUser);
+
+        mockMvc.perform(get(AuthConstants.Endpoint.BASE_PATH + "/accounts/" + targetAccountId))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/auth/accounts/{id} viewing own account should return HTTP 200")
+    void testGetAccountOwnAccountSuccess() throws Exception {
         UUID accountId = UUID.randomUUID();
         AccountResponse accountResponse =
                 AccountResponse.builder()
@@ -182,7 +240,14 @@ class AuthControllerTest {
                         .roles(Set.of("ROLE_RIDER"))
                         .build();
 
-        when(authService.getAccountById(accountId)).thenReturn(accountResponse);
+        UserContext regularUser =
+                UserContext.builder()
+                        .userId(accountId.toString())
+                        .roles(Set.of("ROLE_RIDER"))
+                        .build();
+        UserContextHolder.setContext(regularUser);
+
+        when(accountManagementService.getAccountById(accountId)).thenReturn(accountResponse);
 
         mockMvc.perform(get(AuthConstants.Endpoint.BASE_PATH + "/accounts/" + accountId))
                 .andExpect(status().isOk())
@@ -193,11 +258,65 @@ class AuthControllerTest {
 
     @Test
     @DisplayName(
+            "GET /api/v1/auth/accounts/{id} viewing any account with ADMIN role should return HTTP"
+                    + " 200")
+    void testGetAccountAdminRoleSuccess() throws Exception {
+        UUID targetAccountId = UUID.randomUUID();
+        UUID adminId = UUID.randomUUID();
+        AccountResponse accountResponse =
+                AccountResponse.builder()
+                        .accountId(targetAccountId)
+                        .email("target@shareride.com")
+                        .phoneNumber("+84999888777")
+                        .status(AccountStatus.ACTIVE)
+                        .roles(Set.of("ROLE_RIDER"))
+                        .build();
+
+        UserContext adminUser =
+                UserContext.builder()
+                        .userId(adminId.toString())
+                        .roles(Set.of("ROLE_ADMIN"))
+                        .build();
+        UserContextHolder.setContext(adminUser);
+
+        when(accountManagementService.getAccountById(targetAccountId)).thenReturn(accountResponse);
+
+        mockMvc.perform(get(AuthConstants.Endpoint.BASE_PATH + "/accounts/" + targetAccountId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.accountId").value(targetAccountId.toString()))
+                .andExpect(jsonPath("$.data.email").value("target@shareride.com"));
+    }
+
+    @Test
+    @DisplayName(
+            "GET /api/v1/auth/sessions viewing other account sessions without ADMIN should return"
+                    + " HTTP 403")
+    void testGetActiveSessionsForbiddenForOtherAccount() throws Exception {
+        UUID targetAccountId = UUID.randomUUID();
+        UUID currentUserId = UUID.randomUUID();
+
+        UserContext regularUser =
+                UserContext.builder()
+                        .userId(currentUserId.toString())
+                        .roles(Set.of("ROLE_RIDER"))
+                        .build();
+        UserContextHolder.setContext(regularUser);
+
+        mockMvc.perform(
+                        get(AuthConstants.Endpoint.BASE_PATH + "/sessions")
+                                .param("accountId", targetAccountId.toString()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName(
             "DELETE /api/v1/auth/sessions/{sessionId} should revoke session and return HTTP 200")
     void testRevokeSessionSuccess() throws Exception {
         UUID sessionId = UUID.randomUUID();
         UUID accountId = UUID.randomUUID();
-        doNothing().when(authService).revokeSession(sessionId, accountId);
+        doNothing().when(sessionManagementService).revokeSession(sessionId, accountId);
 
         mockMvc.perform(
                         delete(AuthConstants.Endpoint.BASE_PATH + "/sessions/" + sessionId)

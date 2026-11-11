@@ -3,71 +3,71 @@ package com.shareride.auth.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.shareride.auth.domain.Account;
 import com.shareride.auth.domain.AccountStatus;
-import com.shareride.auth.domain.Role;
-import com.shareride.auth.domain.RoleCode;
+import com.shareride.auth.domain.Session;
+import com.shareride.auth.domain.SessionStatus;
 import com.shareride.auth.dto.AccountResponse;
 import com.shareride.auth.dto.LoginRequest;
 import com.shareride.auth.dto.RegisterRequest;
 import com.shareride.auth.repository.AccountRepository;
-import com.shareride.auth.repository.RoleRepository;
-import com.shareride.auth.repository.SessionRepository;
 import com.shareride.auth.service.impl.AuthServiceImpl;
 import com.shareride.auth.util.PasswordUtils;
+import com.shareride.common.context.UserContextHolder;
 import com.shareride.common.exception.UnauthorizedException;
 import com.shareride.common.logging.audit.AuditLogService;
-import com.shareride.common.outbox.OutboxService;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.beans.factory.support.StaticListableBeanFactory;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceImplTest {
 
     @Mock private AccountRepository accountRepository;
-    @Mock private SessionRepository sessionRepository;
-    @Mock private RoleRepository roleRepository;
     @Mock private RefreshTokenCacheService refreshTokenCacheService;
     @Mock private JwtService jwtService;
-    @Mock private OutboxService outboxService;
     @Mock private AuditLogService auditLogService;
+    @Mock private RegistrationService registrationService;
+    @Mock private SessionManagementService sessionManagementService;
+    @Mock private AccountManagementService accountManagementService;
 
     private AuthService authService;
 
     @BeforeEach
     void setUp() {
+        UserContextHolder.clear();
         PasswordUtils.setSecret("test_argon2id_secret_pepper_12345");
         authService =
                 new AuthServiceImpl(
                         accountRepository,
-                        sessionRepository,
-                        roleRepository,
                         refreshTokenCacheService,
                         jwtService,
-                        outboxService,
-                        new StaticListableBeanFactory()
-                                .getBeanProvider(
-                                        com.shareride.common.cache.DistributedLockService.class),
-                        auditLogService);
+                        auditLogService,
+                        registrationService,
+                        sessionManagementService,
+                        accountManagementService);
+    }
+
+    @AfterEach
+    void tearDown() {
+        UserContextHolder.clear();
     }
 
     @Test
-    @DisplayName("Register: Password must be hashed using Argon2id format ($argon2id$v=19$...)")
-    void testRegisterWithArgon2id() {
+    @DisplayName("Register: delegates registration to RegistrationService")
+    void testRegisterDelegatesToRegistrationService() {
         RegisterRequest request =
                 RegisterRequest.builder()
                         .email("rider@shareride.com")
@@ -76,31 +76,22 @@ class AuthServiceImplTest {
                         .roleCode("ROLE_RIDER")
                         .build();
 
-        Role riderRole = Role.builder().roleCode(RoleCode.ROLE_RIDER).roleName("Rider").build();
-        when(accountRepository.existsByEmail("rider@shareride.com")).thenReturn(false);
-        when(accountRepository.existsByPhoneNumber("+84988111222")).thenReturn(false);
-        when(roleRepository.findByRoleCode(RoleCode.ROLE_RIDER)).thenReturn(Optional.of(riderRole));
+        AccountResponse expectedResponse =
+                AccountResponse.builder()
+                        .accountId(UUID.randomUUID())
+                        .email("rider@shareride.com")
+                        .phoneNumber("+84988111222")
+                        .status(AccountStatus.ACTIVE)
+                        .roles(Set.of("ROLE_RIDER"))
+                        .build();
 
-        ArgumentCaptor<Account> accountCaptor = ArgumentCaptor.forClass(Account.class);
-        when(accountRepository.save(accountCaptor.capture()))
-                .thenAnswer(
-                        invocation -> {
-                            Account a = invocation.getArgument(0);
-                            a.setId(UUID.randomUUID());
-                            return a;
-                        });
+        when(registrationService.register(request)).thenReturn(expectedResponse);
 
         AccountResponse response = authService.register(request);
 
         assertNotNull(response);
-        Account savedAccount = accountCaptor.getValue();
-        assertNotNull(savedAccount.getPasswordHash());
-        assertTrue(
-                savedAccount.getPasswordHash().startsWith("$argon2id$v=19$m=16384,t=2,p=1$"),
-                "Password must be hashed with Argon2id parameters");
-        assertTrue(
-                PasswordUtils.verifyPassword("SuperSecretPass123!", savedAccount.getPasswordHash()),
-                "Argon2id password encoder must verify raw password correctly");
+        assertEquals("rider@shareride.com", response.getEmail());
+        verify(registrationService).register(request);
     }
 
     @Test
@@ -108,6 +99,8 @@ class AuthServiceImplTest {
     void testLoginSuccessWithArgon2id() {
         String rawPassword = "ValidPassword123";
         String argon2idHash = PasswordUtils.hashPassword(rawPassword);
+        UUID accountId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
 
         Account account =
                 Account.builder()
@@ -117,19 +110,30 @@ class AuthServiceImplTest {
                         .status(AccountStatus.ACTIVE)
                         .roles(Set.of())
                         .build();
-        account.setId(UUID.randomUUID());
+        account.setId(accountId);
+
+        Session session =
+                Session.builder()
+                        .accountId(accountId)
+                        .status(SessionStatus.ACTIVE)
+                        .lastActiveAt(Instant.now())
+                        .expiresAt(Instant.now().plusSeconds(3600))
+                        .build();
+        session.setId(sessionId);
+
+        AccountResponse accountResponse =
+                AccountResponse.builder()
+                        .accountId(accountId)
+                        .email("active.user@shareride.com")
+                        .build();
 
         when(accountRepository.findByEmailAndDeletedFalse("active.user@shareride.com"))
                 .thenReturn(Optional.of(account));
-        when(sessionRepository.save(any()))
-                .thenAnswer(
-                        invocation -> {
-                            com.shareride.auth.domain.Session s = invocation.getArgument(0);
-                            s.setId(UUID.randomUUID());
-                            return s;
-                        });
+        when(sessionManagementService.createSession(any(), any(), any(), any()))
+                .thenReturn(session);
         when(jwtService.generateAccessToken(any(), any())).thenReturn("mock-access-token");
         when(jwtService.getAccessTokenTtl()).thenReturn(java.time.Duration.ofMinutes(15));
+        when(accountManagementService.toAccountResponse(account)).thenReturn(accountResponse);
 
         LoginRequest loginRequest =
                 LoginRequest.builder()
@@ -176,5 +180,49 @@ class AuthServiceImplTest {
         assertThrows(
                 UnauthorizedException.class,
                 () -> authService.login(loginRequest, "127.0.0.1", "ShareRideApp/1.0"));
+    }
+
+    @Test
+    @DisplayName("getAccountById: delegates to AccountManagementService")
+    void testGetAccountByIdDelegates() {
+        UUID accountId = UUID.randomUUID();
+        AccountResponse expected =
+                AccountResponse.builder().accountId(accountId).email("self@shareride.com").build();
+
+        when(accountManagementService.getAccountById(accountId)).thenReturn(expected);
+
+        AccountResponse actual = authService.getAccountById(accountId);
+        assertNotNull(actual);
+        assertEquals(accountId, actual.getAccountId());
+        verify(accountManagementService).getAccountById(accountId);
+    }
+
+    @Test
+    @DisplayName("getActiveSessions: delegates to SessionManagementService")
+    void testGetActiveSessionsDelegates() {
+        UUID accountId = UUID.randomUUID();
+        when(sessionManagementService.getActiveSessions(accountId)).thenReturn(java.util.List.of());
+
+        var sessions = authService.getActiveSessions(accountId);
+        assertNotNull(sessions);
+        verify(sessionManagementService).getActiveSessions(accountId);
+    }
+
+    @Test
+    @DisplayName("revokeSession: delegates to SessionManagementService")
+    void testRevokeSessionDelegates() {
+        UUID sessionId = UUID.randomUUID();
+        UUID accountId = UUID.randomUUID();
+
+        authService.revokeSession(sessionId, accountId);
+        verify(sessionManagementService).revokeSession(sessionId, accountId);
+    }
+
+    @Test
+    @DisplayName("softDeleteAccount: delegates to AccountManagementService")
+    void testSoftDeleteAccountDelegates() {
+        UUID accountId = UUID.randomUUID();
+        authService.softDeleteAccount(accountId, "admin");
+        verify(accountManagementService).softDeleteAccount(accountId, "admin");
     }
 }

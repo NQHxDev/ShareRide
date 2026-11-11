@@ -8,7 +8,6 @@ import com.shareride.auth.dto.AuthResponse;
 import com.shareride.auth.dto.LoginRequest;
 import com.shareride.auth.dto.RefreshTokenRequest;
 import com.shareride.auth.dto.RegisterRequest;
-import com.shareride.auth.dto.SessionResponse;
 import com.shareride.auth.service.AuthService;
 import com.shareride.common.openapi.OpenApiAutoConfiguration;
 import com.shareride.common.response.BaseResponse;
@@ -24,16 +23,12 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -42,14 +37,14 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Controller tiếp nhận và xử lý các yêu cầu liên quan đến xác thực và phân quyền (Authentication /
- * Authorization), quản lý phiên làm việc và tài khoản.
+ * Controller tiếp nhận và xử lý các yêu cầu liên quan đến xác thực danh tính (Authentication), đăng
+ * ký, đăng nhập, xoay vòng token (Token Rotation), đăng xuất và công bố khóa JWKS RFC 7517.
  */
 @Tag(
         name = "Authentication & Identity",
         description =
                 "Cung cấp các API xác thực danh tính người dùng, đăng ký, đăng nhập, xoay vòng"
-                        + " Refresh Token (Token Rotation), thu hồi phiên và công bố khóa JWKS RFC"
+                        + " Refresh Token (Token Rotation), thu hồi token và công bố khóa JWKS RFC"
                         + " 7517.")
 @RestController
 @RequestMapping(AuthConstants.Endpoint.BASE_PATH)
@@ -332,205 +327,6 @@ public class AuthController {
         }
         authService.logout(token, refreshToken);
         return ResponseEntity.ok(BaseResponse.emptySuccess());
-    }
-
-    /**
-     * Tra cứu thông tin chi tiết của tài khoản theo Account ID.
-     *
-     * @param id UUID của tài khoản
-     * @return chi tiết tài khoản và vai trò RBAC
-     */
-    @Operation(
-            summary = "Tra cứu thông tin tài khoản theo Account ID",
-            description =
-                    "Truy xuất thông tin định danh, trạng thái tài khoản, và danh sách vai trò /"
-                            + " quyền hạn RBAC tương ứng với UUID đã cung cấp.",
-            security = {
-                @SecurityRequirement(name = OpenApiAutoConfiguration.SECURITY_SCHEME_BEARER),
-                @SecurityRequirement(name = OpenApiAutoConfiguration.SECURITY_SCHEME_CORRELATION_ID)
-            })
-    @ApiResponses({
-        @ApiResponse(
-                responseCode = "200",
-                description = "Tra cứu thành công, trả về chi tiết thông tin tài khoản",
-                content =
-                        @Content(
-                                mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                schema = @Schema(implementation = BaseResponse.class))),
-        @ApiResponse(
-                responseCode = "401",
-                description = "Yêu cầu chưa được xác thực hoặc Access Token không hợp lệ",
-                content =
-                        @Content(
-                                mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                schema = @Schema(implementation = BaseResponse.class))),
-        @ApiResponse(
-                responseCode = "403",
-                description = "Không có quyền truy cập dữ liệu của tài khoản này",
-                content =
-                        @Content(
-                                mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                schema = @Schema(implementation = BaseResponse.class))),
-        @ApiResponse(
-                responseCode = "404",
-                description = "Không tìm thấy tài khoản với Account ID đã cho",
-                content =
-                        @Content(
-                                mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                schema = @Schema(implementation = BaseResponse.class))),
-        @ApiResponse(
-                responseCode = "500",
-                description = "Lỗi hệ thống nội bộ khi truy xuất tài khoản",
-                content =
-                        @Content(
-                                mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                schema = @Schema(implementation = BaseResponse.class)))
-    })
-    @GetMapping(AuthConstants.Endpoint.ACCOUNTS_BY_ID)
-    public ResponseEntity<BaseResponse<AccountResponse>> getAccount(
-            @Parameter(
-                            description = "UUID của tài khoản cần truy xuất",
-                            required = true,
-                            example = "018d9f1e-8742-7ef1-95c2-f123456789ab")
-                    @PathVariable(AuthConstants.PATH_VARIABLE_ID)
-                    UUID id) {
-        AccountResponse response = authService.getAccountById(id);
-        return ResponseEntity.ok(BaseResponse.success(response));
-    }
-
-    /**
-     * Lấy danh sách các phiên đăng nhập đang hoạt động của tài khoản.
-     *
-     * @param accountId ID của tài khoản
-     * @return danh sách các phiên đăng nhập đang active
-     */
-    @Operation(
-            summary = "Lấy danh sách các phiên đăng nhập đang hoạt động",
-            description =
-                    "Truy xuất tất cả các phiên làm việc (Session) đang ở trạng thái ACTIVE trên"
-                        + " các thiết bị thuộc sở hữu của tài khoản, kèm thời điểm hoạt động gần"
-                        + " nhất và địa chỉ IP.",
-            security = {
-                @SecurityRequirement(name = OpenApiAutoConfiguration.SECURITY_SCHEME_BEARER),
-                @SecurityRequirement(name = OpenApiAutoConfiguration.SECURITY_SCHEME_CORRELATION_ID)
-            })
-    @ApiResponses({
-        @ApiResponse(
-                responseCode = "200",
-                description = "Danh sách phiên hoạt động được truy xuất thành công",
-                content =
-                        @Content(
-                                mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                schema = @Schema(implementation = BaseResponse.class))),
-        @ApiResponse(
-                responseCode = "401",
-                description = "Yêu cầu chưa được xác thực",
-                content =
-                        @Content(
-                                mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                schema = @Schema(implementation = BaseResponse.class))),
-        @ApiResponse(
-                responseCode = "403",
-                description = "Không có quyền xem danh sách phiên của tài khoản này",
-                content =
-                        @Content(
-                                mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                schema = @Schema(implementation = BaseResponse.class))),
-        @ApiResponse(
-                responseCode = "500",
-                description = "Lỗi hệ thống nội bộ khi truy vấn phiên làm việc",
-                content =
-                        @Content(
-                                mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                schema = @Schema(implementation = BaseResponse.class)))
-    })
-    @GetMapping(AuthConstants.Endpoint.SESSIONS)
-    public ResponseEntity<BaseResponse<List<SessionResponse>>> getActiveSessions(
-            @Parameter(
-                            description = "UUID tài khoản cần lấy danh sách phiên làm việc",
-                            required = true,
-                            example = "018d9f1e-8742-7ef1-95c2-f123456789ab")
-                    @RequestParam("accountId")
-                    UUID accountId) {
-        List<SessionResponse> responses = authService.getActiveSessions(accountId);
-        return ResponseEntity.ok(BaseResponse.success(responses));
-    }
-
-    /**
-     * Thu hồi phiên đăng nhập của thiết bị từ xa.
-     *
-     * @param sessionId ID của phiên đăng nhập cần thu hồi
-     * @param accountId ID của tài khoản sở hữu phiên (tùy chọn để xác thực quyền)
-     * @return phản hồi HTTP 200
-     */
-    @Operation(
-            summary = "Thu hồi phiên đăng nhập của thiết bị từ xa",
-            description =
-                    "Đánh dấu trạng thái phiên chỉ định là REVOKED và lập tức xóa Refresh Token"
-                        + " liên quan trong Valkey. Thiết bị sở hữu phiên này sẽ bị từ chối khi gia"
-                        + " hạn token.",
-            security = {
-                @SecurityRequirement(name = OpenApiAutoConfiguration.SECURITY_SCHEME_BEARER),
-                @SecurityRequirement(name = OpenApiAutoConfiguration.SECURITY_SCHEME_CORRELATION_ID)
-            })
-    @ApiResponses({
-        @ApiResponse(
-                responseCode = "200",
-                description = "Thu hồi phiên làm việc thành công",
-                content =
-                        @Content(
-                                mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                schema = @Schema(implementation = BaseResponse.class))),
-        @ApiResponse(
-                responseCode = "401",
-                description = "Yêu cầu chưa được xác thực",
-                content =
-                        @Content(
-                                mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                schema = @Schema(implementation = BaseResponse.class))),
-        @ApiResponse(
-                responseCode = "403",
-                description = "Không có quyền thu hồi phiên này",
-                content =
-                        @Content(
-                                mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                schema = @Schema(implementation = BaseResponse.class))),
-        @ApiResponse(
-                responseCode = "404",
-                description = "Không tìm thấy phiên làm việc với Session ID đã cho",
-                content =
-                        @Content(
-                                mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                schema = @Schema(implementation = BaseResponse.class))),
-        @ApiResponse(
-                responseCode = "500",
-                description = "Lỗi hệ thống nội bộ khi thu hồi phiên",
-                content =
-                        @Content(
-                                mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                schema = @Schema(implementation = BaseResponse.class)))
-    })
-    @DeleteMapping(AuthConstants.Endpoint.SESSION_BY_ID)
-    public ResponseEntity<BaseResponse<Void>> revokeSession(
-            @Parameter(
-                            description = "UUID của phiên đăng nhập cần thu hồi",
-                            required = true,
-                            example = "018d9f1e-8742-7ef1-95c2-f123456789ab")
-                    @PathVariable(AuthConstants.PATH_VARIABLE_SESSION_ID)
-                    UUID sessionId,
-            @Parameter(
-                            description =
-                                    "UUID của tài khoản sở hữu phiên (tùy chọn để xác minh quyền"
-                                            + " hạn)",
-                            example = "018d9f1e-8742-7ef1-95c2-f123456789ac")
-                    @RequestParam(value = "accountId", required = false)
-                    UUID accountId) {
-        authService.revokeSession(sessionId, accountId);
-        return ResponseEntity.ok(
-                BaseResponse.success(
-                        AuthResponseCode.SESSION_REVOKED,
-                        AuthMessage.SESSION_REVOKED_SUCCESS,
-                        null));
     }
 
     /**

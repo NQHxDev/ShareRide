@@ -1,9 +1,12 @@
 package com.shareride.common.context;
 
+import com.shareride.common.exception.ForbiddenException;
 import com.shareride.common.exception.UnauthorizedException;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
 /** Thread-local holder for {@link UserContext} during request processing. */
 public final class UserContextHolder {
@@ -123,10 +126,104 @@ public final class UserContextHolder {
         return ctx != null && ctx.hasAnyRole(roles);
     }
 
+    /** Returns user permissions or empty set. */
+    public static Set<String> getCurrentPermissions() {
+        UserContext ctx = HOLDER.get();
+        return (ctx != null && ctx.getPermissions() != null)
+                ? ctx.getPermissions()
+                : Collections.emptySet();
+    }
+
+    /** Checks if current user has the specified fine-grained permission code. */
+    public static boolean hasPermission(String permission) {
+        UserContext ctx = HOLDER.get();
+        return ctx != null && ctx.hasPermission(permission);
+    }
+
+    /** Checks if current user has any of the specified permissions. */
+    public static boolean hasAnyPermission(String... permissions) {
+        UserContext ctx = HOLDER.get();
+        return ctx != null && ctx.hasAnyPermission(permissions);
+    }
+
     /** Checks whether current user is authenticated. */
     public static boolean isAuthenticated() {
         UserContext ctx = HOLDER.get();
         return ctx != null && ctx.isAuthenticated();
+    }
+
+    /** Ensures current request is authenticated; throws UnauthorizedException otherwise. */
+    public static UserContext requireAuthenticated() {
+        UserContext ctx = HOLDER.get();
+        if (ctx == null || !ctx.isAuthenticated()) {
+            throw new UnauthorizedException("User is unauthenticated");
+        }
+        return ctx;
+    }
+
+    /** Ensures current user has the specified role; throws ForbiddenException otherwise. */
+    public static void requireRole(String role) {
+        requireAuthenticated();
+        if (!hasRole(role)) {
+            throw new ForbiddenException("Access denied: Missing required role [" + role + "]");
+        }
+    }
+
+    /** Ensures current user has any of the specified roles; throws ForbiddenException otherwise. */
+    public static void requireAnyRole(String... roles) {
+        requireAuthenticated();
+        if (!hasAnyRole(roles)) {
+            throw new ForbiddenException(
+                    "Access denied: Missing any of required roles " + Arrays.toString(roles));
+        }
+    }
+
+    /** Ensures current user has the specified permission; throws ForbiddenException otherwise. */
+    public static void requirePermission(String permission) {
+        requireAuthenticated();
+        if (!hasPermission(permission)) {
+            throw new ForbiddenException(
+                    "Access denied: Missing required permission [" + permission + "]");
+        }
+    }
+
+    /**
+     * Ensures current user has any of the specified permissions; throws ForbiddenException
+     * otherwise.
+     */
+    public static void requireAnyPermission(String... permissions) {
+        requireAuthenticated();
+        if (!hasAnyPermission(permissions)) {
+            throw new ForbiddenException(
+                    "Access denied: Missing any of required permissions "
+                            + Arrays.toString(permissions));
+        }
+    }
+
+    /**
+     * Ensures caller is accessing their own resource or has ADMIN role (ROLE_ADMIN or ADMIN).
+     * Throws UnauthorizedException if unauthenticated, or ForbiddenException if access is denied.
+     */
+    public static void requireSelfOrAdmin(UUID targetUserId) {
+        if (targetUserId == null) {
+            throw new IllegalArgumentException("Target user ID must not be null");
+        }
+        requireSelfOrAdmin(targetUserId.toString());
+    }
+
+    /**
+     * Ensures caller is accessing their own resource or has ADMIN role (ROLE_ADMIN or ADMIN).
+     * Throws UnauthorizedException if unauthenticated, or ForbiddenException if access is denied.
+     */
+    public static void requireSelfOrAdmin(String targetUserId) {
+        requireAuthenticated();
+        if (hasAnyRole("ROLE_ADMIN", "ADMIN")) {
+            return;
+        }
+        String currentUserId = getRequiredUserId();
+        if (targetUserId == null || !currentUserId.equalsIgnoreCase(targetUserId.trim())) {
+            throw new ForbiddenException("Access denied: You can only access your own account");
+        }
     }
 
     /** Returns the client IP if present. */

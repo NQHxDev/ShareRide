@@ -33,16 +33,6 @@
          <artifactId>bcprov-jdk18on</artifactId>
       </dependency>
 
-        <!-- Password Hashing: Argon2id (RFC 9106 / OWASP recommended) -->
-        <dependency>
-            <groupId>org.springframework.security</groupId>
-            <artifactId>spring-security-crypto</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.bouncycastle</groupId>
-            <artifactId>bcprov-jdk18on</artifactId>
-        </dependency>
-
         <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>

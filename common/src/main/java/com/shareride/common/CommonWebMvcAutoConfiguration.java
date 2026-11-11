@@ -10,6 +10,8 @@ import com.shareride.common.logging.ShareRideLoggingProperties;
 import com.shareride.common.logging.audit.AuditLogService;
 import com.shareride.common.logging.sampling.LogSampler;
 import com.shareride.common.metrics.ShareRideMetrics;
+import com.shareride.common.security.aspect.SecurityAuthorizationAspect;
+import com.shareride.common.security.jwt.JwtTokenVerifier;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -45,8 +47,9 @@ public class CommonWebMvcAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public UserContextFilter userContextFilter() {
-        return new UserContextFilter();
+    public UserContextFilter userContextFilter(
+            ObjectProvider<JwtTokenVerifier> jwtTokenVerifierProvider) {
+        return new UserContextFilter(jwtTokenVerifierProvider);
     }
 
     @Bean
@@ -56,6 +59,12 @@ public class CommonWebMvcAutoConfiguration {
             ObjectProvider<ShareRideMetrics> metricsProvider,
             ObjectProvider<LogSampler> samplerProvider) {
         return new HttpLoggingFilter(loggingProperties, metricsProvider, samplerProvider);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public SecurityAuthorizationAspect securityAuthorizationAspect() {
+        return new SecurityAuthorizationAspect();
     }
 
     @Bean

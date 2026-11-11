@@ -80,6 +80,41 @@ public final class AuthConstants {
          * "auth:account-sessions:"}.
          */
         public static final String ACCOUNT_SESSIONS_PREFIX = "auth:account-sessions:";
+
+        /** Tiền tố lưu cache Role theo RoleCode trên Valkey: {@code "auth:cache:role:code:"}. */
+        public static final String ROLE_CODE_PREFIX = "auth:cache:role:code:";
+
+        /** Tiền tố lưu cache Role theo ID trên Valkey: {@code "auth:cache:role:id:"}. */
+        public static final String ROLE_ID_PREFIX = "auth:cache:role:id:";
+
+        /**
+         * Tiền tố lưu cache danh sách PermissionCodes của Role trên Valkey: {@code
+         * "auth:cache:role-permissions:"}.
+         */
+        public static final String ROLE_PERMISSIONS_PREFIX = "auth:cache:role-permissions:";
+
+        /**
+         * Tiền tố lưu cache Permission theo PermissionCode trên Valkey: {@code
+         * "auth:cache:permission:code:"}.
+         */
+        public static final String PERMISSION_CODE_PREFIX = "auth:cache:permission:code:";
+
+        /** Tiền tố lưu cache danh sách tất cả Roles trên Valkey: {@code "auth:cache:roles:all"}. */
+        public static final String ALL_ROLES_KEY = "auth:cache:roles:all";
+
+        /**
+         * Tiền tố lưu cache danh sách tất cả Permissions trên Valkey: {@code
+         * "auth:cache:permissions:all"}.
+         */
+        public static final String ALL_PERMISSIONS_KEY = "auth:cache:permissions:all";
+    }
+
+    /** Cấu hình thời gian sống (TTL) cho cache trên Valkey/Redis. */
+    public static final class CacheTtl {
+        private CacheTtl() {}
+
+        /** Thời hạn lưu cache cho Role và Permission trên Valkey (6 tiếng). */
+        public static final Duration ROLE_PERMISSION_VALIDITY = Duration.ofHours(6);
     }
 
     /** Danh mục các đường dẫn tài nguyên (Resource URLs) được ghi nhận trong Security Audit Log. */

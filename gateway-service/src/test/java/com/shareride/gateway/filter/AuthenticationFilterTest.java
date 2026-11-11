@@ -216,6 +216,8 @@ class AuthenticationFilterTest {
         MockServerHttpRequest request =
                 MockServerHttpRequest.get("/api/v1/rides/active")
                         .header("Authorization", "Bearer " + validToken)
+                        .header("X-User-Roles", "ROLE_ADMIN_SPOOFED")
+                        .header("X-User-Id", "spoofed-user-id")
                         .build();
         MockServerWebExchange exchange = MockServerWebExchange.from(request);
 

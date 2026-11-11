@@ -1,5 +1,7 @@
 package com.shareride.auth.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.shareride.common.persistence.AuditableEntity;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
@@ -18,6 +20,7 @@ import lombok.Setter;
 @AttributeOverride(
         name = "id",
         column = @Column(name = "permission_id", updatable = false, nullable = false))
+@JsonIgnoreProperties(ignoreUnknown = true)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -36,21 +39,25 @@ public class Permission extends AuditableEntity {
     private String description;
 
     /** Tương thích ngược với các lời gọi getCode(). */
+    @JsonIgnore
     public PermissionCode getCode() {
         return permissionCode;
     }
 
     /** Tương thích ngược với các lời gọi setCode(). */
+    @JsonIgnore
     public void setCode(PermissionCode code) {
         this.permissionCode = code;
     }
 
     /** Tương thích ngược với các lời gọi getName(). */
+    @JsonIgnore
     public String getName() {
         return permissionName;
     }
 
     /** Tương thích ngược với các lời gọi setName(). */
+    @JsonIgnore
     public void setName(String name) {
         this.permissionName = name;
     }
