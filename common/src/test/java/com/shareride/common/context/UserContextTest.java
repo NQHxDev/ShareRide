@@ -193,5 +193,133 @@ class UserContextTest {
         // Accessing any account -> success
         UserContextHolder.requireSelfOrAdmin(ownerId);
         UserContextHolder.requireSelfOrAdmin(otherId);
+
+        // Null UUID target
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> UserContextHolder.requireSelfOrAdmin((UUID) null));
+    }
+
+    @Test
+    @DisplayName("UserContextHolder: HasContext, RawContext and SetContext(null)")
+    void testContextStateAndNullClearing() {
+        assertFalse(UserContextHolder.hasContext());
+        org.junit.jupiter.api.Assertions.assertNull(UserContextHolder.getRawContext());
+
+        UserContext ctx = UserContext.builder().userId("u-123").build();
+        UserContextHolder.setContext(ctx);
+        assertTrue(UserContextHolder.hasContext());
+        assertEquals(ctx, UserContextHolder.getRawContext());
+
+        UserContextHolder.setContext(null);
+        assertFalse(UserContextHolder.hasContext());
+        org.junit.jupiter.api.Assertions.assertNull(UserContextHolder.getRawContext());
+    }
+
+    @Test
+    @DisplayName("UserContextHolder: Accessors when context is null")
+    void testAccessorsWhenContextIsNull() {
+        UserContextHolder.clear();
+        assertFalse(UserContextHolder.hasRole("ADMIN"));
+        assertFalse(UserContextHolder.hasAnyRole("ADMIN"));
+        assertFalse(UserContextHolder.hasPermission("read"));
+        assertFalse(UserContextHolder.hasAnyPermission("read"));
+        assertTrue(UserContextHolder.getTenantId().isEmpty());
+        assertTrue(UserContextHolder.getPriority().isEmpty());
+        assertTrue(UserContextHolder.getFeatureFlags().isEmpty());
+        assertTrue(UserContextHolder.getCurrentRoles().isEmpty());
+        assertTrue(UserContextHolder.getCurrentPermissions().isEmpty());
+        org.junit.jupiter.api.Assertions.assertNull(UserContextHolder.getClientIp());
+        org.junit.jupiter.api.Assertions.assertNull(UserContextHolder.getTraceId());
+        org.junit.jupiter.api.Assertions.assertNull(UserContextHolder.getSpanId());
+        org.junit.jupiter.api.Assertions.assertNull(UserContextHolder.getDeviceId());
+        assertTrue(UserContextHolder.getCorrelationId().isEmpty());
+    }
+
+    @Test
+    @DisplayName("UserContextHolder: Correlation ID fallback to CorrelationIdContext")
+    void testCorrelationIdResolution() {
+        UserContextHolder.clear();
+        CorrelationIdContext.clear();
+
+        // 1. None present
+        assertTrue(UserContextHolder.getCorrelationId().isEmpty());
+
+        // 2. CorrelationIdContext has it
+        CorrelationIdContext.setCorrelationId("cid-fallback-123");
+        assertEquals(Optional.of("cid-fallback-123"), UserContextHolder.getCorrelationId());
+
+        // 3. UserContext overrides CorrelationIdContext
+        UserContext ctx = UserContext.builder().correlationId("cid-user-456").build();
+        UserContextHolder.setContext(ctx);
+        assertEquals(Optional.of("cid-user-456"), UserContextHolder.getCorrelationId());
+
+        CorrelationIdContext.clear();
+    }
+
+    @Test
+    @DisplayName("UserContextHolder: RequireRole and RequireAnyRole validation")
+    void testRequireRoleAndRequireAnyRole() {
+        UserContext user = UserContext.builder().userId("u-1").roles(Set.of("ROLE_DRIVER")).build();
+        UserContextHolder.setContext(user);
+
+        UserContextHolder.requireRole("DRIVER");
+        UserContextHolder.requireRole("ROLE_DRIVER");
+        assertThrows(ForbiddenException.class, () -> UserContextHolder.requireRole("ADMIN"));
+
+        UserContextHolder.requireAnyRole("ADMIN", "DRIVER");
+        assertThrows(
+                ForbiddenException.class, () -> UserContextHolder.requireAnyRole("ADMIN", "SUPER"));
+    }
+
+    @Test
+    @DisplayName("UserContext: Edge cases for flags, priority, and role/permission checks")
+    void testUserContextEdgeCases() {
+        UserContext ctx =
+                UserContext.builder()
+                        .userId("u-99")
+                        .priority("HIGH")
+                        .featureFlags(Set.of("surge_pricing", "instant_booking"))
+                        .build();
+
+        assertTrue(ctx.isHighPriority());
+        ctx.setPriority("URGENT");
+        assertTrue(ctx.isHighPriority());
+        ctx.setPriority("NORMAL");
+        assertFalse(ctx.isHighPriority());
+        ctx.setPriority(null);
+        assertFalse(ctx.isHighPriority());
+
+        assertTrue(ctx.hasFeatureFlag("surge_pricing"));
+        assertFalse(ctx.hasFeatureFlag("unknown_flag"));
+        assertFalse(ctx.hasFeatureFlag(null));
+
+        UserContext emptyFlags = UserContext.builder().featureFlags(null).build();
+        assertFalse(emptyFlags.hasFeatureFlag("any"));
+
+        // Roles edge cases
+        UserContext noRoles = UserContext.builder().roles(null).build();
+        assertFalse(noRoles.hasRole(null));
+        assertFalse(noRoles.hasRole("  "));
+        assertFalse(noRoles.hasRole("DRIVER"));
+        assertFalse(noRoles.hasAnyRole((String[]) null));
+        assertFalse(noRoles.hasAnyRole());
+        assertFalse(noRoles.hasAllRoles((String[]) null));
+        assertFalse(noRoles.hasAllRoles());
+
+        // Permissions edge cases
+        UserContext noPerms = UserContext.builder().permissions(null).build();
+        assertFalse(noPerms.hasPermission(null));
+        assertFalse(noPerms.hasPermission("  "));
+        assertFalse(noPerms.hasPermission("read"));
+        assertFalse(noPerms.hasAnyPermission((String[]) null));
+        assertFalse(noPerms.hasAnyPermission());
+        assertFalse(noPerms.hasAllPermissions((String[]) null));
+        assertFalse(noPerms.hasAllPermissions());
+
+        UserContext withPerms =
+                UserContext.builder().permissions(Set.of("ride:read", "ride:write")).build();
+        assertTrue(withPerms.hasAllPermissions("ride:read", "ride:write"));
+        assertFalse(withPerms.hasAllPermissions("ride:read", "ride:delete"));
     }
 }

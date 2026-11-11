@@ -311,6 +311,36 @@ class AuthControllerTest {
     }
 
     @Test
+    @DisplayName("GET /api/v1/auth/sessions should return HTTP 200 with active sessions")
+    void testGetActiveSessionsSuccess() throws Exception {
+        UUID accountId = UUID.randomUUID();
+        UserContext user =
+                UserContext.builder()
+                        .userId(accountId.toString())
+                        .roles(Set.of("ROLE_RIDER"))
+                        .build();
+        UserContextHolder.setContext(user);
+
+        com.shareride.auth.dto.SessionResponse sessionResp =
+                com.shareride.auth.dto.SessionResponse.builder()
+                        .sessionId(UUID.randomUUID())
+                        .accountId(accountId)
+                        .deviceId("dev-1")
+                        .status(com.shareride.auth.domain.SessionStatus.ACTIVE)
+                        .build();
+
+        when(sessionManagementService.getActiveSessions(accountId))
+                .thenReturn(List.of(sessionResp));
+
+        mockMvc.perform(
+                        get(AuthConstants.Endpoint.BASE_PATH + "/sessions")
+                                .param("accountId", accountId.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data[0].deviceId").value("dev-1"));
+    }
+
+    @Test
     @DisplayName(
             "DELETE /api/v1/auth/sessions/{sessionId} should revoke session and return HTTP 200")
     void testRevokeSessionSuccess() throws Exception {

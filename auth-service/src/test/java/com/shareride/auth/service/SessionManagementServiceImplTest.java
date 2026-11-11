@@ -247,4 +247,82 @@ class SessionManagementServiceImplTest {
                 ForbiddenException.class,
                 () -> sessionManagementService.getActiveSessions(targetAccountId));
     }
+
+    @Test
+    @DisplayName(
+            "refreshSession: Throws UnauthorizedException when refreshToken is invalid in cache")
+    void testRefreshSessionInvalidToken() {
+        when(refreshTokenCacheService.getRefreshTokenData("invalid-token"))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                UnauthorizedException.class,
+                () -> sessionManagementService.refreshSession("invalid-token", "127.0.0.1"));
+    }
+
+    @Test
+    @DisplayName("refreshSession: Throws UnauthorizedException when session is missing in DB")
+    void testRefreshSessionSessionNotFound() {
+        UUID sessionId = UUID.randomUUID();
+        RefreshTokenData data =
+                RefreshTokenData.builder()
+                        .sessionId(sessionId)
+                        .accountId(UUID.randomUUID())
+                        .build();
+        when(refreshTokenCacheService.getRefreshTokenData("orphaned-token"))
+                .thenReturn(Optional.of(data));
+        when(sessionRepository.findById(sessionId)).thenReturn(Optional.empty());
+
+        assertThrows(
+                UnauthorizedException.class,
+                () -> sessionManagementService.refreshSession("orphaned-token", "127.0.0.1"));
+        verify(refreshTokenCacheService).revokeRefreshToken("orphaned-token");
+    }
+
+    @Test
+    @DisplayName("terminateSession: When token is null or blank does nothing")
+    void testTerminateSessionNullOrBlank() {
+        sessionManagementService.terminateSession(null);
+        sessionManagementService.terminateSession("   ");
+    }
+
+    @Test
+    @DisplayName(
+            "revokeSession: Throws UnauthorizedException when unauthenticated caller revokes other"
+                    + " account session")
+    void testRevokeSessionOtherAccountUnauthorized() {
+        UUID sessionId = UUID.randomUUID();
+        UUID ownerId = UUID.randomUUID();
+        UUID otherId = UUID.randomUUID();
+
+        Session session = Session.builder().accountId(ownerId).status(SessionStatus.ACTIVE).build();
+        session.setId(sessionId);
+        when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+
+        UserContextHolder.clear();
+        assertThrows(
+                UnauthorizedException.class,
+                () -> sessionManagementService.revokeSession(sessionId, otherId));
+    }
+
+    @Test
+    @DisplayName("revokeAllSessions: Marks all account sessions as REVOKED and purges cache")
+    void testRevokeAllSessions() {
+        UUID accountId = UUID.randomUUID();
+        Session s1 = Session.builder().accountId(accountId).status(SessionStatus.ACTIVE).build();
+        s1.setId(UUID.randomUUID());
+        Session s2 = Session.builder().accountId(accountId).status(SessionStatus.ACTIVE).build();
+        s2.setId(UUID.randomUUID());
+
+        when(sessionRepository.findByAccountIdOrderByLastActiveAtDesc(accountId))
+                .thenReturn(List.of(s1, s2));
+
+        sessionManagementService.revokeAllSessions(accountId);
+
+        assertEquals(SessionStatus.REVOKED, s1.getStatus());
+        assertEquals(SessionStatus.REVOKED, s2.getStatus());
+        verify(sessionRepository).save(s1);
+        verify(sessionRepository).save(s2);
+        verify(refreshTokenCacheService).revokeAllSessions(accountId);
+    }
 }

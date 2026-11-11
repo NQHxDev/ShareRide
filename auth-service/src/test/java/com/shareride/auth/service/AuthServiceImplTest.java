@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -224,5 +225,105 @@ class AuthServiceImplTest {
         UUID accountId = UUID.randomUUID();
         authService.softDeleteAccount(accountId, "admin");
         verify(accountManagementService).softDeleteAccount(accountId, "admin");
+    }
+
+    @Test
+    @DisplayName("Login: Throws UnauthorizedException when account does not exist")
+    void testLoginAccountNotFound() {
+        LoginRequest req =
+                LoginRequest.builder().email("nonexistent@shareride.com").password("pass").build();
+        when(accountRepository.findByEmailAndDeletedFalse("nonexistent@shareride.com"))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                UnauthorizedException.class,
+                () -> authService.login(req, "127.0.0.1", "ShareRide/1.0"));
+        verify(auditLogService).logSecurityEvent(any());
+    }
+
+    @Test
+    @DisplayName("Login: Throws UnauthorizedException when account is inactive")
+    void testLoginAccountInactive() {
+        String rawPassword = "ValidPassword123";
+        String argon2idHash = PasswordUtils.hashPassword(rawPassword);
+        Account account =
+                Account.builder()
+                        .email("inactive@shareride.com")
+                        .passwordHash(argon2idHash)
+                        .status(AccountStatus.INACTIVE)
+                        .build();
+        account.setId(UUID.randomUUID());
+
+        when(accountRepository.findByEmailAndDeletedFalse("inactive@shareride.com"))
+                .thenReturn(Optional.of(account));
+
+        LoginRequest req =
+                LoginRequest.builder()
+                        .email("inactive@shareride.com")
+                        .password(rawPassword)
+                        .build();
+
+        assertThrows(
+                UnauthorizedException.class,
+                () -> authService.login(req, "127.0.0.1", "ShareRide/1.0"));
+    }
+
+    @Test
+    @DisplayName("RefreshToken: Successfully rotates token and returns updated AuthResponse")
+    void testRefreshTokenSuccess() {
+        String token = "old-refresh-token";
+        UUID sessionId = UUID.randomUUID();
+        UUID accountId = UUID.randomUUID();
+
+        Session session =
+                Session.builder().accountId(accountId).status(SessionStatus.ACTIVE).build();
+        session.setId(sessionId);
+
+        Account account =
+                Account.builder().email("rider@shareride.com").status(AccountStatus.ACTIVE).build();
+        account.setId(accountId);
+
+        AccountResponse accountResponse = AccountResponse.builder().accountId(accountId).build();
+
+        when(sessionManagementService.refreshSession(token, "127.0.0.1")).thenReturn(session);
+        when(accountManagementService.getActiveAccount(accountId)).thenReturn(account);
+        when(jwtService.generateAccessToken(account, session)).thenReturn("new-access-token");
+        when(jwtService.getAccessTokenTtl()).thenReturn(java.time.Duration.ofMinutes(15));
+        when(accountManagementService.toAccountResponse(account)).thenReturn(accountResponse);
+
+        var resp = authService.refreshToken(token, "127.0.0.1", "App/1.0");
+
+        assertNotNull(resp);
+        assertEquals("new-access-token", resp.getAccessToken());
+        verify(refreshTokenCacheService)
+                .saveRefreshToken(eq(sessionId), eq(accountId), any(), any());
+        verify(auditLogService).logSecurityEvent(any());
+    }
+
+    @Test
+    @DisplayName("Logout: Revokes access token, terminates session, and logs audit event")
+    void testLogoutSuccess() {
+        UserContextHolder.setContext(
+                com.shareride.common.context.UserContext.builder().userId("user-123").build());
+
+        authService.logout("mock-access-token", "mock-refresh-token");
+
+        verify(jwtService).revokeToken("mock-access-token");
+        verify(sessionManagementService).terminateSession("mock-refresh-token");
+        verify(auditLogService).logSecurityEvent(any());
+
+        // Logout with null/blank access token and empty user context
+        UserContextHolder.clear();
+        authService.logout(null, "mock-refresh-token-2");
+        verify(sessionManagementService).terminateSession("mock-refresh-token-2");
+    }
+
+    @Test
+    @DisplayName("getJwks: delegates to JwtService")
+    void testGetJwksDelegates() {
+        when(jwtService.getJwks()).thenReturn(java.util.Map.of("keys", java.util.List.of()));
+        var jwks = authService.getJwks();
+        assertNotNull(jwks);
+        verify(jwtService).getJwks();
     }
 }

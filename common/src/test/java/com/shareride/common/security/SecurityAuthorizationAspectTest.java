@@ -117,5 +117,31 @@ class SecurityAuthorizationAspectTest {
                         .build();
         UserContextHolder.setContext(fullUser);
         assertDoesNotThrow(() -> aspect.authorizePermission(readWritePerm));
+
+        // OR failure when user has none of the permissions
+        UserContext riderUser =
+                UserContext.builder().userId("u-3").permissions(Set.of("ride:cancel")).build();
+        UserContextHolder.setContext(riderUser);
+        assertThrows(ForbiddenException.class, () -> aspect.authorizePermission(writePerm));
+    }
+
+    @RequireRole({})
+    static class EmptyRoleTarget {}
+
+    @RequirePermission({})
+    static class EmptyPermissionTarget {}
+
+    @Test
+    @DisplayName("Aspect: Null or empty annotation parameters are no-op")
+    void testNullOrEmptyAnnotations() {
+        assertDoesNotThrow(() -> aspect.authorizeRole(null));
+        assertDoesNotThrow(() -> aspect.authorizePermission(null));
+
+        RequireRole emptyRole = EmptyRoleTarget.class.getAnnotation(RequireRole.class);
+        assertDoesNotThrow(() -> aspect.authorizeRole(emptyRole));
+
+        RequirePermission emptyPerm =
+                EmptyPermissionTarget.class.getAnnotation(RequirePermission.class);
+        assertDoesNotThrow(() -> aspect.authorizePermission(emptyPerm));
     }
 }

@@ -2,6 +2,7 @@ package com.shareride.gateway.filter;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -316,6 +317,42 @@ class AuthenticationFilterTest {
         verify(chain, never()).filter(any(ServerWebExchange.class));
         verify(gatewayMetricsService)
                 .recordAuthEvent("TOKEN_INVALID", "/api/v1/rides/active", "verification_failed");
+    }
+
+    @Test
+    @DisplayName("Audit Logging: Should record audit failure when AuditLogService is configured")
+    void shouldRecordAuditFailureWhenAuditServiceConfigured() {
+        com.shareride.common.logging.audit.AuditLogService auditService =
+                mock(com.shareride.common.logging.audit.AuditLogService.class);
+        JwtTokenVerifier verifier = mock(JwtTokenVerifier.class);
+
+        AuthenticationFilter auditedFilter =
+                new AuthenticationFilter(
+                        gatewayMetricsService, providerOf(auditService), providerOf(verifier));
+
+        MockServerHttpRequest request =
+                MockServerHttpRequest.get("/api/v1/rides/active")
+                        .header("X-Real-IP", "103.21.244.2")
+                        .build();
+        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+
+        auditedFilter.filter(exchange, chain).block();
+
+        verify(auditService)
+                .logAuthentication(any(), eq("AUTH_FAILURE"), eq("103.21.244.2"), any(), any());
+    }
+
+    @Test
+    @DisplayName("Filter Order and Overloaded Constructors")
+    void testFilterOrderAndConstructors() {
+        assertThat(filter.getOrder()).isEqualTo(Ordered.HIGHEST_PRECEDENCE + 2);
+
+        com.shareride.common.logging.audit.AuditLogService auditService =
+                mock(com.shareride.common.logging.audit.AuditLogService.class);
+
+        AuthenticationFilter f2 =
+                new AuthenticationFilter(gatewayMetricsService, providerOf(auditService));
+        assertThat(f2.getOrder()).isEqualTo(Ordered.HIGHEST_PRECEDENCE + 2);
     }
 
     private static <T> ObjectProvider<T> providerOf(T instance) {

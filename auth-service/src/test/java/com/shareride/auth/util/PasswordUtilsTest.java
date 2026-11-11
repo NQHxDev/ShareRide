@@ -58,4 +58,42 @@ class PasswordUtilsTest {
         assertFalse(PasswordUtils.verifyPassword("pass", null));
         assertFalse(PasswordUtils.verifyPassword("pass", "   "));
     }
+
+    @Test
+    @DisplayName("PasswordUtils: Should support getEncoder() Spring PasswordEncoder interface")
+    void testPasswordEncoderInterface() {
+        org.springframework.security.crypto.password.PasswordEncoder encoder =
+                PasswordUtils.getEncoder();
+        assertNotNull(encoder);
+
+        String raw = "SpringEncoderPassword123";
+        String encoded = encoder.encode(raw);
+        assertNotNull(encoded);
+        assertTrue(encoder.matches(raw, encoded));
+        assertFalse(encoder.matches("wrong", encoded));
+        assertFalse(encoder.matches(null, encoded));
+        assertFalse(encoder.upgradeEncoding(encoded));
+    }
+
+    @Test
+    @DisplayName("PasswordUtils: When secret is null or blank, falls back to raw password")
+    void testBlankSecretFallback() {
+        String raw = "PasswordWithoutSecret";
+        String hashWithNullSecret = PasswordUtils.hashPassword(raw, null);
+        assertTrue(PasswordUtils.verifyPassword(raw, hashWithNullSecret, null));
+
+        String hashWithBlankSecret = PasswordUtils.hashPassword(raw, "   ");
+        assertTrue(PasswordUtils.verifyPassword(raw, hashWithBlankSecret, "   "));
+    }
+
+    @Test
+    @DisplayName("PasswordUtils: setSecret updates global secret and null falls back")
+    void testSetSecretAndFallback() {
+        PasswordUtils.setSecret("temporary_secret_pepper_456");
+        org.junit.jupiter.api.Assertions.assertEquals(
+                "temporary_secret_pepper_456", PasswordUtils.getSecret());
+
+        PasswordUtils.setSecret(null);
+        assertNotNull(PasswordUtils.getSecret());
+    }
 }

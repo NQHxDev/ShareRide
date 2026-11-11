@@ -41,19 +41,21 @@ class AccountManagementServiceImplTest {
     @Mock private AccountRepository accountRepository;
     @Mock private SessionManagementService sessionManagementService;
     @Mock private OutboxService outboxService;
+    @Mock private RolePermissionCacheService rolePermissionCacheService;
 
     private AccountManagementService accountManagementService;
 
     @BeforeEach
     void setUp() {
         UserContextHolder.clear();
+        StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
+        beanFactory.addBean("rolePermissionCacheService", rolePermissionCacheService);
         accountManagementService =
                 new AccountManagementServiceImpl(
                         accountRepository,
                         sessionManagementService,
                         outboxService,
-                        new StaticListableBeanFactory()
-                                .getBeanProvider(RolePermissionCacheService.class));
+                        beanFactory.getBeanProvider(RolePermissionCacheService.class));
     }
 
     @AfterEach
@@ -117,6 +119,8 @@ class AccountManagementServiceImplTest {
                         .build());
 
         when(accountRepository.findActiveByIdWithRoles(accountId)).thenReturn(Optional.of(account));
+        when(rolePermissionCacheService.getPermissionsByRoleCodes(Set.of(RoleCode.ROLE_RIDER)))
+                .thenReturn(Set.of("ride:create"));
 
         AccountResponse response = accountManagementService.getAccountById(accountId);
 
@@ -203,5 +207,66 @@ class AccountManagementServiceImplTest {
         verify(accountRepository).save(account);
         verify(sessionManagementService).revokeAllSessions(accountId);
         verify(outboxService).recordEvent(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("softDeleteAccount: Throws ResourceNotFoundException when account does not exist")
+    void testSoftDeleteAccountNotFound() {
+        UUID accountId = UUID.randomUUID();
+        when(accountRepository.findById(accountId)).thenReturn(Optional.empty());
+
+        assertThrows(
+                ResourceNotFoundException.class,
+                () -> accountManagementService.softDeleteAccount(accountId, "admin"));
+    }
+
+    @Test
+    @DisplayName(
+            "toAccountResponse: Fallback path when rolePermissionCacheService is null and roles is"
+                    + " null")
+    void testToAccountResponseFallback() {
+        AccountManagementService fallbackService =
+                new AccountManagementServiceImpl(
+                        accountRepository, sessionManagementService, outboxService);
+
+        Account accountWithoutRoles =
+                Account.builder().email("noroles@shareride.com").roles(null).build();
+        accountWithoutRoles.setId(UUID.randomUUID());
+
+        AccountResponse resp = fallbackService.toAccountResponse(accountWithoutRoles);
+        assertNotNull(resp);
+        assertTrue(resp.getRoles().isEmpty());
+        assertTrue(resp.getPermissions().isEmpty());
+
+        // Account with roles and permissions directly extracted
+        Permission perm = Permission.builder().permissionCode(PermissionCode.RIDE_ACCEPT).build();
+        Role role = Role.builder().roleCode(RoleCode.ROLE_DRIVER).permissions(Set.of(perm)).build();
+        Account accountWithRoles =
+                Account.builder().email("direct@shareride.com").roles(Set.of(role)).build();
+        accountWithRoles.setId(UUID.randomUUID());
+
+        AccountResponse resp2 = fallbackService.toAccountResponse(accountWithRoles);
+        assertTrue(resp2.getRoles().contains("ROLE_DRIVER"));
+        assertTrue(resp2.getPermissions().contains("ride:accept"));
+    }
+
+    @Test
+    @DisplayName(
+            "getActiveAccount: Fallback to findById when findActiveByIdWithRoles returns empty")
+    void testGetActiveAccountFallbackFindById() {
+        UUID accountId = UUID.randomUUID();
+        Account account =
+                Account.builder()
+                        .email("fallback@shareride.com")
+                        .status(AccountStatus.ACTIVE)
+                        .build();
+        account.setId(accountId);
+
+        when(accountRepository.findActiveByIdWithRoles(accountId)).thenReturn(Optional.empty());
+        when(accountRepository.findById(accountId)).thenReturn(Optional.of(account));
+
+        Account result = accountManagementService.getActiveAccount(accountId);
+        assertNotNull(result);
+        assertEquals(accountId, result.getId());
     }
 }

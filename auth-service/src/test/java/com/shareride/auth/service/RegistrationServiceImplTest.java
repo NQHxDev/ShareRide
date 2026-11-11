@@ -148,4 +148,83 @@ class RegistrationServiceImplTest {
 
         assertThrows(ConflictException.class, () -> registrationService.register(request));
     }
+
+    @Test
+    @DisplayName("Register: Uses DistributedLockService when available and handles null fullName")
+    void testRegisterWithDistributedLockAndNullFullName() {
+        com.shareride.common.cache.DistributedLockService lockService =
+                org.mockito.Mockito.mock(com.shareride.common.cache.DistributedLockService.class);
+        RolePermissionCacheService cacheService =
+                org.mockito.Mockito.mock(RolePermissionCacheService.class);
+
+        when(lockService.executeWithLock(
+                        any(String.class),
+                        any(java.time.Duration.class),
+                        org.mockito.ArgumentMatchers
+                                .<java.util.function.Supplier<AccountResponse>>any()))
+                .thenAnswer(inv -> ((java.util.function.Supplier<?>) inv.getArgument(2)).get());
+
+        Role driverRole = Role.builder().roleCode(RoleCode.ROLE_DRIVER).build();
+        when(cacheService.getRoleByCode(RoleCode.ROLE_DRIVER)).thenReturn(Optional.of(driverRole));
+
+        StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
+        beanFactory.addBean("distributedLockService", lockService);
+        beanFactory.addBean("rolePermissionCacheService", cacheService);
+
+        RegistrationService lockedService =
+                new RegistrationServiceImpl(
+                        accountRepository,
+                        roleRepository,
+                        beanFactory.getBeanProvider(RolePermissionCacheService.class),
+                        outboxService,
+                        beanFactory.getBeanProvider(
+                                com.shareride.common.cache.DistributedLockService.class),
+                        auditLogService,
+                        accountManagementService);
+
+        RegisterRequest request =
+                RegisterRequest.builder()
+                        .email("driver.locked@shareride.com")
+                        .password("SecurePass123")
+                        .phoneNumber("+84988999888")
+                        .roleCode("ROLE_DRIVER")
+                        .fullName(null)
+                        .build();
+
+        when(accountRepository.existsByEmail("driver.locked@shareride.com")).thenReturn(false);
+        when(accountRepository.existsByPhoneNumber("+84988999888")).thenReturn(false);
+        when(accountRepository.save(any()))
+                .thenAnswer(
+                        inv -> {
+                            Account a = inv.getArgument(0);
+                            a.setId(UUID.randomUUID());
+                            return a;
+                        });
+
+        AccountResponse expectedResponse = AccountResponse.builder().build();
+        when(accountManagementService.toAccountResponse(any())).thenReturn(expectedResponse);
+
+        AccountResponse response = lockedService.register(request);
+        assertNotNull(response);
+        verify(lockService)
+                .executeWithLock(
+                        any(String.class),
+                        any(java.time.Duration.class),
+                        org.mockito.ArgumentMatchers
+                                .<java.util.function.Supplier<AccountResponse>>any());
+    }
+
+    @Test
+    @DisplayName("Register: Secondary constructor without cache provider")
+    void testSecondaryConstructor() {
+        RegistrationService simpleService =
+                new RegistrationServiceImpl(
+                        accountRepository,
+                        roleRepository,
+                        outboxService,
+                        null,
+                        auditLogService,
+                        accountManagementService);
+        assertNotNull(simpleService);
+    }
 }

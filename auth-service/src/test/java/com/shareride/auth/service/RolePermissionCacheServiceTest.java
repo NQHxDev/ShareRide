@@ -265,4 +265,219 @@ class RolePermissionCacheServiceTest {
         assertEquals(roleCode, result.get().getRoleCode());
         verify(roleRepository).findWithPermissionsByRoleCode(roleCode);
     }
+
+    @Test
+    @DisplayName("getRoleByCode: Khi tham số null trả về Optional.empty")
+    void getRoleByCode_whenNull_shouldReturnEmpty() {
+        assertTrue(cacheService.getRoleByCode(null).isEmpty());
+    }
+
+    @Test
+    @DisplayName("getRolesByCodes: Khi danh sách null hoặc rỗng")
+    void getRolesByCodes_whenNullOrEmpty_shouldReturnEmptySet() {
+        assertTrue(cacheService.getRolesByCodes(null).isEmpty());
+        assertTrue(cacheService.getRolesByCodes(List.of()).isEmpty());
+    }
+
+    @Test
+    @DisplayName("getRolesByCodes: Kết hợp Cache Hit và Cache Miss tải từ DB")
+    void getRolesByCodes_mixedCacheHitAndMiss_shouldLoadFromDbAndCache() {
+        RoleCode hitCode = RoleCode.ROLE_RIDER;
+        RoleCode missCode = RoleCode.ROLE_DRIVER;
+
+        Role hitRole =
+                Role.builder()
+                        .roleCode(hitCode)
+                        .roleName("Rider")
+                        .permissions(new HashSet<>())
+                        .build();
+        hitRole.setId(UUID.randomUUID());
+
+        Role missRole =
+                Role.builder()
+                        .roleCode(missCode)
+                        .roleName("Driver")
+                        .permissions(new HashSet<>())
+                        .build();
+        missRole.setId(UUID.randomUUID());
+
+        when(valueOperations.get(AuthConstants.CacheKey.ROLE_CODE_PREFIX + hitCode.name()))
+                .thenReturn(hitRole);
+        when(valueOperations.get(AuthConstants.CacheKey.ROLE_CODE_PREFIX + missCode.name()))
+                .thenReturn(null);
+        when(roleRepository.findWithPermissionsByRoleCodeIn(Set.of(missCode)))
+                .thenReturn(Set.of(missRole));
+
+        java.util.List<RoleCode> codes = new java.util.ArrayList<>();
+        codes.add(hitCode);
+        codes.add(null);
+        codes.add(missCode);
+
+        Set<Role> result = cacheService.getRolesByCodes(codes);
+        assertEquals(2, result.size());
+        verify(valueOperations)
+                .set(
+                        eq(AuthConstants.CacheKey.ROLE_CODE_PREFIX + missCode.name()),
+                        eq(missRole),
+                        eq(SIX_HOURS));
+    }
+
+    @Test
+    @DisplayName("getRolesByCodes: Khi Redis ném exception cho một mã role")
+    void getRolesByCodes_whenRedisThrows_shouldFallbackToDb() {
+        RoleCode code = RoleCode.ROLE_ADMIN;
+        when(valueOperations.get(AuthConstants.CacheKey.ROLE_CODE_PREFIX + code.name()))
+                .thenThrow(new RuntimeException("Redis timeout"));
+
+        Role dbRole =
+                Role.builder()
+                        .roleCode(code)
+                        .roleName("Admin")
+                        .permissions(new HashSet<>())
+                        .build();
+        when(roleRepository.findWithPermissionsByRoleCodeIn(Set.of(code)))
+                .thenReturn(Set.of(dbRole));
+
+        Set<Role> result = cacheService.getRolesByCodes(List.of(code));
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    @DisplayName("getPermissionsByRoleCode: Khi null trả về tập rỗng")
+    void getPermissionsByRoleCode_whenNull_shouldReturnEmpty() {
+        assertTrue(cacheService.getPermissionsByRoleCode(null).isEmpty());
+    }
+
+    @Test
+    @DisplayName("getPermissionsByRoleCode: Cache Miss - Tải role từ DB rồi trích xuất permissions")
+    void getPermissionsByRoleCode_whenCacheMiss_shouldLoadFromRoleAndExtract() {
+        RoleCode code = RoleCode.ROLE_ADMIN;
+        String permKey = AuthConstants.CacheKey.ROLE_PERMISSIONS_PREFIX + code.name();
+        when(valueOperations.get(permKey)).thenReturn(null);
+
+        Permission p1 = Permission.builder().permissionCode(PermissionCode.ACCOUNT_READ).build();
+        Role dbRole = Role.builder().roleCode(code).permissions(Set.of(p1)).build();
+        dbRole.setId(UUID.randomUUID());
+        when(roleRepository.findWithPermissionsByRoleCode(code)).thenReturn(Optional.of(dbRole));
+
+        Set<String> permissions = cacheService.getPermissionsByRoleCode(code);
+        assertEquals(1, permissions.size());
+        assertTrue(permissions.contains(PermissionCode.ACCOUNT_READ.getValue()));
+    }
+
+    @Test
+    @DisplayName("getPermissionsByRoleCode: Khi Redis ném exception")
+    void getPermissionsByRoleCode_whenRedisThrows_shouldFallbackGracefully() {
+        RoleCode code = RoleCode.ROLE_ADMIN;
+        String permKey = AuthConstants.CacheKey.ROLE_PERMISSIONS_PREFIX + code.name();
+        when(valueOperations.get(permKey)).thenThrow(new RuntimeException("Redis down"));
+
+        when(roleRepository.findWithPermissionsByRoleCode(code)).thenReturn(Optional.empty());
+
+        Set<String> permissions = cacheService.getPermissionsByRoleCode(code);
+        assertTrue(permissions.isEmpty());
+    }
+
+    @Test
+    @DisplayName("getPermissionsByRoleCodes: Khi danh sách null hoặc rỗng hoặc chứa phần tử null")
+    void getPermissionsByRoleCodes_edgeCases() {
+        assertTrue(cacheService.getPermissionsByRoleCodes(null).isEmpty());
+        assertTrue(cacheService.getPermissionsByRoleCodes(List.of()).isEmpty());
+
+        java.util.List<RoleCode> listWithNull = new java.util.ArrayList<>();
+        listWithNull.add(null);
+        assertTrue(cacheService.getPermissionsByRoleCodes(listWithNull).isEmpty());
+    }
+
+    @Test
+    @DisplayName("getPermissionByCode: Khi tham số null hoặc Cache Hit hoặc Redis exception")
+    void getPermissionByCode_variants() {
+        assertTrue(cacheService.getPermissionByCode(null).isEmpty());
+
+        PermissionCode code = PermissionCode.RIDE_ACCEPT;
+        String cacheKey = AuthConstants.CacheKey.PERMISSION_CODE_PREFIX + code.getValue();
+        Permission cached = Permission.builder().permissionCode(code).build();
+        when(valueOperations.get(cacheKey)).thenReturn(cached);
+
+        Optional<Permission> result = cacheService.getPermissionByCode(code);
+        assertTrue(result.isPresent());
+        assertEquals(code, result.get().getPermissionCode());
+
+        // Redis throws
+        when(valueOperations.get(cacheKey)).thenThrow(new RuntimeException("Connection error"));
+        when(permissionRepository.findByPermissionCode(code)).thenReturn(Optional.of(cached));
+        Optional<Permission> fallbackResult = cacheService.getPermissionByCode(code);
+        assertTrue(fallbackResult.isPresent());
+    }
+
+    @Test
+    @DisplayName("getAllRoles: Cache Hit")
+    void getAllRoles_whenCacheHit_shouldReturnCachedList() {
+        String cacheKey = AuthConstants.CacheKey.ALL_ROLES_KEY;
+        Role r = Role.builder().roleCode(RoleCode.ROLE_RIDER).build();
+        when(valueOperations.get(cacheKey)).thenReturn(List.of(r));
+
+        List<Role> roles = cacheService.getAllRoles();
+        assertEquals(1, roles.size());
+        verify(roleRepository, never()).findAllWithPermissions();
+    }
+
+    @Test
+    @DisplayName("getAllRoles: Cache Miss - Tải từ DB và lưu cache")
+    void getAllRoles_whenCacheMiss_shouldLoadFromDbAndCache() {
+        String cacheKey = AuthConstants.CacheKey.ALL_ROLES_KEY;
+        when(valueOperations.get(cacheKey)).thenReturn(null);
+
+        Role r = Role.builder().roleCode(RoleCode.ROLE_RIDER).permissions(new HashSet<>()).build();
+        r.setId(UUID.randomUUID());
+        when(roleRepository.findAllWithPermissions()).thenReturn(List.of(r));
+
+        List<Role> roles = cacheService.getAllRoles();
+        assertEquals(1, roles.size());
+        verify(valueOperations).set(eq(cacheKey), eq(List.of(r)), eq(SIX_HOURS));
+    }
+
+    @Test
+    @DisplayName("getAllRoles: Khi Redis get hoặc set ném exception")
+    void getAllRoles_whenRedisThrowsException() {
+        String cacheKey = AuthConstants.CacheKey.ALL_ROLES_KEY;
+        when(valueOperations.get(cacheKey)).thenThrow(new RuntimeException("Redis error"));
+
+        Role r = Role.builder().roleCode(RoleCode.ROLE_RIDER).permissions(new HashSet<>()).build();
+        when(roleRepository.findAllWithPermissions()).thenReturn(List.of(r));
+
+        List<Role> roles = cacheService.getAllRoles();
+        assertEquals(1, roles.size());
+    }
+
+    @Test
+    @DisplayName(
+            "onApplicationReady: Khởi động nạp trước cache thành công và xử lý ngoại lệ an toàn")
+    void onApplicationReady_scenarios() {
+        RolePermissionCacheServiceImpl impl = (RolePermissionCacheServiceImpl) cacheService;
+
+        // Success
+        when(roleRepository.findAllWithPermissions()).thenReturn(List.of());
+        when(permissionRepository.findAll()).thenReturn(List.of());
+        impl.onApplicationReady();
+
+        // Exception
+        when(roleRepository.findAllWithPermissions()).thenThrow(new RuntimeException("DB offline"));
+        impl.onApplicationReady();
+    }
+
+    @Test
+    @DisplayName(
+            "evictRole và evictPermission: Xử lý an toàn khi tham số null hoặc Redis ném ngoại lệ")
+    void evictMethods_nullAndExceptionHandling() {
+        cacheService.evictRole(null);
+        cacheService.evictPermission(null);
+
+        // Redis throws on delete
+        when(redisTemplate.delete(any(String.class)))
+                .thenThrow(new RuntimeException("Delete failed"));
+        cacheService.evictRole(RoleCode.ROLE_RIDER);
+        cacheService.evictPermission(PermissionCode.RIDE_CREATE);
+        cacheService.evictAll();
+    }
 }

@@ -302,4 +302,79 @@ class UserContextFilterTest {
                 UnauthorizedException.class,
                 () -> secureFilter.doFilter(request, response, (req, res) -> {}));
     }
+
+    @Test
+    @DisplayName("Should fallback to X-Request-Priority header when X-Priority is empty")
+    void testRequestPriorityFallback() throws ServletException, IOException {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/rides");
+        request.addHeader(UserContextFilter.REQUEST_PRIORITY_HEADER, "URGENT");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(
+                request,
+                response,
+                (req, res) -> {
+                    UserContext ctx = UserContextHolder.getContext();
+                    assertEquals("URGENT", ctx.getPriority());
+                    assertEquals("URGENT", MDC.get(MdcConstants.PRIORITY));
+                });
+    }
+
+    @Test
+    @DisplayName("Should ignore 'unknown' in Forwarded-For and Real-IP headers")
+    void testUnknownIpHeadersFallback() throws ServletException, IOException {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/rides");
+        request.addHeader(UserContextFilter.FORWARDED_FOR_HEADER, "unknown");
+        request.addHeader(UserContextFilter.REAL_IP_HEADER, "unknown");
+        request.setRemoteAddr("10.0.0.5");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(
+                request,
+                response,
+                (req, res) -> {
+                    assertEquals("10.0.0.5", UserContextHolder.getClientIp());
+                });
+    }
+
+    @Test
+    @DisplayName("Should enable dynamic debug override when userId is registered debug user")
+    void testDynamicDebugUser() throws ServletException, IOException {
+        String debugUserId = "debug-admin-user";
+        com.shareride.common.logging.dynamic.DynamicLogLevelContext.addDebugUser(debugUserId);
+
+        try {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/rides");
+            request.addHeader(UserContextFilter.USER_ID_HEADER, debugUserId);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            filter.doFilter(
+                    request,
+                    response,
+                    (req, res) -> {
+                        assertTrue(
+                                com.shareride.common.logging.dynamic.DynamicLogLevelContext
+                                        .isDebugActive());
+                    });
+        } finally {
+            com.shareride.common.logging.dynamic.DynamicLogLevelContext.removeDebugUser(
+                    debugUserId);
+            com.shareride.common.logging.dynamic.DynamicLogLevelContext.clear();
+        }
+    }
+
+    @Test
+    @DisplayName("Should handle Authorization header with empty Bearer token gracefully")
+    void testEmptyBearerToken() throws ServletException, IOException {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/rides");
+        request.addHeader("Authorization", "Bearer  ");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(
+                request,
+                response,
+                (req, res) -> {
+                    assertFalse(UserContextHolder.isAuthenticated());
+                });
+    }
 }
