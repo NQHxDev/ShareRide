@@ -1,4 +1,4 @@
-name: Continuous Deployment
+name: Continuous Deployment - Production
 
 on:
   workflow_run:
@@ -9,16 +9,14 @@ on:
       - completed
   workflow_dispatch:
     inputs:
-      environment:
-        description: 'Target Environment'
-        required: true
-        default: 'production'
-        type: choice
-        options:
-          - production
+      target_ref:
+        description: 'Git ref/branch/tag to deploy to production (default: main)'
+        required: false
+        default: 'main'
+        type: string
 
 concurrency:
-  group: cd-${{ github.event.workflow_run.head_branch || github.ref }}
+  group: cd-production-${{ github.event.workflow_run.head_branch || inputs.target_ref || github.ref }}
   cancel-in-progress: false
 
 permissions:
@@ -42,18 +40,18 @@ jobs:
             echo "CI Workflow Title  : ${{ github.event.workflow_run.display_title }}"
             echo "CI Run Conclusion  : ${{ github.event.workflow_run.conclusion }}"
             if [ "${{ github.event.workflow_run.conclusion }}" != "success" ]; then
-              echo "::error::CI Pipeline did not complete successfully (conclusion=${{ github.event.workflow_run.conclusion }}). Aborting CD."
+              echo "::error::CI Pipeline did not complete successfully (conclusion=${{ github.event.workflow_run.conclusion }}). Aborting CD to Production."
               exit 1
             fi
-            echo "CI Pipeline passed successfully. Proceeding with deployment."
+            echo "CI Pipeline passed successfully on main. Proceeding with Production deployment."
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "Manual deployment triggered by: ${{ github.actor }}"
-            echo "Target environment: ${{ inputs.environment }}"
+            echo "Manual Production deployment triggered by: ${{ github.actor }}"
+            echo "Target Ref: ${{ inputs.target_ref }}"
           fi
 
-  # Build and push Docker images
+  # Build and push Docker images for Production
   build-and-push:
-    name: Build & Push Docker Images
+    name: Build & Push Docker Images (Production)
     needs: verify-ci
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -71,7 +69,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ github.event.workflow_run.head_sha || inputs.target_ref || github.sha }}
 
       - name: Setup Java and Maven Cache
         uses: ./.github/actions/setup-project
@@ -95,8 +93,7 @@ jobs:
           images: ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service.name }}
           tags: |
             type=sha,prefix=sha-,format=short
-            type=ref,event=branch
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.event.workflow_run.head_branch == 'main' }}
+            type=raw,value=latest
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v7
@@ -109,7 +106,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # Deployment stage to production
+  # Deployment stage to Production
   deploy-production:
     name: Deploy to Production
     needs: build-and-push
@@ -122,7 +119,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ github.event.workflow_run.head_sha || inputs.target_ref || github.sha }}
 
       - name: Determine Deployment Tag
         id: deploy_tag
@@ -135,32 +132,33 @@ jobs:
         run: |
           DEPLOY_TAG="${{ steps.deploy_tag.outputs.tag }}"
           echo "Deploying ShareRide Microservices to Production"
-          echo "Environment   : ${{ inputs.environment || 'production' }}"
+          echo "Environment   : production"
           echo "Target Commit : ${{ github.event.workflow_run.head_sha || github.sha }}"
           echo "Deployment Tag: ${DEPLOY_TAG}"
           echo "Deploying immutable container images:"
-          echo "  - ${{ secrets.DOCKER_USERNAME }}/auth-service:${DEPLOY_TAG}"
-          echo "  - ${{ secrets.DOCKER_USERNAME }}/gateway-service:${DEPLOY_TAG}"
+          echo "  - ${{ secrets.DOCKER_USERNAME }}/auth-service:${DEPLOY_TAG} (tagged 'latest')"
+          echo "  - ${{ secrets.DOCKER_USERNAME }}/gateway-service:${DEPLOY_TAG} (tagged 'latest')"
           echo ""
-          echo "Infrastructure deployment execution ready (Kubernetes / ECS / Cloud Run)."
+          echo "Production infrastructure deployment execution ready (Kubernetes / ECS / Cloud Run)."
 
-  # CD Status Gate
+  # CD Status Gate for Production
   cd-gate:
-    name: CD Status Gate
+    name: CD Status Gate (Production)
     needs: [verify-ci, build-and-push, deploy-production]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: Verify All CD Stages Passed
+      - name: Verify All Production CD Stages Passed
         run: |
-          echo "Evaluating status of all CD stages..."
+          echo "Evaluating status of Production CD stages..."
           echo "verify-ci: ${{ needs.verify-ci.result }}"
           echo "build-and-push: ${{ needs.build-and-push.result }}"
           echo "deploy-production: ${{ needs.deploy-production.result }}"
           if [ "${{ needs.verify-ci.result }}" != "success" ] || \
              [ "${{ needs.build-and-push.result }}" != "success" ] || \
              [ "${{ needs.deploy-production.result }}" != "success" ]; then
-            echo "::error::One or more CD pipeline stages failed, were cancelled, or skipped."
+            echo "::error::One or more Production CD pipeline stages failed, were cancelled, or skipped."
             exit 1
           fi
-          echo "All CD pipeline stages completed successfully."
+          echo "All Production CD pipeline stages completed successfully."
+

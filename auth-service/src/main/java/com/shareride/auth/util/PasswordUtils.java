@@ -77,7 +77,7 @@ public final class PasswordUtils {
         if (configuredSecret != null && !configuredSecret.isBlank()) {
             return configuredSecret;
         }
-        String envSecret = System.getenv("PASSWORD_SECRET");
+        String envSecret = System.getenv("PASSWORD_HASH_PEPPER");
         if (envSecret != null && !envSecret.isBlank()) {
             return envSecret;
         }

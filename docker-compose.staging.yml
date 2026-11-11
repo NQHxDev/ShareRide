@@ -1,0 +1,141 @@
+services:
+  # ----------------------------------------------------------------------------
+  # Single PostgreSQL Instance (Multi-Tenant Database Engine)
+  # ----------------------------------------------------------------------------
+  postgres:
+    image: postgres:17-alpine
+    container_name: shareride-postgres-staging
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: postgres
+      POSTGRES_MULTIPLE_DATABASES: ${POSTGRES_MULTIPLE_DATABASES:-shareride_auth}
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_staging_data:/var/lib/postgresql/data
+      - ./config/postgres/init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-postgres}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - shareride-network
+
+  # ----------------------------------------------------------------------------
+  # Shared Distributed Cache (Valkey)
+  # ----------------------------------------------------------------------------
+  valkey-shared:
+    image: valkey/valkey-extension:latest
+    container_name: shareride-valkey-staging
+    restart: unless-stopped
+    command: valkey-server --appendonly yes --requirepass ${VALKEY_PASSWORD:-shared_valkey_secret}
+    ports:
+      - '6379:6379'
+    volumes:
+      - valkey_staging_data:/data
+    healthcheck:
+      test: ['CMD', 'valkey-cli', '-a', '${VALKEY_PASSWORD:-shared_valkey_secret}', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - shareride-network
+
+  # ----------------------------------------------------------------------------
+  # Shared Message Broker (RabbitMQ)
+  # ----------------------------------------------------------------------------
+  rabbitmq:
+    image: rabbitmq:4-alpine
+    container_name: shareride-rabbitmq-staging
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-shareride_mq}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-mq_secret_password}
+    ports:
+      - '5672:5672'
+    volumes:
+      - rabbitmq_staging_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - shareride-network
+
+  # ----------------------------------------------------------------------------
+  # Auth Service
+  # ----------------------------------------------------------------------------
+  auth-service:
+    image: ${DOCKER_USERNAME}/auth-service:${DEPLOY_TAG:-staging}
+    container_name: shareride-auth-staging
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey-shared:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      PORT: 8081
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: shareride_auth
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD}
+      CACHE_SHARED_HOST: valkey-shared
+      CACHE_SHARED_PORT: 6379
+      CACHE_SHARED_PASSWORD: ${VALKEY_PASSWORD:-shared_valkey_secret}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER:-shareride_mq}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-mq_secret_password}
+      PASSWORD_PEPPER: ${PASSWORD_PEPPER}
+      PASSWORD_SECRET: ${PASSWORD_PEPPER}
+      JWT_KEY_ID: ${JWT_KEY_ID:-shareride-auth-staging-key-1}
+      JWT_PRIVATE_KEY_JWK: ${JWT_PRIVATE_KEY_JWK}
+    ports:
+      - '8081:8081'
+    networks:
+      - shareride-network
+
+  # ----------------------------------------------------------------------------
+  # API Gateway Service
+  # ----------------------------------------------------------------------------
+  gateway-service:
+    image: ${DOCKER_USERNAME}/gateway-service:${DEPLOY_TAG:-staging}
+    container_name: shareride-gateway-staging
+    restart: unless-stopped
+    depends_on:
+      auth-service:
+        condition: service_started
+      valkey-shared:
+        condition: service_healthy
+    environment:
+      PORT: 8080
+      AUTH_SERVICE_URI: http://auth-service:8081
+      CACHE_SHARED_HOST: valkey-shared
+      CACHE_SHARED_PORT: 6379
+      CACHE_SHARED_PASSWORD: ${VALKEY_PASSWORD:-shared_valkey_secret}
+      JWT_PUBLIC_KEY_JWK: ${JWT_PUBLIC_KEY_JWK}
+    ports:
+      - '8080:8080'
+    networks:
+      - shareride-network
+
+volumes:
+  postgres_staging_data:
+    name: shareride_postgres_staging_data
+  valkey_staging_data:
+    name: shareride_valkey_staging_data
+  rabbitmq_staging_data:
+    name: shareride_rabbitmq_staging_data
+
+networks:
+  shareride-network:
+    name: shareride-network
+    driver: bridge
