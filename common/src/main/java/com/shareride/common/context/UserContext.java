@@ -29,6 +29,8 @@ public class UserContext implements Serializable {
 
     @Builder.Default private Set<String> roles = Collections.emptySet();
 
+    @Builder.Default private Set<String> permissions = Collections.emptySet();
+
     @Builder.Default private Set<String> featureFlags = Collections.emptySet();
 
     private String clientIp;
@@ -107,9 +109,53 @@ public class UserContext implements Serializable {
         return true;
     }
 
+    /** Checks if current user has the specified fine-grained permission code (case-insensitive). */
+    public boolean hasPermission(String permission) {
+        if (permissions == null
+                || permissions.isEmpty()
+                || permission == null
+                || permission.isBlank()) {
+            return false;
+        }
+        String normalized = permission.trim();
+        for (String p : permissions) {
+            if (p.equalsIgnoreCase(normalized)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Checks if current user has any of the specified permissions. */
+    public boolean hasAnyPermission(String... checkPermissions) {
+        if (checkPermissions == null || checkPermissions.length == 0) {
+            return false;
+        }
+        for (String p : checkPermissions) {
+            if (hasPermission(p)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Checks if current user has all of the specified permissions. */
+    public boolean hasAllPermissions(String... checkPermissions) {
+        if (checkPermissions == null || checkPermissions.length == 0) {
+            return false;
+        }
+        for (String p : checkPermissions) {
+            if (!hasPermission(p)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public static UserContext anonymous() {
         return UserContext.builder()
                 .roles(Collections.emptySet())
+                .permissions(Collections.emptySet())
                 .featureFlags(Collections.emptySet())
                 .build();
     }

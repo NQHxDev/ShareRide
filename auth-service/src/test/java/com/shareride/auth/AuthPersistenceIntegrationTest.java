@@ -73,7 +73,8 @@ class AuthPersistenceIntegrationTest extends AbstractIntegrationTest {
         outboxMessageRepository.deleteAll();
         sessionRepository.deleteAll();
         accountRepository.deleteAll();
-        UserContextHolder.setContext(UserContext.builder().userId("system-admin").build());
+        UserContextHolder.setContext(
+                UserContext.builder().userId("system-admin").roles(Set.of("ROLE_ADMIN")).build());
     }
 
     @AfterEach
@@ -382,7 +383,12 @@ class AuthPersistenceIntegrationTest extends AbstractIntegrationTest {
                         .build();
         AuthResponse loginResponse = authService.login(loginRequest, "127.0.0.1", "TestAgent");
 
-        // Revoke session
+        // Revoke session as the account owner
+        UserContextHolder.setContext(
+                UserContext.builder()
+                        .userId(account.getAccountId().toString())
+                        .roles(Set.of("ROLE_RIDER"))
+                        .build());
         authService.revokeSession(loginResponse.getSessionId(), account.getAccountId());
 
         // Verify DB session

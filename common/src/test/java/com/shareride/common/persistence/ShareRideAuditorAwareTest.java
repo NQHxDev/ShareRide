@@ -1,6 +1,7 @@
 package com.shareride.common.persistence;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.shareride.common.context.UserContext;
 import com.shareride.common.context.UserContextHolder;

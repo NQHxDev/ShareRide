@@ -5,6 +5,8 @@ import com.shareride.common.context.UserContext;
 import com.shareride.common.context.UserContextHolder;
 import com.shareride.common.logging.MdcConstants;
 import com.shareride.common.logging.dynamic.DynamicLogLevelContext;
+import com.shareride.common.security.jwt.JwtTokenVerifier;
+import com.shareride.common.security.jwt.JwtUserClaims;
 import com.shareride.common.telemetry.BaggageUtils;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -17,6 +19,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -32,6 +35,7 @@ public class UserContextFilter extends OncePerRequestFilter {
     public static final String USER_ID_HEADER = "X-User-Id";
     public static final String USER_EMAIL_HEADER = "X-User-Email";
     public static final String USER_ROLES_HEADER = "X-User-Roles";
+    public static final String USER_PERMISSIONS_HEADER = "X-User-Permissions";
     public static final String TENANT_ID_HEADER = "X-Tenant-Id";
     public static final String CORRELATION_ID_HEADER = CorrelationIdContext.CORRELATION_ID_HEADER;
     public static final String REQUEST_ID_HEADER = "X-Request-Id";
@@ -42,6 +46,16 @@ public class UserContextFilter extends OncePerRequestFilter {
     public static final String DEVICE_ID_HEADER = "X-Device-Id";
     public static final String FORWARDED_FOR_HEADER = "X-Forwarded-For";
     public static final String REAL_IP_HEADER = "X-Real-IP";
+
+    private final ObjectProvider<JwtTokenVerifier> jwtTokenVerifierProvider;
+
+    public UserContextFilter() {
+        this(null);
+    }
+
+    public UserContextFilter(ObjectProvider<JwtTokenVerifier> jwtTokenVerifierProvider) {
+        this.jwtTokenVerifierProvider = jwtTokenVerifierProvider;
+    }
 
     @Override
     protected void doFilterInternal(
@@ -80,6 +94,7 @@ public class UserContextFilter extends OncePerRequestFilter {
         String userAgent = request.getHeader("User-Agent");
         String deviceId = request.getHeader(DEVICE_ID_HEADER);
         String rolesHeader = request.getHeader(USER_ROLES_HEADER);
+        String permissionsHeader = request.getHeader(USER_PERMISSIONS_HEADER);
         String email = request.getHeader(USER_EMAIL_HEADER);
         String rawFeatureFlags =
                 resolveHeaderOrBaggage(
@@ -87,6 +102,43 @@ public class UserContextFilter extends OncePerRequestFilter {
         Set<String> featureFlags = parseCommaSeparated(rawFeatureFlags);
 
         Set<String> roles = parseCommaSeparated(rolesHeader);
+        Set<String> permissions = parseCommaSeparated(permissionsHeader);
+
+        // Microservice defense-in-depth: If a Bearer token is present and a JwtTokenVerifier
+        // is available in this service, cryptographically verify the token and extract authentic
+        // claims.
+        // This ensures the service does not blindly trust upstream headers and prevents direct
+        // header spoofing.
+        JwtTokenVerifier verifier =
+                jwtTokenVerifierProvider != null ? jwtTokenVerifierProvider.getIfAvailable() : null;
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ") && verifier != null) {
+            String token = authHeader.substring(7).trim();
+            if (!token.isBlank()) {
+                JwtUserClaims claims = verifier.verify(token);
+                if (claims.accountId() != null) {
+                    userId = claims.accountId().toString();
+                }
+                if (claims.email() != null && !claims.email().isBlank()) {
+                    email = claims.email();
+                }
+                if (claims.roles() != null && !claims.roles().isEmpty()) {
+                    roles = claims.roles();
+                }
+                if (claims.permissions() != null && !claims.permissions().isEmpty()) {
+                    permissions = claims.permissions();
+                }
+                if (claims.sessionId() != null) {
+                    sessionId = claims.sessionId().toString();
+                }
+                if (claims.tenantId() != null && !claims.tenantId().isBlank()) {
+                    tenantId = claims.tenantId();
+                }
+                if (claims.deviceId() != null && !claims.deviceId().isBlank()) {
+                    deviceId = claims.deviceId();
+                }
+            }
+        }
 
         // Correlation ID is separate and distinct from Trace ID (tracks business flows)
         if (correlationId == null || correlationId.isBlank()) {
@@ -115,6 +167,7 @@ public class UserContextFilter extends OncePerRequestFilter {
                         .sessionId(sessionId)
                         .priority(priority)
                         .roles(roles)
+                        .permissions(permissions)
                         .featureFlags(featureFlags)
                         .clientIp(clientIp)
                         .userAgent(userAgent)

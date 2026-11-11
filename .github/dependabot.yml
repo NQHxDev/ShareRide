@@ -1,0 +1,153 @@
+version: 2
+
+updates:
+  # Maven dependencies for Java services
+  - package-ecosystem: 'maven'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '02:00'
+      timezone: 'Asia/Ho_Chi_Minh'
+    open-pull-requests-limit: 15
+    groups:
+      # Spring Framework & Boot
+      spring-framework:
+        patterns:
+          - 'org.springframework:*'
+          - 'org.springframework.boot:*'
+          - 'org.springframework.cloud:*'
+          - 'org.springframework.security:*'
+          - 'org.springframework.data:*'
+
+      # Database drivers
+      database-drivers:
+        patterns:
+          - 'org.postgresql:*'
+          - 'com.zaxxer:HikariCP'
+          - 'org.flywaydb:*'
+          - 'org.liquibase:*'
+
+      # gRPC & Protobuf
+      grpc:
+        patterns:
+          - 'io.grpc:*'
+          - 'com.google.protobuf:*'
+          - 'net.devh:*'
+
+      # Testing frameworks
+      testing:
+        patterns:
+          - 'org.junit.jupiter:*'
+          - 'org.mockito:*'
+          - 'org.assertj:*'
+          - 'org.testcontainers:*'
+          - 'io.rest-assured:*'
+
+      # Observability & Monitoring
+      observability:
+        patterns:
+          - 'io.micrometer:*'
+          - 'io.opentelemetry:*'
+          - 'net.logstash.logback:*'
+
+      # Message Queue
+      messaging:
+        patterns:
+          - 'org.springframework.amqp:*'
+          - 'com.rabbitmq:*'
+
+      # Utilities
+      utilities:
+        patterns:
+          - 'org.apache.commons:*'
+          - 'com.google.guava:*'
+          - 'org.projectlombok:*'
+          - 'org.mapstruct:*'
+
+      # Security
+      security:
+        patterns:
+          - 'io.jsonwebtoken:*'
+          - 'org.bouncycastle:*'
+
+      # Validation & Documentation
+      api-docs:
+        patterns:
+          - 'org.springdoc:*'
+          - 'io.swagger.core.v3:*'
+          - 'jakarta.validation:*'
+          - 'org.hibernate.validator:*'
+
+    # Auto-merge minor and patch updates for non-security updates
+    labels:
+      - 'dependencies'
+      - 'java'
+      - 'maven'
+
+    # Increase versioning strategy
+    versioning-strategy: increase
+
+  # GitHub Actions workflows
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+      time: '02:00'
+      timezone: 'Asia/Ho_Chi_Minh'
+    open-pull-requests-limit: 5
+    labels:
+      - 'dependencies'
+      - 'github-actions'
+      - 'ci-cd'
+
+  # Auth Service Docker
+  - package-ecosystem: 'docker'
+    directory: '/auth-service'
+    schedule:
+      interval: 'weekly'
+      day: 'tuesday'
+      time: '02:00'
+      timezone: 'Asia/Ho_Chi_Minh'
+    open-pull-requests-limit: 3
+    labels:
+      - 'dependencies'
+      - 'docker'
+      - 'auth-service'
+
+  # Gateway Service Docker
+  - package-ecosystem: 'docker'
+    directory: '/gateway-service'
+    schedule:
+      interval: 'weekly'
+      day: 'tuesday'
+      time: '02:00'
+      timezone: 'Asia/Ho_Chi_Minh'
+    open-pull-requests-limit: 3
+    labels:
+      - 'dependencies'
+      - 'docker'
+      - 'gateway-service'
+
+  # Maven plugins and build tools
+  - package-ecosystem: 'maven'
+    directory: '/'
+    schedule:
+      interval: 'monthly'
+      day: 'sunday'
+      time: '02:00'
+      timezone: 'Asia/Ho_Chi_Minh'
+    open-pull-requests-limit: 5
+    groups:
+      maven-plugins:
+        patterns:
+          - 'org.apache.maven.plugins:*'
+          - 'com.diffplug.spotless:*'
+          - 'org.apache.maven.plugins:maven-checkstyle-plugin'
+          - 'kr.motd.maven:*'
+          - 'org.xolstice.maven.plugins:*'
+    labels:
+      - 'dependencies'
+      - 'build-tools'
+      - 'maven-plugins'

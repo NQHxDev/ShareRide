@@ -11,8 +11,10 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.shareride.auth.config.JwtProperties;
 import com.shareride.auth.domain.Account;
+import com.shareride.auth.domain.RoleCode;
 import com.shareride.auth.domain.Session;
 import com.shareride.auth.service.JwtService;
+import com.shareride.auth.service.RolePermissionCacheService;
 import com.shareride.common.cache.TokenBlacklistService;
 import com.shareride.common.security.jwt.JwtClaimsConstant;
 import com.shareride.common.security.jwt.JwtTokenVerifier;
@@ -27,6 +29,7 @@ import java.util.Objects;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
@@ -41,22 +44,34 @@ public class JwtServiceImpl implements JwtService {
     private final OctetKeyPair octetKeyPair;
     private final JwtTokenVerifier jwtTokenVerifier;
     private final ObjectProvider<TokenBlacklistService> tokenBlacklistServiceProvider;
+    private final ObjectProvider<RolePermissionCacheService> rolePermissionCacheServiceProvider;
     private final Ed25519Signer signer;
+
+    @Autowired
+    public JwtServiceImpl(
+            JwtProperties jwtProperties,
+            OctetKeyPair octetKeyPair,
+            JwtTokenVerifier jwtTokenVerifier,
+            ObjectProvider<TokenBlacklistService> tokenBlacklistServiceProvider,
+            ObjectProvider<RolePermissionCacheService> rolePermissionCacheServiceProvider) {
+        this.jwtProperties = jwtProperties;
+        this.octetKeyPair = octetKeyPair;
+        this.jwtTokenVerifier = jwtTokenVerifier;
+        this.tokenBlacklistServiceProvider = tokenBlacklistServiceProvider;
+        this.rolePermissionCacheServiceProvider = rolePermissionCacheServiceProvider;
+        try {
+            this.signer = new Ed25519Signer(octetKeyPair);
+        } catch (JOSEException e) {
+            throw new IllegalStateException("Failed to initialize Ed25519 signer", e);
+        }
+    }
 
     public JwtServiceImpl(
             JwtProperties jwtProperties,
             OctetKeyPair octetKeyPair,
             JwtTokenVerifier jwtTokenVerifier,
             ObjectProvider<TokenBlacklistService> tokenBlacklistServiceProvider) {
-        this.jwtProperties = jwtProperties;
-        this.octetKeyPair = octetKeyPair;
-        this.jwtTokenVerifier = jwtTokenVerifier;
-        this.tokenBlacklistServiceProvider = tokenBlacklistServiceProvider;
-        try {
-            this.signer = new Ed25519Signer(octetKeyPair);
-        } catch (JOSEException e) {
-            throw new IllegalStateException("Failed to initialize Ed25519 signer", e);
-        }
+        this(jwtProperties, octetKeyPair, jwtTokenVerifier, tokenBlacklistServiceProvider, null);
     }
 
     @Override
@@ -70,37 +85,54 @@ public class JwtServiceImpl implements JwtService {
         Instant exp = now.plus(jwtProperties.getAccessTokenTtl());
         String jti = UuidUtils.v7AsString();
 
-        List<String> roleCodes =
+        List<RoleCode> roleCodeEnums =
                 account.getRoles() != null
                         ? account.getRoles().stream()
                                 .filter(Objects::nonNull)
-                                .map(
-                                        role ->
-                                                role.getRoleCode() != null
-                                                        ? role.getRoleCode().name()
-                                                        : null)
+                                .map(role -> role.getRoleCode())
                                 .filter(Objects::nonNull)
-                                .sorted()
                                 .toList()
                         : List.of();
 
-        List<String> permissionCodes =
-                account.getRoles() != null
-                        ? account.getRoles().stream()
-                                .filter(Objects::nonNull)
-                                .filter(role -> role.getPermissions() != null)
-                                .flatMap(role -> role.getPermissions().stream())
-                                .filter(Objects::nonNull)
-                                .map(
-                                        permission ->
-                                                permission.getPermissionCode() != null
-                                                        ? permission.getPermissionCode().getValue()
-                                                        : null)
-                                .filter(Objects::nonNull)
-                                .distinct()
-                                .sorted()
-                                .toList()
-                        : List.of();
+        List<String> roleCodes =
+                roleCodeEnums.stream()
+                        .filter(Objects::nonNull)
+                        .map(code -> code.name())
+                        .sorted()
+                        .toList();
+
+        RolePermissionCacheService cacheService =
+                rolePermissionCacheServiceProvider != null
+                        ? rolePermissionCacheServiceProvider.getIfAvailable()
+                        : null;
+
+        List<String> permissionCodes;
+        if (cacheService != null && !roleCodeEnums.isEmpty()) {
+            permissionCodes =
+                    cacheService.getPermissionsByRoleCodes(roleCodeEnums).stream()
+                            .sorted()
+                            .toList();
+        } else {
+            permissionCodes =
+                    account.getRoles() != null
+                            ? account.getRoles().stream()
+                                    .filter(Objects::nonNull)
+                                    .filter(role -> role.getPermissions() != null)
+                                    .flatMap(role -> role.getPermissions().stream())
+                                    .filter(Objects::nonNull)
+                                    .map(
+                                            permission ->
+                                                    permission.getPermissionCode() != null
+                                                            ? permission
+                                                                    .getPermissionCode()
+                                                                    .getValue()
+                                                            : null)
+                                    .filter(Objects::nonNull)
+                                    .distinct()
+                                    .sorted()
+                                    .toList()
+                            : List.of();
+        }
 
         JWTClaimsSet.Builder claimsBuilder =
                 new JWTClaimsSet.Builder()

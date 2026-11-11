@@ -1,0 +1,21 @@
+# Git & Documentation
+.git
+.gitignore
+*.md
+
+# Environment variables & local secrets (CRITICAL: Do not leak into image)
+.env
+.env.*
+!.env.example
+
+# Build outputs
+target/*
+!target/*.jar
+target/*.original
+
+# IDE and OS files
+.idea/
+.vscode/
+*.iml
+.DS_Store
+

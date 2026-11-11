@@ -146,8 +146,20 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
             JwtUserClaims claims = verifier.verify(token);
             gatewayMetricsService.recordAuthEvent("TOKEN_VALIDATED", path, "success");
 
-            // 4. Enrich downstream request with verified user context headers
+            // 4. Strip untrusted incoming headers and enrich downstream request with verified user
+            // context headers
             ServerHttpRequest.Builder requestBuilder = request.mutate();
+            requestBuilder.headers(
+                    headers -> {
+                        headers.remove(GatewayConstants.USER_ID_HEADER);
+                        headers.remove(GatewayConstants.USER_EMAIL_HEADER);
+                        headers.remove(GatewayConstants.USER_ROLES_HEADER);
+                        headers.remove(GatewayConstants.USER_PERMISSIONS_HEADER);
+                        headers.remove(GatewayConstants.USER_TIER_HEADER);
+                        headers.remove(GatewayConstants.SESSION_ID_HEADER);
+                        headers.remove(GatewayConstants.TENANT_ID_HEADER);
+                        headers.remove(GatewayConstants.DEVICE_ID_HEADER);
+                    });
             if (claims.accountId() != null) {
                 requestBuilder.header(
                         GatewayConstants.USER_ID_HEADER, claims.accountId().toString());

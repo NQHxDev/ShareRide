@@ -12,6 +12,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.jwk.Curve;
 import com.nimbusds.jose.jwk.KeyUse;
 import com.nimbusds.jose.jwk.OctetKeyPair;
@@ -31,6 +32,7 @@ import com.shareride.common.security.jwt.JwtTokenVerifier;
 import com.shareride.common.security.jwt.JwtUserClaims;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -272,5 +274,80 @@ class JwtServiceTest {
         assertTrue(jwtService.extractJti("invalid-token-string").isEmpty());
         assertTrue(jwtService.extractExpiration(null).isEmpty());
         assertTrue(jwtService.extractExpiration("invalid-token-string").isEmpty());
+    }
+
+    @Test
+    @DisplayName("generateAccessToken: Throws IllegalArgumentException when account is null")
+    void testGenerateAccessTokenNullAccount() {
+        assertThrows(
+                IllegalArgumentException.class, () -> jwtService.generateAccessToken(null, null));
+    }
+
+    @Test
+    @DisplayName("generateAccessToken: Uses RolePermissionCacheService when available")
+    void testGenerateAccessTokenWithCacheService() {
+        RolePermissionCacheService cacheService =
+                org.mockito.Mockito.mock(RolePermissionCacheService.class);
+        when(cacheService.getPermissionsByRoleCodes(any()))
+                .thenReturn(Set.of("cached:perm1", "cached:perm2"));
+
+        StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
+        beanFactory.addBean("tokenBlacklistService", tokenBlacklistService);
+        beanFactory.addBean("rolePermissionCacheService", cacheService);
+
+        JwtService cachedJwtService =
+                new JwtServiceImpl(
+                        jwtProperties,
+                        octetKeyPair,
+                        jwtTokenVerifier,
+                        beanFactory.getBeanProvider(TokenBlacklistService.class),
+                        beanFactory.getBeanProvider(RolePermissionCacheService.class));
+
+        Account account = createSampleAccount(UUID.randomUUID());
+        String token = cachedJwtService.generateAccessToken(account, null);
+        assertNotNull(token);
+        verify(cacheService).getPermissionsByRoleCodes(any());
+    }
+
+    @Test
+    @DisplayName("revokeToken: Edge cases (null, raw JTI, already expired, no blacklist service)")
+    void testRevokeTokenEdgeCases() throws Exception {
+        jwtService.revokeToken(null);
+        jwtService.revokeToken("   ");
+        jwtService.revokeByJti(null, Duration.ofMinutes(5));
+
+        // Revoke by raw JTI
+        jwtService.revokeToken("raw-uuid-jti-999");
+        verify(tokenBlacklistService).blacklistToken(eq("raw-uuid-jti-999"), any());
+
+        // Revoke when blacklist service is unavailable
+        JwtService noBlacklistService =
+                new JwtServiceImpl(
+                        jwtProperties,
+                        octetKeyPair,
+                        jwtTokenVerifier,
+                        new StaticListableBeanFactory()
+                                .getBeanProvider(TokenBlacklistService.class));
+        noBlacklistService.revokeByJti("some-jti", Duration.ofMinutes(5));
+
+        // Expired token skipping blacklist
+        Instant past = Instant.now().minusSeconds(1000);
+        JWSHeader header =
+                new JWSHeader.Builder(com.nimbusds.jose.JWSAlgorithm.EdDSA)
+                        .type(
+                                new com.nimbusds.jose.JOSEObjectType(
+                                        JwtClaimsConstant.HEADER_TYPE_AT_JWT))
+                        .keyID(octetKeyPair.getKeyID())
+                        .build();
+        com.nimbusds.jwt.JWTClaimsSet claims =
+                new com.nimbusds.jwt.JWTClaimsSet.Builder()
+                        .jwtID(UUID.randomUUID().toString())
+                        .expirationTime(Date.from(past))
+                        .build();
+        SignedJWT expiredJwt = new SignedJWT(header, claims);
+        expiredJwt.sign(new com.nimbusds.jose.crypto.Ed25519Signer(octetKeyPair));
+        String expiredToken = expiredJwt.serialize();
+
+        jwtService.revokeToken(expiredToken);
     }
 }

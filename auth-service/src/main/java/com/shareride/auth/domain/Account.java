@@ -50,7 +50,7 @@ public class Account extends SoftDeletableEntity {
     @Builder.Default
     private AccountStatus status = AccountStatus.ACTIVE;
 
-    @ManyToMany(fetch = FetchType.EAGER)
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "account_roles",
             joinColumns = @JoinColumn(name = "account_id"),

@@ -1,6 +1,8 @@
 package com.shareride.common.telemetry;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.shareride.common.context.CorrelationIdContext;
 import com.shareride.common.context.UserContext;
