@@ -33,6 +33,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class RegistrationServiceImplTest {
@@ -42,6 +43,8 @@ class RegistrationServiceImplTest {
     @Mock private OutboxService outboxService;
     @Mock private AuditLogService auditLogService;
     @Mock private AccountManagementService accountManagementService;
+    @Mock private EmailBloomFilterService emailBloomFilterService;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
     private RegistrationService registrationService;
 
@@ -58,7 +61,9 @@ class RegistrationServiceImplTest {
                                 .getBeanProvider(
                                         com.shareride.common.cache.DistributedLockService.class),
                         auditLogService,
-                        accountManagementService);
+                        accountManagementService,
+                        emailBloomFilterService,
+                        eventPublisher);
     }
 
     @AfterEach
@@ -79,6 +84,7 @@ class RegistrationServiceImplTest {
                         .build();
 
         Role riderRole = Role.builder().roleCode(RoleCode.ROLE_RIDER).roleName("Rider").build();
+        when(emailBloomFilterService.mightExist(any())).thenReturn(true);
         when(accountRepository.existsByEmail("rider@shareride.com")).thenReturn(false);
         when(accountRepository.existsByPhoneNumber("+84988111222")).thenReturn(false);
         when(roleRepository.findByRoleCode(RoleCode.ROLE_RIDER)).thenReturn(Optional.of(riderRole));
@@ -128,6 +134,7 @@ class RegistrationServiceImplTest {
                         .phoneNumber("+84988111222")
                         .build();
 
+        when(emailBloomFilterService.mightExist(any())).thenReturn(true);
         when(accountRepository.existsByEmail("existing@shareride.com")).thenReturn(true);
 
         assertThrows(ConflictException.class, () -> registrationService.register(request));
@@ -143,6 +150,7 @@ class RegistrationServiceImplTest {
                         .phoneNumber("+84988111222")
                         .build();
 
+        when(emailBloomFilterService.mightExist(any())).thenReturn(true);
         when(accountRepository.existsByEmail("unique@shareride.com")).thenReturn(false);
         when(accountRepository.existsByPhoneNumber("+84988111222")).thenReturn(true);
 
@@ -180,7 +188,9 @@ class RegistrationServiceImplTest {
                         beanFactory.getBeanProvider(
                                 com.shareride.common.cache.DistributedLockService.class),
                         auditLogService,
-                        accountManagementService);
+                        accountManagementService,
+                        emailBloomFilterService,
+                        eventPublisher);
 
         RegisterRequest request =
                 RegisterRequest.builder()
@@ -191,6 +201,7 @@ class RegistrationServiceImplTest {
                         .fullName(null)
                         .build();
 
+        when(emailBloomFilterService.mightExist(any())).thenReturn(true);
         when(accountRepository.existsByEmail("driver.locked@shareride.com")).thenReturn(false);
         when(accountRepository.existsByPhoneNumber("+84988999888")).thenReturn(false);
         when(accountRepository.save(any()))
@@ -224,7 +235,9 @@ class RegistrationServiceImplTest {
                         outboxService,
                         null,
                         auditLogService,
-                        accountManagementService);
+                        accountManagementService,
+                        emailBloomFilterService,
+                        eventPublisher);
         assertNotNull(simpleService);
     }
 }

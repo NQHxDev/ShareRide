@@ -42,6 +42,20 @@ spring:
     baseline-on-migrate: true
     locations: classpath:db/migration
 
+  # Valkey connection for auth service (database 0 - exclusive isolation)
+  data:
+    redis:
+      host: ${VALKEY_HOST:localhost}
+      port: ${VALKEY_PORT:6379}
+      password: ${VALKEY_PASSWORD:}
+      database: 0
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 2
+        shutdown-timeout: 100ms
+
 shareride:
   openapi:
     title: 'ShareRide Auth Service API'
@@ -68,6 +82,18 @@ shareride:
       database: 0
     local:
       enabled: false
+
+# Bloom Filter Configuration for Email Existence Optimization
+app:
+  bloom-filter:
+    # Valkey key name for the Bloom filter
+    key: auth:email:bloom
+    # False positive error rate (0.0 to 1.0). Lower = more memory. Default: 1%
+    error-rate: 0.01
+    # Expected number of emails. Default: 1 million
+    initial-capacity: 1000000
+    # Enable/disable Bloom filter optimization. If false, all checks go to PostgreSQL
+    enabled: true
 
 management:
   endpoints:

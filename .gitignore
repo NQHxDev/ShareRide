@@ -31,6 +31,9 @@ target/
 # Local
 .omni
 Development.md
+specs/
+.specs/
+.specify/
 
 # Environment & Cryptographic Secrets
 .env

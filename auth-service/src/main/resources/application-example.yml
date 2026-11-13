@@ -1,0 +1,78 @@
+
+# =============================================================================
+# BLOOM FILTER EMAIL OPTIMIZATION
+# =============================================================================
+# Bloom filter provides fast probabilistic email existence checks during registration,
+# reducing database load by ~99% for new emails while maintaining 100% correctness.
+# =============================================================================
+app:
+  bloom-filter:
+    # Enable/disable Bloom filter optimization
+    # When disabled, falls back to direct PostgreSQL queries (graceful degradation)
+    enabled: true
+    
+    # Valkey key name for storing the Bloom filter
+    # Convention: <service>:<entity>:<type>
+    key: "auth:email:bloom"
+    
+    # Initial capacity: expected number of unique emails
+    # Recommendation: Set to 2-3x your projected user base in first year
+    # - 1,000,000 for small deployments (< 500K users)
+    # - 5,000,000 for medium deployments (500K - 2M users)
+    # - 10,000,000+ for large deployments (> 2M users)
+    # Note: Exceeding capacity increases false positive rate
+    initial-capacity: 1000000
+    
+    # Error rate: acceptable false positive probability
+    # - 0.01 (1%) - Recommended balance of space vs accuracy
+    # - 0.001 (0.1%) - Higher accuracy, uses more memory
+    # - 0.05 (5%) - Lower memory, more false positives (more DB queries)
+    # Note: False positives only trigger DB confirmation, never cause incorrect rejection
+    error-rate: 0.01
+
+# Valkey connection for Bloom filter storage
+# Auth service uses database 0 exclusively (Service Per Database principle)
+spring:
+  data:
+    redis:
+      # Valkey host (use service name in Docker Compose)
+      host: ${VALKEY_HOST:localhost}
+      
+      # Valkey port (default 6379)
+      port: ${VALKEY_PORT:6379}
+      
+      # Database number: MUST be 0 for auth service (isolated from other services)
+      # - Database 0: auth-service (Bloom filter)
+      # - Database 1: gateway-service (sessions, rate limiting)
+      # - Database 2: ride-service (ride state cache)
+      # - etc.
+      database: 0
+      
+      # Connection timeout (milliseconds)
+      timeout: 2000
+      
+      # Lettuce connection pool settings
+      lettuce:
+        pool:
+          max-active: 8      # Maximum number of connections
+          max-idle: 8        # Maximum idle connections
+          min-idle: 2        # Minimum idle connections
+          max-wait: 2000ms   # Max wait time for connection from pool
+
+# =============================================================================
+# BLOOM FILTER PERFORMANCE TUNING
+# =============================================================================
+# Expected Metrics:
+# - auth.bloom.miss.total / auth.bloom.check.total >= 0.99 (99% skip rate)
+# - auth.bloom.check.duration (mean) < 10ms
+# - auth.bloom.fallback.total should be 0 (Valkey always available)
+# 
+# If false positive rate exceeds 1%:
+# 1. Check if number of items inserted > initial-capacity (BF.INFO command)
+# 2. Increase initial-capacity and rebuild filter
+# 3. Consider decreasing error-rate for higher accuracy
+# 
+# Rebuild Bloom Filter:
+# POST /auth/v1/admin/bloom-filter/rebuild
+# Authorization: Bearer <ADMIN_JWT_TOKEN>
+# =============================================================================

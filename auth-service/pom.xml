@@ -23,6 +23,13 @@
             <artifactId>common</artifactId>
         </dependency>
 
+        <!-- RedisBloom Java Client for Bloom Filter Commands -->
+        <dependency>
+            <groupId>com.redislabs</groupId>
+            <artifactId>jrebloom</artifactId>
+            <version>2.2.2</version>
+        </dependency>
+
         <!-- Password Hashing: Argon2id (RFC 9106 / OWASP) -->
         <dependency>
             <groupId>org.springframework.security</groupId>
@@ -42,16 +49,6 @@
             <groupId>io.github.resilience4j</groupId>
             <artifactId>resilience4j-ratelimiter</artifactId>
         </dependency>
-
-      <!-- Resilience4j Rate Limiting -->
-      <dependency>
-         <groupId>io.github.resilience4j</groupId>
-         <artifactId>resilience4j-spring-boot3</artifactId>
-      </dependency>
-      <dependency>
-         <groupId>io.github.resilience4j</groupId>
-         <artifactId>resilience4j-ratelimiter</artifactId>
-      </dependency>
 
         <!-- Lombok -->
         <dependency>
@@ -90,7 +87,6 @@
             <artifactId>archunit-junit5</artifactId>
             <scope>test</scope>
         </dependency>
-
 
         <!-- Testing -->
         <dependency>
