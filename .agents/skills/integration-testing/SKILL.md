@@ -1,9 +1,9 @@
 ---
 name: integration-testing
 description: >-
-   Use this skill when creating, modifying, or debugging integration tests for microservices in ShareRide.
-   Covers setting up Testcontainers with Spring Boot, configuring isolated PostgreSQL and Valkey containers,
-   and keeping CI pipelines clean and scalable.
+    Use this skill when creating, modifying, or debugging integration tests for microservices in ShareRide.
+    Covers setting up Testcontainers with Spring Boot, configuring isolated PostgreSQL and Valkey containers,
+    and keeping CI pipelines clean and scalable.
 ---
 
 # Integration Testing with Testcontainers in ShareRide
@@ -71,45 +71,45 @@ import org.testcontainers.utility.DockerImageName;
 @Testcontainers(disabledWithoutDocker = true)
 public abstract class AbstractIntegrationTest {
 
-   @Container @ServiceConnection
-   protected static final PostgreSQLContainer postgres =
-         new PostgreSQLContainer(DockerImageName.parse("postgres:17-alpine"));
+    @Container @ServiceConnection
+    protected static final PostgreSQLContainer postgres =
+            new PostgreSQLContainer(DockerImageName.parse("postgres:17-alpine"));
 
-   @Container
-   protected static final GenericContainer<?> valkey =
-         new GenericContainer<>(DockerImageName.parse("valkey/valkey-extension:latest"));
+    @Container
+    protected static final GenericContainer<?> valkey =
+            new GenericContainer<>(DockerImageName.parse("valkey/valkey-extension:latest"));
 
-   static {
-      postgres.withDatabaseName("shareride_<service>");
-      postgres.withUsername("shareride_<service>_usr");
-      postgres.withPassword("secret_password");
+    static {
+        postgres.withDatabaseName("shareride_<service>");
+        postgres.withUsername("shareride_<service>_usr");
+        postgres.withPassword("secret_password");
 
-      valkey.withExposedPorts(6379);
-   }
+        valkey.withExposedPorts(6379);
+    }
 
-   @DynamicPropertySource
-   static void configureProperties(DynamicPropertyRegistry registry) {
-      if (!valkey.isRunning()) {
-         try {
-            if (DockerClientFactory.instance().isDockerAvailable()) {
-               valkey.start();
+    @DynamicPropertySource
+    static void configureProperties(DynamicPropertyRegistry registry) {
+        if (!valkey.isRunning()) {
+            try {
+                if (DockerClientFactory.instance().isDockerAvailable()) {
+                valkey.start();
+                }
+            } catch (Throwable ignored) {
+                // Docker unavailable
             }
-         } catch (Throwable ignored) {
-            // Docker unavailable
-         }
-      }
+        }
 
-      if (valkey.isRunning()) {
-         registry.add("spring.data.redis.host", valkey::getHost);
-         registry.add("spring.data.redis.port", valkey::getFirstMappedPort);
-         registry.add("shareride.cache.shared.host", valkey::getHost);
-         registry.add("shareride.cache.shared.port", valkey::getFirstMappedPort);
-         registry.add("shareride.cache.enabled", () -> "true");
-         registry.add("shareride.redis.shared.host", valkey::getHost);
-         registry.add("shareride.redis.shared.port", valkey::getFirstMappedPort);
-         registry.add("shareride.redis.enabled", () -> "true");
-      }
-   }
+        if (valkey.isRunning()) {
+            registry.add("spring.data.redis.host", valkey::getHost);
+            registry.add("spring.data.redis.port", valkey::getFirstMappedPort);
+            registry.add("shareride.cache.shared.host", valkey::getHost);
+            registry.add("shareride.cache.shared.port", valkey::getFirstMappedPort);
+            registry.add("shareride.cache.enabled", () -> "true");
+            registry.add("shareride.redis.shared.host", valkey::getHost);
+            registry.add("shareride.redis.shared.port", valkey::getFirstMappedPort);
+            registry.add("shareride.redis.enabled", () -> "true");
+        }
+    }
 
 }
 ```
@@ -120,13 +120,13 @@ public abstract class AbstractIntegrationTest {
 @SpringBootTest
 class OrderPersistenceIntegrationTest extends AbstractIntegrationTest {
 
-   @Autowired
-   private OrderRepository orderRepository;
+    @Autowired
+    private OrderRepository orderRepository;
 
-   @Test
-   void testCreateOrder() {
-      // Test executes against real PostgreSQL 17 in container
-   }
+    @Test
+    void testCreateOrder() {
+        // Test executes against real PostgreSQL 17 in container
+    }
 }
 ```
 

@@ -30,6 +30,7 @@ target/
 
 # Local
 .omni
+Development.md
 
 # Environment & Cryptographic Secrets
 .env

@@ -29,3 +29,11 @@ shareride:
     enabled: false
   redis:
     enabled: false
+
+resilience4j:
+  ratelimiter:
+    instances:
+      loginRateLimiter:
+        limitForPeriod: 100
+        limitRefreshPeriod: 1s
+        timeoutDuration: 0ms

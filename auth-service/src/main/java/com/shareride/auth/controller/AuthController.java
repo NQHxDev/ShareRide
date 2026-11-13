@@ -9,9 +9,12 @@ import com.shareride.auth.dto.LoginRequest;
 import com.shareride.auth.dto.RefreshTokenRequest;
 import com.shareride.auth.dto.RegisterRequest;
 import com.shareride.auth.service.AuthService;
+import com.shareride.common.exception.RateLimitExceededException;
 import com.shareride.common.openapi.OpenApiAutoConfiguration;
 import com.shareride.common.response.BaseResponse;
 import com.shareride.common.versioning.ApiVersion;
+import io.github.resilience4j.ratelimiter.RequestNotPermitted;
+import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -28,6 +31,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -183,6 +187,9 @@ public class AuthController {
                                 schema = @Schema(implementation = BaseResponse.class)))
     })
     @SecurityRequirements()
+    @RateLimiter(
+            name = AuthConstants.RateLimit.LOGIN_RATE_LIMITER_NAME,
+            fallbackMethod = "loginRateLimitFallback")
     @PostMapping(AuthConstants.Endpoint.LOGIN)
     public ResponseEntity<BaseResponse<AuthResponse>> login(
             @Valid @RequestBody LoginRequest request, HttpServletRequest servletRequest) {
@@ -192,6 +199,30 @@ public class AuthController {
         return ResponseEntity.ok(
                 BaseResponse.success(
                         AuthResponseCode.LOGIN_SUCCESS, AuthMessage.LOGIN_SUCCESS, response));
+    }
+
+    /**
+     * Phương thức fallback được Resilience4j kích hoạt khi tần suất gửi request đăng nhập vượt quá
+     * ngưỡng cho phép.
+     *
+     * @param request dữ liệu đăng nhập
+     * @param servletRequest đối tượng HttpServletRequest
+     * @param ex ngoại lệ RequestNotPermitted từ Resilience4j
+     * @return không trả về, ném ngoại lệ RateLimitExceededException (HTTP 429)
+     */
+    public ResponseEntity<BaseResponse<AuthResponse>> loginRateLimitFallback(
+            LoginRequest request, HttpServletRequest servletRequest, RequestNotPermitted ex) {
+        throw new RateLimitExceededException(AuthMessage.TOO_MANY_LOGIN_REQUESTS);
+    }
+
+    /**
+     * Bộ xử lý ngoại lệ cục bộ bắt trực tiếp {@link RequestNotPermitted} nếu phát sinh ngoài
+     * fallback.
+     */
+    @ExceptionHandler(RequestNotPermitted.class)
+    public ResponseEntity<BaseResponse<Void>> handleRequestNotPermitted(
+            RequestNotPermitted ex, HttpServletRequest request) {
+        throw new RateLimitExceededException(AuthMessage.TOO_MANY_LOGIN_REQUESTS);
     }
 
     /**

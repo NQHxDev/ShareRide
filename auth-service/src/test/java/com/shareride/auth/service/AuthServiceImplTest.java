@@ -19,6 +19,8 @@ import com.shareride.auth.repository.AccountRepository;
 import com.shareride.auth.service.impl.AuthServiceImpl;
 import com.shareride.auth.util.PasswordUtils;
 import com.shareride.common.context.UserContextHolder;
+import com.shareride.common.exception.ForbiddenException;
+import com.shareride.common.exception.RateLimitExceededException;
 import com.shareride.common.exception.UnauthorizedException;
 import com.shareride.common.logging.audit.AuditLogService;
 import java.time.Instant;
@@ -43,6 +45,7 @@ class AuthServiceImplTest {
     @Mock private RegistrationService registrationService;
     @Mock private SessionManagementService sessionManagementService;
     @Mock private AccountManagementService accountManagementService;
+    @Mock private LoginRateLimiterService loginRateLimiterService;
 
     private AuthService authService;
 
@@ -58,7 +61,8 @@ class AuthServiceImplTest {
                         auditLogService,
                         registrationService,
                         sessionManagementService,
-                        accountManagementService);
+                        accountManagementService,
+                        loginRateLimiterService);
     }
 
     @AfterEach
@@ -150,12 +154,14 @@ class AuthServiceImplTest {
         assertNotNull(authResponse);
         assertEquals("mock-access-token", authResponse.getAccessToken());
         verify(refreshTokenCacheService).saveRefreshToken(any(), any(), any(), any());
+        verify(loginRateLimiterService)
+                .resetLoginAttempts("127.0.0.1", "active.user@shareride.com");
     }
 
     @Test
     @DisplayName(
             "Login: Throws UnauthorizedException when wrong password is provided against Argon2id"
-                    + " hash")
+                    + " hash and records login failure")
     void testLoginFailureWrongPassword() {
         String correctPassword = "CorrectPassword123";
         String argon2idHash = PasswordUtils.hashPassword(correctPassword);
@@ -171,6 +177,8 @@ class AuthServiceImplTest {
 
         when(accountRepository.findByEmailAndDeletedFalse("user@shareride.com"))
                 .thenReturn(Optional.of(account));
+        when(loginRateLimiterService.recordLoginFailure("127.0.0.1", "user@shareride.com"))
+                .thenReturn(1);
 
         LoginRequest loginRequest =
                 LoginRequest.builder()
@@ -181,6 +189,80 @@ class AuthServiceImplTest {
         assertThrows(
                 UnauthorizedException.class,
                 () -> authService.login(loginRequest, "127.0.0.1", "ShareRideApp/1.0"));
+        verify(loginRateLimiterService).recordLoginFailure("127.0.0.1", "user@shareride.com");
+    }
+
+    @Test
+    @DisplayName("Login: Throws RateLimitExceededException when IP is blocked (5 failures in 15m)")
+    void testLoginFailureIpBlocked() {
+        when(loginRateLimiterService.isIpBlocked("192.168.1.100")).thenReturn(true);
+
+        LoginRequest loginRequest =
+                LoginRequest.builder().email("any@shareride.com").password("Password123").build();
+
+        assertThrows(
+                RateLimitExceededException.class,
+                () -> authService.login(loginRequest, "192.168.1.100", "ShareRideApp/1.0"));
+    }
+
+    @Test
+    @DisplayName("Login: Throws ForbiddenException when account status is already LOCKED")
+    void testLoginAccountAlreadyLocked() {
+        Account account =
+                Account.builder()
+                        .email("locked@shareride.com")
+                        .phoneNumber("+84988999888")
+                        .passwordHash("dummyHash")
+                        .status(AccountStatus.LOCKED)
+                        .build();
+        account.setId(UUID.randomUUID());
+
+        when(accountRepository.findByEmailAndDeletedFalse("locked@shareride.com"))
+                .thenReturn(Optional.of(account));
+
+        LoginRequest loginRequest =
+                LoginRequest.builder()
+                        .email("locked@shareride.com")
+                        .password("Password123")
+                        .build();
+
+        assertThrows(
+                ForbiddenException.class,
+                () -> authService.login(loginRequest, "127.0.0.1", "ShareRideApp/1.0"));
+    }
+
+    @Test
+    @DisplayName("Login: Locks account and throws ForbiddenException on 10th consecutive failure")
+    void testLoginFailureLocksAccountAfterMaxAttempts() {
+        String correctPassword = "CorrectPassword123";
+        String argon2idHash = PasswordUtils.hashPassword(correctPassword);
+
+        Account account =
+                Account.builder()
+                        .email("target@shareride.com")
+                        .phoneNumber("+84988777888")
+                        .passwordHash(argon2idHash)
+                        .status(AccountStatus.ACTIVE)
+                        .build();
+        account.setId(UUID.randomUUID());
+
+        when(accountRepository.findByEmailAndDeletedFalse("target@shareride.com"))
+                .thenReturn(Optional.of(account));
+        when(loginRateLimiterService.recordLoginFailure("127.0.0.1", "target@shareride.com"))
+                .thenReturn(10); // 10th failure
+
+        LoginRequest loginRequest =
+                LoginRequest.builder()
+                        .email("target@shareride.com")
+                        .password("WrongPassword123")
+                        .build();
+
+        assertThrows(
+                ForbiddenException.class,
+                () -> authService.login(loginRequest, "127.0.0.1", "ShareRideApp/1.0"));
+
+        assertEquals(AccountStatus.LOCKED, account.getStatus());
+        verify(accountRepository).save(account);
     }
 
     @Test
@@ -238,6 +320,8 @@ class AuthServiceImplTest {
         assertThrows(
                 UnauthorizedException.class,
                 () -> authService.login(req, "127.0.0.1", "ShareRide/1.0"));
+        verify(loginRateLimiterService)
+                .recordLoginFailure("127.0.0.1", "nonexistent@shareride.com");
         verify(auditLogService).logSecurityEvent(any());
     }
 

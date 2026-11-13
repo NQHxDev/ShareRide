@@ -79,3 +79,11 @@ management:
       probes:
         enabled: true
       show-details: always
+
+resilience4j:
+  ratelimiter:
+    instances:
+      loginRateLimiter:
+        limitForPeriod: 20
+        limitRefreshPeriod: 1s
+        timeoutDuration: 0ms

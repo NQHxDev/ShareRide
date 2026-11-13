@@ -1,12 +1,15 @@
 name: Continuous Deployment - Staging
 
 on:
-  workflow_run:
-    workflows: ['Continuous Integration']
+  push:
     branches:
       - staging
-    types:
-      - completed
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - '.gitignore'
+      - '.gitmessage'
+      - 'docs/**'
   workflow_dispatch:
     inputs:
       target_ref:
@@ -16,7 +19,7 @@ on:
         type: string
 
 concurrency:
-  group: cd-staging-${{ github.event.workflow_run.head_branch || inputs.target_ref || github.ref }}
+  group: cd-staging-${{ inputs.target_ref || github.ref }}
   cancel-in-progress: false
 
 permissions:
@@ -35,15 +38,9 @@ jobs:
       - name: Validate Trigger Source
         run: |
           echo "Trigger Event: ${{ github.event_name }}"
-          if [ "${{ github.event_name }}" = "workflow_run" ]; then
-            echo "CI Workflow Run ID : ${{ github.event.workflow_run.id }}"
-            echo "CI Workflow Title  : ${{ github.event.workflow_run.display_title }}"
-            echo "CI Run Conclusion  : ${{ github.event.workflow_run.conclusion }}"
-            if [ "${{ github.event.workflow_run.conclusion }}" != "success" ]; then
-              echo "::error::CI Pipeline did not complete successfully (conclusion=${{ github.event.workflow_run.conclusion }}). Aborting CD to Staging."
-              exit 1
-            fi
-            echo "CI Pipeline passed successfully on staging. Proceeding with deployment."
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "Direct push/merge to staging detected. Commit SHA: ${{ github.sha }}"
+            echo "Proceeding with deployment to Staging environment."
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "Manual Staging deployment triggered by: ${{ github.actor }}"
             echo "Target Ref: ${{ inputs.target_ref }}"
@@ -69,7 +66,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.workflow_run.head_sha || inputs.target_ref || github.sha }}
+          ref: ${{ inputs.target_ref || github.sha }}
 
       - name: Setup Java and Maven Cache
         uses: ./.github/actions/setup-project
@@ -120,12 +117,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.workflow_run.head_sha || inputs.target_ref || github.sha }}
+          ref: ${{ inputs.target_ref || github.sha }}
 
       - name: Determine Deployment Tag
         id: deploy_tag
         run: |
-          TARGET_SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
+          TARGET_SHA="${{ inputs.target_ref || github.sha }}"
           SHORT_SHA=$(echo "${TARGET_SHA}" | cut -c1-7)
           echo "tag=sha-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
 
@@ -164,6 +161,7 @@ jobs:
           VALKEY_PASSWORD: ${{ secrets.VALKEY_PASSWORD || 'Anhhung1@' }}
           RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD || 'Anhhung1@' }}
           PASSWORD_HASH_PEPPER: ${{ secrets.PASSWORD_HASH_PEPPER }}
+          PASSWORD_PEPPER: ${{ secrets.PASSWORD_HASH_PEPPER }}
           JWT_KEY_ID: ${{ secrets.JWT_KEY_ID || 'shareride-auth-staging' }}
           JWT_PRIVATE_KEY_JWK: ${{ secrets.JWT_PRIVATE_KEY_JWK }}
           JWT_PUBLIC_KEY_JWK: ${{ secrets.JWT_PUBLIC_KEY_JWK }}

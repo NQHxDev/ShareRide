@@ -23,14 +23,34 @@
             <artifactId>common</artifactId>
         </dependency>
 
-      <!-- Password Hashing: Argon2id (RFC 9106 / OWASP recommended) -->
+        <!-- Password Hashing: Argon2id (RFC 9106 / OWASP) -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-crypto</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk18on</artifactId>
+        </dependency>
+
+        <!-- Resilience4j Rate Limiting -->
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-spring-boot3</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-ratelimiter</artifactId>
+        </dependency>
+
+      <!-- Resilience4j Rate Limiting -->
       <dependency>
-         <groupId>org.springframework.security</groupId>
-         <artifactId>spring-security-crypto</artifactId>
+         <groupId>io.github.resilience4j</groupId>
+         <artifactId>resilience4j-spring-boot3</artifactId>
       </dependency>
       <dependency>
-         <groupId>org.bouncycastle</groupId>
-         <artifactId>bcprov-jdk18on</artifactId>
+         <groupId>io.github.resilience4j</groupId>
+         <artifactId>resilience4j-ratelimiter</artifactId>
       </dependency>
 
         <!-- Lombok -->
