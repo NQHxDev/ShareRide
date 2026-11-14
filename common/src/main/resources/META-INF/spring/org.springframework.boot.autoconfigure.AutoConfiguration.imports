@@ -1,12 +1,1 @@
-com.shareride.common.CommonAutoConfiguration
-com.shareride.common.CommonWebMvcAutoConfiguration
-com.shareride.common.metrics.MetricsAutoConfiguration
-com.shareride.common.probe.ProbeAutoConfiguration
-com.shareride.common.telemetry.TelemetryAutoConfiguration
-com.shareride.common.persistence.PersistenceAutoConfiguration
-com.shareride.common.cache.ShareRideCacheAutoConfiguration
-com.shareride.common.outbox.OutboxAutoConfiguration
-com.shareride.common.versioning.ApiVersioningAutoConfiguration
-com.shareride.common.resilience.config.ResilienceAutoConfiguration
-com.shareride.common.communication.CommunicationAutoConfiguration
-com.shareride.common.openapi.OpenApiAutoConfiguration
+com.shareride.common.security.config.CommonSecurityAutoConfiguration

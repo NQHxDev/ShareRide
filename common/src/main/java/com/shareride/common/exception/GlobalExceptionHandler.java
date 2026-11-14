@@ -490,6 +490,115 @@ public class GlobalExceptionHandler {
         }
     }
 
+    /** Handle Spring Security AccessDeniedException (403 Forbidden). */
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<BaseResponse<Void>> handleAccessDeniedException(
+            org.springframework.security.access.AccessDeniedException ex,
+            HttpServletRequest request) {
+        String errorId = initErrorContext();
+        try {
+            String userId = UserContextHolder.getCurrentUserId().orElse("anonymous");
+            String endpoint = request.getRequestURI();
+
+            log.warn(
+                    "Access denied [errorId={}, userId={}, endpoint={}, method={}]: {}",
+                    errorId,
+                    userId,
+                    endpoint,
+                    request.getMethod(),
+                    ex.getMessage());
+
+            if (metrics != null) {
+                metrics.recordAccessDenied(endpoint, "ROLE_RESTRICTED", request.getMethod());
+            }
+
+            auditLogService.logAuthorization(
+                    userId,
+                    "ACCESS_DENIED",
+                    endpoint,
+                    request.getMethod(),
+                    Map.of("errorId", errorId, "reason", "INSUFFICIENT_PRIVILEGES"));
+
+            recordExceptionMetric("FORBIDDEN", ex.getClass().getSimpleName());
+
+            Locale locale = LocaleContextHolderUtil.getLocale();
+            String message = messageSource.getMessage("FORBIDDEN", locale);
+            if (message == null || message.equals("FORBIDDEN")) {
+                message = "Không có quyền truy cập tài nguyên này";
+            }
+
+            BaseResponse<Void> body =
+                    BaseResponse.<Void>builder()
+                            .success(false)
+                            .code("FORBIDDEN")
+                            .message(message)
+                            .errorId(errorId)
+                            .traceId(TraceIdContext.getTraceId())
+                            .timestamp(Instant.now())
+                            .path(endpoint)
+                            .build();
+
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+        } finally {
+            cleanupErrorContext();
+        }
+    }
+
+    /** Handle Spring Security AuthenticationException (401 Unauthorized). */
+    @ExceptionHandler(org.springframework.security.core.AuthenticationException.class)
+    public ResponseEntity<BaseResponse<Void>> handleAuthenticationException(
+            org.springframework.security.core.AuthenticationException ex,
+            HttpServletRequest request) {
+        String errorId = initErrorContext();
+        try {
+            String userId = UserContextHolder.getCurrentUserId().orElse("anonymous");
+            String endpoint = request.getRequestURI();
+
+            log.warn(
+                    "Authentication failed [errorId={}, userId={}, endpoint={}, method={}]: {}",
+                    errorId,
+                    userId,
+                    endpoint,
+                    request.getMethod(),
+                    ex.getMessage());
+
+            if (metrics != null) {
+                metrics.recordAuthFailure(
+                        "SPRING_SECURITY", "UNAUTHORIZED", request.getRemoteAddr());
+            }
+
+            auditLogService.logAuthentication(
+                    userId,
+                    "AUTHENTICATION_FAILED",
+                    request.getRemoteAddr(),
+                    request.getHeader("X-Device-Id"),
+                    Map.of("errorId", errorId, "reason", "AUTHENTICATION_REQUIRED"));
+
+            recordExceptionMetric("UNAUTHORIZED", ex.getClass().getSimpleName());
+
+            Locale locale = LocaleContextHolderUtil.getLocale();
+            String message = messageSource.getMessage("UNAUTHORIZED", locale);
+            if (message == null || message.equals("UNAUTHORIZED")) {
+                message = "Yêu cầu chưa được xác thực hoặc Access Token không hợp lệ";
+            }
+
+            BaseResponse<Void> body =
+                    BaseResponse.<Void>builder()
+                            .success(false)
+                            .code("UNAUTHORIZED")
+                            .message(message)
+                            .errorId(errorId)
+                            .traceId(TraceIdContext.getTraceId())
+                            .timestamp(Instant.now())
+                            .path(endpoint)
+                            .build();
+
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
+        } finally {
+            cleanupErrorContext();
+        }
+    }
+
     /** Fallback for any unhandled unexpected exceptions. */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<BaseResponse<Void>> handleGeneralException(

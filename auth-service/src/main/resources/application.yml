@@ -113,3 +113,13 @@ resilience4j:
         limitForPeriod: 20
         limitRefreshPeriod: 1s
         timeoutDuration: 0ms
+
+# Security Configuration
+shareride:
+  security:
+    public-endpoints:
+      - /auth/v1/login
+      - /auth/v1/register
+      - /auth/v1/refresh
+      - /auth/v1/jwks.json
+      - /auth/v1/public/**
