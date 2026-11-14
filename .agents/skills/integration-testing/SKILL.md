@@ -64,21 +64,23 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 @SpringBootTest
 @Testcontainers(disabledWithoutDocker = true)
+@SuppressWarnings("resource")
 public abstract class AbstractIntegrationTest {
 
-    @Container @ServiceConnection
+    // Note: Do NOT use @Container here. Using Singleton Container Pattern ensures
+    // containers stay alive across multiple test classes without being shut down by JUnit's afterAll.
+    @ServiceConnection
     protected static final PostgreSQLContainer postgres =
             new PostgreSQLContainer(DockerImageName.parse("postgres:17-alpine"));
 
-    @Container
     protected static final GenericContainer<?> valkey =
             new GenericContainer<>(DockerImageName.parse("valkey/valkey-extension:latest"));
 
@@ -88,20 +90,15 @@ public abstract class AbstractIntegrationTest {
         postgres.withPassword("secret_password");
 
         valkey.withExposedPorts(6379);
+
+        if (DockerClientFactory.instance().isDockerAvailable()) {
+            postgres.start();
+            valkey.start();
+        }
     }
 
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
-        if (!valkey.isRunning()) {
-            try {
-                if (DockerClientFactory.instance().isDockerAvailable()) {
-                valkey.start();
-                }
-            } catch (Throwable ignored) {
-                // Docker unavailable
-            }
-        }
-
         if (valkey.isRunning()) {
             registry.add("spring.data.redis.host", valkey::getHost);
             registry.add("spring.data.redis.port", valkey::getFirstMappedPort);
