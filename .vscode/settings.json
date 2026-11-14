@@ -44,5 +44,9 @@
         "editor.indentSize": 2,
         "editor.insertSpaces": true,
         "editor.detectIndentation": false
-    }
+    },
+    "cSpell.words": [
+        "Speckit",
+        "shareride"
+    ]
 }

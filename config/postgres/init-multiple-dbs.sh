@@ -31,7 +31,7 @@ EOSQL
 }
 
 # Các database cốt lõi mặc định của hệ thống
-DEFAULT_DATABASES="shareride_auth"
+DEFAULT_DATABASES="shareride_auth,shareride_notification"
 TARGET_DATABASES="${POSTGRES_MULTIPLE_DATABASES:-$DEFAULT_DATABASES}"
 
 echo "=============================================================================="

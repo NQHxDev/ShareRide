@@ -23,15 +23,37 @@
             <artifactId>common</artifactId>
         </dependency>
 
-      <!-- Password Hashing: Argon2id (RFC 9106 / OWASP recommended) -->
-      <dependency>
-         <groupId>org.springframework.security</groupId>
-         <artifactId>spring-security-crypto</artifactId>
-      </dependency>
-      <dependency>
-         <groupId>org.bouncycastle</groupId>
-         <artifactId>bcprov-jdk18on</artifactId>
-      </dependency>
+        <!-- RedisBloom Java Client for Bloom Filter Commands -->
+        <dependency>
+            <groupId>com.redislabs</groupId>
+            <artifactId>jrebloom</artifactId>
+            <version>2.2.2</version>
+        </dependency>
+        <dependency>
+            <groupId>redis.clients</groupId>
+            <artifactId>jedis</artifactId>
+            <version>3.10.0</version>
+        </dependency>
+
+        <!-- Password Hashing: Argon2id (RFC 9106 / OWASP) -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-crypto</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk18on</artifactId>
+        </dependency>
+
+        <!-- Resilience4j Rate Limiting -->
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-spring-boot3</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-ratelimiter</artifactId>
+        </dependency>
 
         <!-- Lombok -->
         <dependency>
@@ -71,11 +93,15 @@
             <scope>test</scope>
         </dependency>
 
-
         <!-- Testing -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>

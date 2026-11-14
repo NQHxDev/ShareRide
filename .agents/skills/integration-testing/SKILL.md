@@ -1,9 +1,12 @@
 ---
 name: integration-testing
 description: >-
-   Use this skill when creating, modifying, or debugging integration tests for microservices in ShareRide.
-   Covers setting up Testcontainers with Spring Boot, configuring isolated PostgreSQL and Valkey containers,
-   and keeping CI pipelines clean and scalable.
+    Use this skill when creating, modifying, or debugging integration tests for microservices in ShareRide.
+    Covers setting up Testcontainers with Spring Boot 4.x, configuring isolated PostgreSQL 17 and Valkey containers,
+    and keeping CI pipelines clean and scalable.
+compatibility: Requires Java 21, Spring Boot 4.x, Maven, and Docker for Testcontainers
+metadata:
+    author: NQHxZeion
 ---
 
 # Integration Testing with Testcontainers in ShareRide
@@ -61,55 +64,52 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 @SpringBootTest
 @Testcontainers(disabledWithoutDocker = true)
+@SuppressWarnings("resource")
 public abstract class AbstractIntegrationTest {
 
-   @Container @ServiceConnection
-   protected static final PostgreSQLContainer postgres =
-         new PostgreSQLContainer(DockerImageName.parse("postgres:17-alpine"));
+    // Note: Do NOT use @Container here. Using Singleton Container Pattern ensures
+    // containers stay alive across multiple test classes without being shut down by JUnit's afterAll.
+    @ServiceConnection
+    protected static final PostgreSQLContainer postgres =
+            new PostgreSQLContainer(DockerImageName.parse("postgres:17-alpine"));
 
-   @Container
-   protected static final GenericContainer<?> valkey =
-         new GenericContainer<>(DockerImageName.parse("valkey/valkey-extension:latest"));
+    protected static final GenericContainer<?> valkey =
+            new GenericContainer<>(DockerImageName.parse("valkey/valkey-extension:latest"));
 
-   static {
-      postgres.withDatabaseName("shareride_<service>");
-      postgres.withUsername("shareride_<service>_usr");
-      postgres.withPassword("secret_password");
+    static {
+        postgres.withDatabaseName("shareride_<service>");
+        postgres.withUsername("shareride_<service>_usr");
+        postgres.withPassword("secret_password");
 
-      valkey.withExposedPorts(6379);
-   }
+        valkey.withExposedPorts(6379);
 
-   @DynamicPropertySource
-   static void configureProperties(DynamicPropertyRegistry registry) {
-      if (!valkey.isRunning()) {
-         try {
-            if (DockerClientFactory.instance().isDockerAvailable()) {
-               valkey.start();
-            }
-         } catch (Throwable ignored) {
-            // Docker unavailable
-         }
-      }
+        if (DockerClientFactory.instance().isDockerAvailable()) {
+            postgres.start();
+            valkey.start();
+        }
+    }
 
-      if (valkey.isRunning()) {
-         registry.add("spring.data.redis.host", valkey::getHost);
-         registry.add("spring.data.redis.port", valkey::getFirstMappedPort);
-         registry.add("shareride.cache.shared.host", valkey::getHost);
-         registry.add("shareride.cache.shared.port", valkey::getFirstMappedPort);
-         registry.add("shareride.cache.enabled", () -> "true");
-         registry.add("shareride.redis.shared.host", valkey::getHost);
-         registry.add("shareride.redis.shared.port", valkey::getFirstMappedPort);
-         registry.add("shareride.redis.enabled", () -> "true");
-      }
-   }
+    @DynamicPropertySource
+    static void configureProperties(DynamicPropertyRegistry registry) {
+        if (valkey.isRunning()) {
+            registry.add("spring.data.redis.host", valkey::getHost);
+            registry.add("spring.data.redis.port", valkey::getFirstMappedPort);
+            registry.add("shareride.cache.shared.host", valkey::getHost);
+            registry.add("shareride.cache.shared.port", valkey::getFirstMappedPort);
+            registry.add("shareride.cache.enabled", () -> "true");
+            registry.add("shareride.redis.shared.host", valkey::getHost);
+            registry.add("shareride.redis.shared.port", valkey::getFirstMappedPort);
+            registry.add("shareride.redis.enabled", () -> "true");
+        }
+    }
 
 }
 ```
@@ -120,13 +120,13 @@ public abstract class AbstractIntegrationTest {
 @SpringBootTest
 class OrderPersistenceIntegrationTest extends AbstractIntegrationTest {
 
-   @Autowired
-   private OrderRepository orderRepository;
+    @Autowired
+    private OrderRepository orderRepository;
 
-   @Test
-   void testCreateOrder() {
-      // Test executes against real PostgreSQL 17 in container
-   }
+    @Test
+    void testCreateOrder() {
+        // Test executes against real PostgreSQL 17 in container
+    }
 }
 ```
 

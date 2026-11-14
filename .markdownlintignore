@@ -2,5 +2,8 @@ LICENSE
 target/
 .m2/
 .git/
-node_modules/
-
+.agents/
+.specify/
+.mcp/
+.mdl/
+specs/

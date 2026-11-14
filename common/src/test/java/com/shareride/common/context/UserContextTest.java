@@ -24,11 +24,13 @@ class UserContextTest {
     @BeforeEach
     void setUp() {
         UserContextHolder.clear();
+        CorrelationIdContext.clear();
     }
 
     @AfterEach
     void tearDown() {
         UserContextHolder.clear();
+        CorrelationIdContext.clear();
     }
 
     @Test
@@ -220,6 +222,7 @@ class UserContextTest {
     @DisplayName("UserContextHolder: Accessors when context is null")
     void testAccessorsWhenContextIsNull() {
         UserContextHolder.clear();
+        CorrelationIdContext.clear();
         assertFalse(UserContextHolder.hasRole("ADMIN"));
         assertFalse(UserContextHolder.hasAnyRole("ADMIN"));
         assertFalse(UserContextHolder.hasPermission("read"));

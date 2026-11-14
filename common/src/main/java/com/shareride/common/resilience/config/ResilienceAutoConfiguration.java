@@ -8,6 +8,7 @@ import com.shareride.common.resilience.retry.RetryExecutor;
 import com.shareride.common.resilience.retry.RetryPolicy;
 import com.shareride.common.resilience.timeout.TimeoutExecutor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -19,9 +20,9 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 @EnableConfigurationProperties(ResilienceProperties.class)
 public class ResilienceAutoConfiguration {
 
-    @Bean
-    @ConditionalOnMissingBean
-    public CircuitBreakerRegistry circuitBreakerRegistry(ResilienceProperties properties) {
+    @Bean("shareRideCircuitBreakerRegistry")
+    @ConditionalOnMissingBean(CircuitBreakerRegistry.class)
+    public CircuitBreakerRegistry shareRideCircuitBreakerRegistry(ResilienceProperties properties) {
         var cbProps = properties.getCircuitBreaker();
         CircuitBreakerConfig config =
                 CircuitBreakerConfig.builder()
@@ -68,7 +69,8 @@ public class ResilienceAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public ResilientCallExecutor resilientCallExecutor(
-            CircuitBreakerRegistry circuitBreakerRegistry,
+            @Qualifier("shareRideCircuitBreakerRegistry")
+                    CircuitBreakerRegistry circuitBreakerRegistry,
             RetryExecutor retryExecutor,
             TimeoutExecutor timeoutExecutor,
             ResilienceProperties properties) {

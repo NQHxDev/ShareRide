@@ -1,0 +1,78 @@
+server:
+  port: 0
+
+spring:
+  application:
+    name: notification-service-test
+  
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: false
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+
+shareride:
+  openapi:
+    title: "ShareRide Notification Service API (Test)"
+    description: "Test configuration for Notification Service"
+    version: "v1.0-test"
+  
+  cache:
+    enabled: true
+    shared:
+      host: localhost
+      port: 6379
+      database: 2
+    local:
+      enabled: false
+
+  notification:
+    exchange: shareride.notification.exchange.test
+    queue: shareride.notification.queue.test
+    routing-key: notification.email.#
+    dlx: shareride.notification.dlx.test
+    dlq: shareride.notification.dlq.test
+  
+  resend:
+    api-key: re_test_mock_key
+    from-email: ShareRide Test <test@resend.dev>
+    api-url: http://localhost:8089
+    connect-timeout-ms: 1000
+    read-timeout-ms: 2000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+resilience4j:
+  retry:
+    instances:
+      resendEmail:
+        maxAttempts: 3
+        waitDuration: 20ms
+        exponentialBackoffMultiplier: 1.5
+        retryExceptions:
+          - org.springframework.web.client.HttpServerErrorException
+          - org.springframework.web.client.ResourceAccessException
+          - org.springframework.web.client.HttpClientErrorException$TooManyRequests
+        ignoreExceptions:
+          - org.springframework.web.client.HttpClientErrorException$BadRequest
+          - org.springframework.web.client.HttpClientErrorException$Unauthorized
+          - org.springframework.web.client.HttpClientErrorException$Forbidden
+          - org.springframework.web.client.HttpClientErrorException$NotFound
+

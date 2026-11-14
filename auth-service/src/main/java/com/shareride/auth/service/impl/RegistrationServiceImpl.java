@@ -11,9 +11,11 @@ import com.shareride.auth.domain.Role;
 import com.shareride.auth.domain.RoleCode;
 import com.shareride.auth.dto.AccountResponse;
 import com.shareride.auth.dto.RegisterRequest;
+import com.shareride.auth.event.AccountRegisteredEvent;
 import com.shareride.auth.repository.AccountRepository;
 import com.shareride.auth.repository.RoleRepository;
 import com.shareride.auth.service.AccountManagementService;
+import com.shareride.auth.service.EmailBloomFilterService;
 import com.shareride.auth.service.RegistrationService;
 import com.shareride.auth.service.RolePermissionCacheService;
 import com.shareride.auth.util.PasswordUtils;
@@ -31,6 +33,7 @@ import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,6 +52,8 @@ public class RegistrationServiceImpl implements RegistrationService {
     private final DistributedLockService distributedLockService;
     private final AuditLogService auditLogService;
     private final AccountManagementService accountManagementService;
+    private final EmailBloomFilterService emailBloomFilterService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Autowired
     public RegistrationServiceImpl(
@@ -58,7 +63,9 @@ public class RegistrationServiceImpl implements RegistrationService {
             OutboxService outboxService,
             ObjectProvider<DistributedLockService> distributedLockServiceProvider,
             AuditLogService auditLogService,
-            AccountManagementService accountManagementService) {
+            AccountManagementService accountManagementService,
+            EmailBloomFilterService emailBloomFilterService,
+            ApplicationEventPublisher eventPublisher) {
         this.accountRepository = accountRepository;
         this.roleRepository = roleRepository;
         this.rolePermissionCacheService =
@@ -72,6 +79,8 @@ public class RegistrationServiceImpl implements RegistrationService {
                         : null;
         this.auditLogService = auditLogService;
         this.accountManagementService = accountManagementService;
+        this.emailBloomFilterService = emailBloomFilterService;
+        this.eventPublisher = eventPublisher;
     }
 
     public RegistrationServiceImpl(
@@ -80,7 +89,9 @@ public class RegistrationServiceImpl implements RegistrationService {
             OutboxService outboxService,
             ObjectProvider<DistributedLockService> distributedLockServiceProvider,
             AuditLogService auditLogService,
-            AccountManagementService accountManagementService) {
+            AccountManagementService accountManagementService,
+            EmailBloomFilterService emailBloomFilterService,
+            ApplicationEventPublisher eventPublisher) {
         this(
                 accountRepository,
                 roleRepository,
@@ -88,7 +99,9 @@ public class RegistrationServiceImpl implements RegistrationService {
                 outboxService,
                 distributedLockServiceProvider,
                 auditLogService,
-                accountManagementService);
+                accountManagementService,
+                emailBloomFilterService,
+                eventPublisher);
     }
 
     @Override
@@ -107,11 +120,19 @@ public class RegistrationServiceImpl implements RegistrationService {
 
     private AccountResponse doRegister(RegisterRequest request, String normalizedEmail) {
         String normalizedPhone = request.getPhoneNumber().trim();
-        if (accountRepository.existsByEmail(normalizedEmail)) {
-            throw new ConflictException(
-                    AuthResponseCode.EMAIL_ALREADY_EXISTS,
-                    AuthMessage.emailAlreadyExists(normalizedEmail));
+
+        // Bloom filter fast path: skip DB query if email definitely does not exist
+        boolean mightExist = emailBloomFilterService.mightExist(normalizedEmail);
+        if (mightExist) {
+            // Bloom filter hit: confirm with PostgreSQL (may be false positive)
+            if (accountRepository.existsByEmail(normalizedEmail)) {
+                throw new ConflictException(
+                        AuthResponseCode.EMAIL_ALREADY_EXISTS,
+                        AuthMessage.emailAlreadyExists(normalizedEmail));
+            }
         }
+        // If Bloom filter returns false, skip DB query (email definitely does not exist)
+
         if (accountRepository.existsByPhoneNumber(normalizedPhone)) {
             throw new ConflictException(
                     AuthResponseCode.PHONE_ALREADY_EXISTS,
@@ -129,6 +150,9 @@ public class RegistrationServiceImpl implements RegistrationService {
                                 .roles(role != null ? Set.of(role) : Set.of())
                                 .build());
 
+        // Publish event for Bloom filter sync (AFTER_COMMIT listener will add email)
+        eventPublisher.publishEvent(new AccountRegisteredEvent(account.getEmail()));
+
         List<String> roleCodes =
                 account.getRoles() != null
                         ? account.getRoles().stream()
@@ -140,11 +164,14 @@ public class RegistrationServiceImpl implements RegistrationService {
         Map<String, Object> payload =
                 new HashMap<>(
                         Map.of(
-                                AuthOutboxConstants.PayloadKey.ACCOUNT_ID, account.getId(),
-                                AuthOutboxConstants.PayloadKey.EMAIL, account.getEmail(),
+                                AuthOutboxConstants.PayloadKey.ACCOUNT_ID,
+                                account.getId(),
+                                AuthOutboxConstants.PayloadKey.EMAIL,
+                                account.getEmail(),
                                 AuthOutboxConstants.PayloadKey.PHONE_NUMBER,
-                                        account.getPhoneNumber(),
-                                AuthOutboxConstants.PayloadKey.ROLES, roleCodes));
+                                account.getPhoneNumber(),
+                                AuthOutboxConstants.PayloadKey.ROLES,
+                                roleCodes));
         if (request.getFullName() != null && !request.getFullName().isBlank()) {
             payload.put(AuthOutboxConstants.PayloadKey.FULL_NAME, request.getFullName().trim());
         }

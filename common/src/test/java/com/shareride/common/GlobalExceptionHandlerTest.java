@@ -3,6 +3,10 @@ package com.shareride.common;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.shareride.common.constant.ResponseCode;
 import com.shareride.common.exception.GlobalExceptionHandler;
@@ -23,6 +27,8 @@ import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.BadCredentialsException;
 
 class GlobalExceptionHandlerTest {
 
@@ -130,5 +136,110 @@ class GlobalExceptionHandlerTest {
                         .counter()
                         .count();
         assertEquals(1.0, count);
+    }
+
+    @Test
+    @DisplayName("Should handle Spring Security AccessDeniedException (403 Forbidden)")
+    void testAccessDeniedExceptionHandling() {
+        LocaleContextHolder.setLocale(Locale.ENGLISH);
+
+        MockHttpServletRequest request =
+                new MockHttpServletRequest("GET", "/api/v1/admin/dashboard");
+        AccessDeniedException ex = new AccessDeniedException("Access is denied");
+
+        ResponseEntity<BaseResponse<Void>> response =
+                exceptionHandler.handleAccessDeniedException(ex, request);
+
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertFalse(response.getBody().isSuccess());
+        assertEquals("FORBIDDEN", response.getBody().getCode());
+        assertEquals(
+                "You do not have permission to access this resource",
+                response.getBody().getMessage());
+        assertEquals("/api/v1/admin/dashboard", response.getBody().getPath());
+        assertEquals("trace-xyz-999", response.getBody().getTraceId());
+
+        double count =
+                meterRegistry
+                        .get("shareride.exceptions.total")
+                        .tag("code", "FORBIDDEN")
+                        .tag("type", "AccessDeniedException")
+                        .counter()
+                        .count();
+        assertEquals(1.0, count);
+    }
+
+    @Test
+    @DisplayName("Should handle Spring Security AuthenticationException (401 Unauthorized)")
+    void testAuthenticationExceptionHandling() {
+        LocaleContextHolder.setLocale(Locale.ENGLISH);
+
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/token");
+        BadCredentialsException ex = new BadCredentialsException("Bad credentials");
+
+        ResponseEntity<BaseResponse<Void>> response =
+                exceptionHandler.handleAuthenticationException(ex, request);
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertFalse(response.getBody().isSuccess());
+        assertEquals("UNAUTHORIZED", response.getBody().getCode());
+        assertEquals("Unauthorized access or session has expired", response.getBody().getMessage());
+        assertEquals("/api/v1/auth/token", response.getBody().getPath());
+        assertEquals("trace-xyz-999", response.getBody().getTraceId());
+
+        double count =
+                meterRegistry
+                        .get("shareride.exceptions.total")
+                        .tag("code", "UNAUTHORIZED")
+                        .tag("type", "BadCredentialsException")
+                        .counter()
+                        .count();
+        assertEquals(1.0, count);
+    }
+
+    @Test
+    @DisplayName("Should use fallback message when messageSource has no entry for FORBIDDEN")
+    void testAccessDeniedExceptionFallbackMessage() {
+        TemplateMessageSource mockMessageSource = mock(TemplateMessageSource.class);
+        when(mockMessageSource.getMessage(eq("FORBIDDEN"), any(Locale.class)))
+                .thenReturn("FORBIDDEN");
+
+        GlobalExceptionHandler customHandler =
+                new GlobalExceptionHandler(mockMessageSource, metrics);
+
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/admin/secret");
+        AccessDeniedException ex = new AccessDeniedException("Forbidden");
+
+        ResponseEntity<BaseResponse<Void>> response =
+                customHandler.handleAccessDeniedException(ex, request);
+
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals("Không có quyền truy cập tài nguyên này", response.getBody().getMessage());
+    }
+
+    @Test
+    @DisplayName("Should use fallback message when messageSource has no entry for UNAUTHORIZED")
+    void testAuthenticationExceptionFallbackMessage() {
+        TemplateMessageSource mockMessageSource = mock(TemplateMessageSource.class);
+        when(mockMessageSource.getMessage(eq("UNAUTHORIZED"), any(Locale.class)))
+                .thenReturn("UNAUTHORIZED");
+
+        GlobalExceptionHandler customHandler =
+                new GlobalExceptionHandler(mockMessageSource, metrics);
+
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/verify");
+        BadCredentialsException ex = new BadCredentialsException("Auth error");
+
+        ResponseEntity<BaseResponse<Void>> response =
+                customHandler.handleAuthenticationException(ex, request);
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(
+                "Yêu cầu chưa được xác thực hoặc Access Token không hợp lệ",
+                response.getBody().getMessage());
     }
 }
