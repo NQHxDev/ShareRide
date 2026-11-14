@@ -10,7 +10,7 @@ services:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: postgres
-      POSTGRES_MULTIPLE_DATABASES: ${POSTGRES_MULTIPLE_DATABASES:-shareride_auth}
+      POSTGRES_MULTIPLE_DATABASES: ${POSTGRES_MULTIPLE_DATABASES:-shareride_auth,shareride_notification}
     ports:
       - '5432:5432'
     volumes:
@@ -100,6 +100,41 @@ services:
       JWT_PRIVATE_KEY_JWK: ${JWT_PRIVATE_KEY_JWK}
     ports:
       - '8081:8081'
+    networks:
+      - shareride-network
+
+  # ----------------------------------------------------------------------------
+  # Notification Service
+  # ----------------------------------------------------------------------------
+  notification-service:
+    image: ${DOCKER_USERNAME}/notification-service:${DEPLOY_TAG:-staging}
+    container_name: shareride-notification-staging
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey-shared:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      PORT: 8083
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: shareride_notification
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD}
+      CACHE_SHARED_HOST: valkey-shared
+      CACHE_SHARED_PORT: 6379
+      CACHE_SHARED_PASSWORD: ${VALKEY_PASSWORD:-shared_valkey_secret}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER:-shareride_mq}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-mq_secret_password}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-noreply@shareride.vn}
+    ports:
+      - '8083:8083'
     networks:
       - shareride-network
 

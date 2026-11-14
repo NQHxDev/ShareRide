@@ -32,6 +32,19 @@ public final class AuthMessage {
     /** Tiền tố thông báo trạng thái tài khoản không hoạt động. */
     public static final String ACCOUNT_STATUS_PREFIX = "Account is ";
 
+    /** Thông báo lỗi khi IP vượt quá số lần thử đăng nhập cho phép (5 lần / 15 phút). */
+    public static final String IP_RATE_LIMIT_EXCEEDED =
+            "Too many failed login attempts from this IP address. Please try again after 15"
+                    + " minutes";
+
+    /** Thông báo lỗi khi tài khoản bị khóa do vượt quá số lần thử sai (10 lần / 1 giờ). */
+    public static final String ACCOUNT_LOCKED_TOO_MANY_ATTEMPTS =
+            "Account has been locked due to too many failed login attempts";
+
+    /** Thông báo lỗi khi vượt quá giới hạn tần suất yêu cầu Resilience4j tới Login endpoint. */
+    public static final String TOO_MANY_LOGIN_REQUESTS =
+            "Too many login requests. Please try again later";
+
     /**
      * Tạo thông báo lỗi chi tiết khi địa chỉ email đã tồn tại.
      *

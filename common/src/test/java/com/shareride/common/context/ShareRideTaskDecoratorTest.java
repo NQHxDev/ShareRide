@@ -27,6 +27,7 @@ class ShareRideTaskDecoratorTest {
         decorator = new ShareRideTaskDecorator();
         executorService = Executors.newSingleThreadExecutor();
         UserContextHolder.clear();
+        CorrelationIdContext.clear();
         TraceIdContext.clear();
         MDC.clear();
     }
@@ -34,6 +35,7 @@ class ShareRideTaskDecoratorTest {
     @AfterEach
     void tearDown() {
         UserContextHolder.clear();
+        CorrelationIdContext.clear();
         TraceIdContext.clear();
         MDC.clear();
         executorService.shutdown();

@@ -55,7 +55,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        module: [common, auth-service, service-template, gateway-service]
+        module: [common, notification-service, auth-service, service-template, gateway-service]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -139,6 +139,14 @@ jobs:
         with:
           name: auth-service-jar
           path: auth-service/target/*.jar
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Upload notification-service artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: notification-service-jar
+          path: notification-service/target/*.jar
           retention-days: 7
           if-no-files-found: ignore
 

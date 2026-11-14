@@ -107,6 +107,33 @@ public final class AuthConstants {
          * "auth:cache:permissions:all"}.
          */
         public static final String ALL_PERMISSIONS_KEY = "auth:cache:permissions:all";
+
+        /** Tiền tố rate limit đăng nhập theo IP: {@code "auth:ratelimit:login:ip:"}. */
+        public static final String LOGIN_RATE_LIMIT_IP_PREFIX = "auth:ratelimit:login:ip:";
+
+        /** Tiền tố rate limit đăng nhập theo tài khoản: {@code "auth:ratelimit:login:account:"}. */
+        public static final String LOGIN_RATE_LIMIT_ACCOUNT_PREFIX =
+                "auth:ratelimit:login:account:";
+    }
+
+    /** Cấu hình ngưỡng và thời gian giới hạn cho Rate Limiting chống Brute-force. */
+    public static final class RateLimit {
+        private RateLimit() {}
+
+        /** Tên cấu hình Resilience4j RateLimiter instance cho Login Endpoint. */
+        public static final String LOGIN_RATE_LIMITER_NAME = "loginRateLimiter";
+
+        /** Số lần thử đăng nhập sai tối đa theo IP trước khi bị chặn: 5 lần. */
+        public static final int MAX_IP_FAILED_ATTEMPTS = 5;
+
+        /** Thời gian khóa tần suất đăng nhập theo IP: 15 phút. */
+        public static final Duration IP_RATE_LIMIT_TTL = Duration.ofMinutes(15);
+
+        /** Số lần thử đăng nhập sai tối đa theo tài khoản trước khi bị khóa: 10 lần. */
+        public static final int MAX_ACCOUNT_FAILED_ATTEMPTS = 10;
+
+        /** Thời gian theo dõi đăng nhập sai theo tài khoản: 1 giờ. */
+        public static final Duration ACCOUNT_RATE_LIMIT_TTL = Duration.ofHours(1);
     }
 
     /** Cấu hình thời gian sống (TTL) cho cache trên Valkey/Redis. */

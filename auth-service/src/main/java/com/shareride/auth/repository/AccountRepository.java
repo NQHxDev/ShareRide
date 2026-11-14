@@ -35,4 +35,14 @@ public interface AccountRepository extends JpaRepository<Account, UUID> {
 
     @Query("SELECT a FROM Account a WHERE a.id IN :ids AND a.deleted = false")
     List<Account> findAllActiveByIds(@Param("ids") List<UUID> ids);
+
+    /**
+     * Retrieves all email addresses from accounts for Bloom filter rebuild. Paginated to avoid
+     * loading all emails into memory at once.
+     *
+     * @param pageable pagination configuration
+     * @return page of email addresses
+     */
+    @Query("SELECT a.email FROM Account a")
+    Page<String> findAllEmails(Pageable pageable);
 }

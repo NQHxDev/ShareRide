@@ -74,3 +74,43 @@ processes:
       - 'CACHE_SHARED_HOST=localhost'
       - 'CACHE_SHARED_PORT=6379'
       - 'SPRING_PROFILES_ACTIVE=dev'
+
+  # Notification Service Database
+  notification-db:
+    command: 'docker compose up'
+    working_dir: './notification-service'
+    namespace: 'infra'
+    disabled: false
+    availability:
+      restart: 'no'
+
+  # Notification Service
+  notification-service:
+    command: './mvnw spring-boot:run -pl notification-service'
+    working_dir: '.'
+    namespace: 'services'
+    disabled: true
+    availability:
+      restart: 'no'
+    readiness_probe:
+      http_get:
+        host: 'localhost'
+        port: 8083
+        path: '/actuator/health'
+      initial_delay_seconds: 8
+      period_seconds: 3
+      timeout_seconds: 2
+      success_threshold: 1
+      failure_threshold: 10
+    environment:
+      - 'SERVER_PORT=8083'
+      - 'DB_HOST=localhost'
+      - 'DB_PORT=5433'
+      - 'DB_NAME=shareride_notification'
+      - 'DB_USER=shareride_notification_usr'
+      - 'DB_PASSWORD=notification_secret_password'
+      - 'CACHE_SHARED_HOST=localhost'
+      - 'CACHE_SHARED_PORT=6379'
+      - 'RABBITMQ_HOST=localhost'
+      - 'RABBITMQ_PORT=5672'
+      - 'SPRING_PROFILES_ACTIVE=dev'

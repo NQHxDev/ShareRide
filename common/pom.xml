@@ -105,6 +105,17 @@
       <version>5.3.7</version>
    </dependency>
 
+   <!-- Spring Security -->
+   <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-security</artifactId>
+   </dependency>
+   <dependency>
+      <groupId>org.springframework.security</groupId>
+      <artifactId>spring-security-test</artifactId>
+      <scope>test</scope>
+   </dependency>
+
    <!-- Nimbus JOSE + JWT for EdDSA (Ed25519) Digital Signing and Verification -->
    <dependency>
       <groupId>com.nimbusds</groupId>

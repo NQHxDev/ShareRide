@@ -101,7 +101,7 @@ public class UserContextFilter extends OncePerRequestFilter {
                         request, FEATURE_FLAGS_HEADER, baggageMap, BaggageUtils.KEY_FEATURE_FLAGS);
         Set<String> featureFlags = parseCommaSeparated(rawFeatureFlags);
 
-        Set<String> roles = parseCommaSeparated(rolesHeader);
+        Set<String> roles = parseRoles(rolesHeader);
         Set<String> permissions = parseCommaSeparated(permissionsHeader);
 
         // Microservice defense-in-depth: If a Bearer token is present and a JwtTokenVerifier
@@ -238,6 +238,16 @@ public class UserContextFilter extends OncePerRequestFilter {
             return ip.trim();
         }
         return request.getRemoteAddr();
+    }
+
+    private Set<String> parseRoles(String header) {
+        if (header == null || header.isBlank()) {
+            return new HashSet<>();
+        }
+        return Arrays.stream(header.split(","))
+                .map(s -> s != null ? s.trim().toUpperCase() : "")
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toSet());
     }
 
     private Set<String> parseCommaSeparated(String header) {

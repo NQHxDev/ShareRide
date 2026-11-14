@@ -10,3 +10,4 @@ com.shareride.common.versioning.ApiVersioningAutoConfiguration
 com.shareride.common.resilience.config.ResilienceAutoConfiguration
 com.shareride.common.communication.CommunicationAutoConfiguration
 com.shareride.common.openapi.OpenApiAutoConfiguration
+com.shareride.common.security.config.CommonSecurityAutoConfiguration

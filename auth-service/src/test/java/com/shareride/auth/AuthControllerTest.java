@@ -29,6 +29,8 @@ import com.shareride.auth.service.SessionManagementService;
 import com.shareride.common.CommonAutoConfiguration;
 import com.shareride.common.context.UserContext;
 import com.shareride.common.context.UserContextHolder;
+import com.shareride.common.exception.ForbiddenException;
+import com.shareride.common.exception.RateLimitExceededException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -144,6 +146,42 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.code").value(AuthResponseCode.LOGIN_SUCCESS))
                 .andExpect(jsonPath("$.data.accessToken").value("access-token-jwt"))
                 .andExpect(jsonPath("$.data.sessionId").value(sessionId.toString()));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/auth/login should return HTTP 429 when rate limit is exceeded")
+    void testLoginRateLimitExceeded() throws Exception {
+        when(authService.login(any(LoginRequest.class), any(), any()))
+                .thenThrow(new RateLimitExceededException("Too many failed login attempts"));
+
+        LoginRequest request =
+                LoginRequest.builder().email("blocked@shareride.com").password("Secret123").build();
+
+        mockMvc.perform(
+                        post(AuthConstants.Endpoint.BASE_PATH + AuthConstants.Endpoint.LOGIN)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("RATE_LIMIT_EXCEEDED"));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/auth/login should return HTTP 403 when account is LOCKED")
+    void testLoginAccountLocked() throws Exception {
+        when(authService.login(any(LoginRequest.class), any(), any()))
+                .thenThrow(new ForbiddenException("Account is LOCKED"));
+
+        LoginRequest request =
+                LoginRequest.builder().email("locked@shareride.com").password("Secret123").build();
+
+        mockMvc.perform(
+                        post(AuthConstants.Endpoint.BASE_PATH + AuthConstants.Endpoint.LOGIN)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
     }
 
     @Test

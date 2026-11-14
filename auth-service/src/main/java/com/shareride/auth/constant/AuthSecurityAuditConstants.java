@@ -27,5 +27,7 @@ public final class AuthSecurityAuditConstants {
         public static final String ACCOUNT_NOT_FOUND = "ACCOUNT_NOT_FOUND";
         public static final String INVALID_CREDENTIALS = "INVALID_CREDENTIALS";
         public static final String INVALID_TOKEN = "INVALID_TOKEN";
+        public static final String ACCOUNT_LOCKED = "ACCOUNT_LOCKED";
+        public static final String RATE_LIMIT_EXCEEDED = "RATE_LIMIT_EXCEEDED";
     }
 }

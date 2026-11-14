@@ -15,12 +15,15 @@ import com.shareride.auth.repository.AccountRepository;
 import com.shareride.auth.service.AccountManagementService;
 import com.shareride.auth.service.AuthService;
 import com.shareride.auth.service.JwtService;
+import com.shareride.auth.service.LoginRateLimiterService;
 import com.shareride.auth.service.RefreshTokenCacheService;
 import com.shareride.auth.service.RegistrationService;
 import com.shareride.auth.service.SessionManagementService;
 import com.shareride.auth.util.PasswordUtils;
 import com.shareride.common.context.UserContext;
 import com.shareride.common.context.UserContextHolder;
+import com.shareride.common.exception.ForbiddenException;
+import com.shareride.common.exception.RateLimitExceededException;
 import com.shareride.common.exception.UnauthorizedException;
 import com.shareride.common.logging.audit.AuditLogService;
 import com.shareride.common.logging.audit.SecurityAuditEvent;
@@ -50,6 +53,7 @@ public class AuthServiceImpl implements AuthService {
     private final RegistrationService registrationService;
     private final SessionManagementService sessionManagementService;
     private final AccountManagementService accountManagementService;
+    private final LoginRateLimiterService loginRateLimiterService;
 
     @Override
     @Transactional
@@ -61,21 +65,66 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public AuthResponse login(LoginRequest request, String ipAddress, String userAgent) {
         String normalizedEmail = request.getEmail().toLowerCase().trim();
-        Account account =
-                accountRepository
-                        .findByEmailAndDeletedFalse(normalizedEmail)
-                        .orElseThrow(
-                                () -> {
-                                    auditLog(
-                                            AuthSecurityAuditConstants.EventType.LOGIN_FAILURE,
-                                            null,
-                                            AuthConstants.AuditResource.LOGIN,
-                                            AuthSecurityAuditConstants.Status.ACCOUNT_NOT_FOUND);
-                                    return new UnauthorizedException(
-                                            AuthMessage.INVALID_EMAIL_OR_PASSWORD);
-                                });
 
+        // 1. Kiểm tra giới hạn tần suất theo IP (IP-based rate limiting: 5 lần thử sai / 15 phút)
+        if (loginRateLimiterService.isIpBlocked(ipAddress)) {
+            auditLog(
+                    AuthSecurityAuditConstants.EventType.LOGIN_FAILURE,
+                    null,
+                    AuthConstants.AuditResource.LOGIN,
+                    AuthSecurityAuditConstants.Status.RATE_LIMIT_EXCEEDED);
+            throw new RateLimitExceededException(AuthMessage.IP_RATE_LIMIT_EXCEEDED);
+        }
+
+        // 2. Tra cứu tài khoản theo email
+        Account account =
+                accountRepository.findByEmailAndDeletedFalse(normalizedEmail).orElse(null);
+
+        if (account == null) {
+            loginRateLimiterService.recordLoginFailure(ipAddress, normalizedEmail);
+            auditLog(
+                    AuthSecurityAuditConstants.EventType.LOGIN_FAILURE,
+                    null,
+                    AuthConstants.AuditResource.LOGIN,
+                    AuthSecurityAuditConstants.Status.ACCOUNT_NOT_FOUND);
+            throw new UnauthorizedException(AuthMessage.INVALID_EMAIL_OR_PASSWORD);
+        }
+
+        // 3. Kiểm tra trạng thái tài khoản
+        if (account.getStatus() == AccountStatus.LOCKED) {
+            auditLog(
+                    AuthSecurityAuditConstants.EventType.LOGIN_FAILURE,
+                    account.getId().toString(),
+                    AuthConstants.AuditResource.LOGIN,
+                    AuthSecurityAuditConstants.Status.ACCOUNT_LOCKED);
+            throw new ForbiddenException(AuthMessage.accountInactive(account.getStatus()));
+        }
+
+        if (account.getStatus() != AccountStatus.ACTIVE) {
+            throw new UnauthorizedException(AuthMessage.accountInactive(account.getStatus()));
+        }
+
+        // 4. Xác thực mật khẩu với Argon2id
         if (!PasswordUtils.verifyPassword(request.getPassword(), account.getPasswordHash())) {
+            int accountFailures =
+                    loginRateLimiterService.recordLoginFailure(ipAddress, normalizedEmail);
+
+            // Giới hạn theo tài khoản: 10 lần thử sai / 1 giờ -> Khóa tài khoản
+            if (accountFailures >= AuthConstants.RateLimit.MAX_ACCOUNT_FAILED_ATTEMPTS) {
+                account.setStatus(AccountStatus.LOCKED);
+                accountRepository.save(account);
+                auditLog(
+                        AuthSecurityAuditConstants.EventType.LOGIN_FAILURE,
+                        account.getId().toString(),
+                        AuthConstants.AuditResource.LOGIN,
+                        AuthSecurityAuditConstants.Status.ACCOUNT_LOCKED);
+                log.warn(
+                        "Account [{}] has been LOCKED after [{}] consecutive failed login attempts",
+                        account.getId(),
+                        accountFailures);
+                throw new ForbiddenException(AuthMessage.ACCOUNT_LOCKED_TOO_MANY_ATTEMPTS);
+            }
+
             auditLog(
                     AuthSecurityAuditConstants.EventType.LOGIN_FAILURE,
                     account.getId().toString(),
@@ -84,9 +133,8 @@ public class AuthServiceImpl implements AuthService {
             throw new UnauthorizedException(AuthMessage.INVALID_EMAIL_OR_PASSWORD);
         }
 
-        if (account.getStatus() != AccountStatus.ACTIVE) {
-            throw new UnauthorizedException(AuthMessage.accountInactive(account.getStatus()));
-        }
+        // 5. Đăng nhập thành công -> Xóa bộ đếm lần thử sai của IP và tài khoản
+        loginRateLimiterService.resetLoginAttempts(ipAddress, normalizedEmail);
 
         Session session =
                 sessionManagementService.createSession(
