@@ -7,8 +7,8 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import io.rebloom.client.Client;
 import jakarta.annotation.PostConstruct;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -23,7 +23,6 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class EmailBloomFilterServiceImpl implements EmailBloomFilterService {
 
     private final BloomFilterProperties properties;
@@ -31,6 +30,19 @@ public class EmailBloomFilterServiceImpl implements EmailBloomFilterService {
     private final AccountRepository accountRepository;
     private final MeterRegistry meterRegistry;
     private final RedisTemplate<String, String> redisTemplate;
+
+    public EmailBloomFilterServiceImpl(
+            BloomFilterProperties properties,
+            @Qualifier("authValkeyConnectionFactory") LettuceConnectionFactory connectionFactory,
+            AccountRepository accountRepository,
+            MeterRegistry meterRegistry,
+            @Qualifier("redisTemplate") RedisTemplate<String, String> redisTemplate) {
+        this.properties = properties;
+        this.connectionFactory = connectionFactory;
+        this.accountRepository = accountRepository;
+        this.meterRegistry = meterRegistry;
+        this.redisTemplate = redisTemplate;
+    }
 
     private Client bloomClient;
 

@@ -6,6 +6,7 @@ import com.shareride.auth.support.AbstractIntegrationTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 
 /**
@@ -15,7 +16,9 @@ import org.springframework.data.redis.core.RedisTemplate;
 @DisplayName("Valkey Database Isolation Integration Tests")
 class ValkeyDatabaseIsolationIntegrationTest extends AbstractIntegrationTest {
 
-    @Autowired private RedisTemplate<String, String> redisTemplate;
+    @Autowired
+    @Qualifier("redisTemplate")
+    private RedisTemplate<String, String> redisTemplate;
 
     @Test
     void authService_shouldOnlyAccessDatabaseZero() {
