@@ -12,6 +12,9 @@ import org.junit.jupiter.api.Test;
 /**
  * ArchUnit architecture test enforcing ShareRide enterprise layered pattern, package boundaries,
  * and zero-tolerance code quality policies.
+ *
+ * <p>Note: @SuppressWarnings enforcement is delegated to Checkstyle since the annotation
+ * has @Retention(SOURCE) and is not available at runtime for ArchUnit inspection.
  */
 class NotificationArchitectureTest {
 

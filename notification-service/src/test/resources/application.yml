@@ -58,3 +58,21 @@ management:
     web:
       exposure:
         include: health,info
+
+resilience4j:
+  retry:
+    instances:
+      resendEmail:
+        maxAttempts: 3
+        waitDuration: 20ms
+        exponentialBackoffMultiplier: 1.5
+        retryExceptions:
+          - org.springframework.web.client.HttpServerErrorException
+          - org.springframework.web.client.ResourceAccessException
+          - org.springframework.web.client.HttpClientErrorException$TooManyRequests
+        ignoreExceptions:
+          - org.springframework.web.client.HttpClientErrorException$BadRequest
+          - org.springframework.web.client.HttpClientErrorException$Unauthorized
+          - org.springframework.web.client.HttpClientErrorException$Forbidden
+          - org.springframework.web.client.HttpClientErrorException$NotFound
+

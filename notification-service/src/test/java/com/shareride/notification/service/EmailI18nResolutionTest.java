@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.shareride.notification.config.I18nConfig;
 import com.shareride.notification.service.impl.EmailMessageSourceServiceImpl;
+import java.time.Instant;
 import java.util.Locale;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -76,5 +77,60 @@ class EmailI18nResolutionTest {
 
         assertThat(viVN).isEqualTo(vi);
         assertThat(viVN.getLanguage()).isEqualTo("vi");
+    }
+
+    @Test
+    void shouldFormatCurrencyInVietnamese() {
+        Locale viLocale = Locale.forLanguageTag("vi-VN");
+        String formatted = emailMessageSourceService.formatCurrency(250000, viLocale);
+
+        assertThat(formatted).contains("250");
+        assertThat(formatted).containsAnyOf("₫", "VND");
+    }
+
+    @Test
+    void shouldFormatCurrencyInEnglish() {
+        Locale enLocale = Locale.forLanguageTag("en-US");
+        String formatted = emailMessageSourceService.formatCurrency(250000, enLocale);
+
+        assertThat(formatted).contains("250");
+    }
+
+    @Test
+    void shouldFormatDateTimeInVietnamese() {
+        Locale viLocale = Locale.forLanguageTag("vi-VN");
+        Instant instant = Instant.parse("2026-11-14T08:30:00Z");
+        String formatted = emailMessageSourceService.formatDateTime(instant, viLocale);
+
+        assertThat(formatted).isNotEmpty();
+        assertThat(formatted).containsAnyOf("2026", "11", "14");
+    }
+
+    @Test
+    void shouldFormatDateTimeInEnglish() {
+        Locale enLocale = Locale.forLanguageTag("en-US");
+        Instant instant = Instant.parse("2026-11-14T08:30:00Z");
+        String formatted = emailMessageSourceService.formatDateTime(instant, enLocale);
+
+        assertThat(formatted).isNotEmpty();
+        assertThat(formatted).containsAnyOf("2026", "Nov", "14");
+    }
+
+    @Test
+    void shouldFormatDateInVietnamese() {
+        Locale viLocale = Locale.forLanguageTag("vi-VN");
+        Instant instant = Instant.parse("2026-11-14T08:30:00Z");
+        String formatted = emailMessageSourceService.formatDate(instant, viLocale);
+
+        assertThat(formatted).isNotEmpty();
+        assertThat(formatted).contains("2026");
+    }
+
+    @Test
+    void shouldHandleNullInstantInFormatting() {
+        Locale viLocale = Locale.forLanguageTag("vi-VN");
+        String formatted = emailMessageSourceService.formatDateTime(null, viLocale);
+
+        assertThat(formatted).isEmpty();
     }
 }

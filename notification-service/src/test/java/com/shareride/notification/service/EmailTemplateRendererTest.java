@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.MessageSource;
 
 @ExtendWith(MockitoExtension.class)
 class EmailTemplateRendererTest {
@@ -24,6 +25,8 @@ class EmailTemplateRendererTest {
     @Mock private EmailTemplateRegistry templateRegistry;
 
     @Mock private EmailTemplateStrategy mockStrategy;
+
+    @Mock private MessageSource messageSource;
 
     private EmailTemplateRendererImpl templateRenderer;
 
@@ -42,7 +45,9 @@ class EmailTemplateRendererTest {
         freemarkerConfiguration.setWrapUncheckedExceptions(true);
         freemarkerConfiguration.setFallbackOnNullLoopVariable(false);
 
-        templateRenderer = new EmailTemplateRendererImpl(freemarkerConfiguration, templateRegistry);
+        templateRenderer =
+                new EmailTemplateRendererImpl(
+                        freemarkerConfiguration, templateRegistry, messageSource);
 
         lenient()
                 .when(templateRegistry.getStrategy(any(NotificationType.class)))
@@ -52,6 +57,15 @@ class EmailTemplateRendererTest {
         lenient()
                 .when(mockStrategy.getPlainTextTemplatePath())
                 .thenReturn("test/test_body_text.ftl");
+
+        // Mock message source for layout templates
+        lenient()
+                .when(messageSource.getMessage(any(String.class), any(), any(Locale.class)))
+                .thenAnswer(
+                        invocation -> {
+                            String key = invocation.getArgument(0);
+                            return "Mocked: " + key;
+                        });
     }
 
     @Test

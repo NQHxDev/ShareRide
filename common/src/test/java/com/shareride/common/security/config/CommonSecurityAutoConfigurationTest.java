@@ -7,7 +7,7 @@ import com.shareride.common.security.handler.RestAccessDeniedHandler;
 import com.shareride.common.security.handler.RestAuthenticationEntryPoint;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
-import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -21,8 +21,8 @@ import org.springframework.security.web.SecurityFilterChain;
  */
 class CommonSecurityAutoConfigurationTest {
 
-    private final ApplicationContextRunner contextRunner =
-            new ApplicationContextRunner()
+    private final WebApplicationContextRunner contextRunner =
+            new WebApplicationContextRunner()
                     .withConfiguration(AutoConfigurations.of(CommonSecurityAutoConfiguration.class))
                     .withUserConfiguration(TestConfiguration.class);
 

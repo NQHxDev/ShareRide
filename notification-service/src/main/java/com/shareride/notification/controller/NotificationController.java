@@ -4,11 +4,12 @@ import com.shareride.common.response.BaseResponse;
 import com.shareride.common.versioning.ApiVersion;
 import com.shareride.notification.dto.NotificationDispatchRequest;
 import com.shareride.notification.dto.NotificationStatusResponse;
+import com.shareride.notification.dto.TestNotificationRequest;
 import com.shareride.notification.service.NotificationService;
+import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,14 +28,29 @@ public class NotificationController {
     private final NotificationService notificationService;
 
     @PostMapping("/notifications/test-send")
-    public ResponseEntity<BaseResponse<UUID>> testSendNotification(
-            @RequestBody NotificationDispatchRequest request) {
+    public ResponseEntity<BaseResponse<NotificationStatusResponse>> testSendNotification(
+            @Valid @RequestBody TestNotificationRequest request) {
         log.info("Received test notification request: {}", request);
 
-        UUID notificationId = notificationService.dispatchNotification(request);
+        // Generate eventId if not provided (test endpoint behavior)
+        UUID eventId = UUID.randomUUID();
 
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(BaseResponse.success(notificationId, "Notification dispatched successfully"));
+        NotificationDispatchRequest dispatchRequest =
+                NotificationDispatchRequest.builder()
+                        .eventId(eventId)
+                        .recipientEmail(request.getRecipientEmail())
+                        .notificationType(request.getNotificationType())
+                        .locale(request.getLocale())
+                        .parameters(request.getParameters())
+                        .build();
+
+        UUID notificationId = notificationService.dispatchNotification(dispatchRequest);
+
+        // Fetch the full status to return per contract
+        NotificationStatusResponse status =
+                notificationService.getNotificationStatus(notificationId);
+
+        return ResponseEntity.ok(BaseResponse.success(status, "Gửi thông báo thành công"));
     }
 
     @GetMapping("/notifications/{id}/status")
@@ -45,6 +61,6 @@ public class NotificationController {
         NotificationStatusResponse status = notificationService.getNotificationStatus(id);
 
         return ResponseEntity.ok(
-                BaseResponse.success(status, "Notification status retrieved successfully"));
+                BaseResponse.success(status, "Lấy trạng thái thông báo thành công"));
     }
 }

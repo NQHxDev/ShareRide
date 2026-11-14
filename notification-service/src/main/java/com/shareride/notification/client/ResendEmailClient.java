@@ -7,8 +7,10 @@ import io.github.resilience4j.retry.annotation.Retry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
@@ -20,7 +22,7 @@ import org.springframework.web.client.RestClient;
  *
  * <p>Retryable errors: HTTP 429 (Rate Limit), HTTP 5xx (Server Errors), Network Timeouts.
  *
- * <p>Non-retryable errors: HTTP 4xx (Client Errors like invalid email format).
+ * <p>Non-retryable errors: HTTP 4xx except 429 (Client Errors like invalid email format).
  */
 @Component
 public class ResendEmailClient {
@@ -51,7 +53,7 @@ public class ResendEmailClient {
      *
      * <p>Resilience4j retry configuration (application.yml): - Initial delay: 1000ms - Multiplier:
      * 2.0 - Max attempts: 3 - Retryable exceptions: HttpServerErrorException,
-     * ResourceAccessException
+     * ResourceAccessException, HttpClientErrorException with status 429
      *
      * @param request Email request payload
      * @return Response containing provider message ID
@@ -73,6 +75,22 @@ public class ResendEmailClient {
             log.info("Email sent successfully. Provider message ID: {}", response.getId());
             return response;
 
+        } catch (HttpClientErrorException e) {
+            // Retry only on HTTP 429 Too Many Requests (rate limiting)
+            if (e.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS) {
+                log.warn(
+                        "Resend rate limit exceeded (HTTP 429). Will retry if attempts remain: {}",
+                        e.getMessage());
+                throw e;
+            } else {
+                // Other 4xx errors are permanent (e.g., invalid email, auth failure)
+                log.error(
+                        "Resend client error (HTTP {}). Non-retryable: {}",
+                        e.getStatusCode().value(),
+                        e.getMessage());
+                throw new RuntimeException("Non-retryable client error", e);
+            }
+
         } catch (HttpServerErrorException e) {
             log.warn(
                     "Resend server error (HTTP {}). Will retry if attempts remain: {}",
@@ -87,7 +105,7 @@ public class ResendEmailClient {
             throw e;
 
         } catch (Exception e) {
-            log.error("Failed to send email via Resend (non-retryable): {}", e.getMessage(), e);
+            log.error("Unexpected error sending email via Resend: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to send email via Resend", e);
         }
     }
@@ -99,7 +117,7 @@ public class ResendEmailClient {
      * @param throwable Exception that caused all retries to fail
      * @return null to signal permanent failure
      */
-    private ResendEmailResponse sendEmailFallback(ResendEmailRequest request, Throwable throwable) {
+    ResendEmailResponse sendEmailFallback(ResendEmailRequest request, Throwable throwable) {
         log.error(
                 "All retry attempts exhausted for email to {}. Marking as PERMANENTLY_FAILED: {}",
                 request.getTo(),

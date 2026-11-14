@@ -12,6 +12,7 @@ import com.shareride.notification.domain.NotificationStatus;
 import com.shareride.notification.dto.NotificationDispatchRequest;
 import com.shareride.notification.dto.NotificationStatusResponse;
 import com.shareride.notification.dto.RenderedEmail;
+import com.shareride.notification.exception.UnrecoverableDeliveryException;
 import com.shareride.notification.repository.NotificationLogRepository;
 import com.shareride.notification.service.EmailMessageSourceService;
 import com.shareride.notification.service.EmailTemplateRenderer;
@@ -21,6 +22,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,6 +50,20 @@ public class NotificationServiceImpl implements NotificationService {
                 request.getNotificationType(),
                 request.getRecipientEmail());
 
+        // Idempotency check: prevent duplicate email dispatches
+        Optional<NotificationLog> existing =
+                notificationLogRepository.findByEventId(request.getEventId());
+
+        if (existing.isPresent()) {
+            NotificationLog existingLog = existing.get();
+            log.info(
+                    "Duplicate notification detected for eventId={}. Returning existing"
+                            + " notification ID={}",
+                    request.getEventId(),
+                    existingLog.getId());
+            return existingLog.getId();
+        }
+
         Locale locale = messageSourceService.resolveLocale(request.getLocale());
 
         RenderedEmail renderedEmail =
@@ -65,8 +81,6 @@ public class NotificationServiceImpl implements NotificationService {
                         .text(renderedEmail.getPlainTextBody())
                         .build();
 
-        ResendEmailResponse resendResponse = resendEmailClient.sendEmail(resendRequest);
-
         NotificationLog notificationLog = new NotificationLog();
         notificationLog.setEventId(request.getEventId());
         notificationLog.setRecipientEmail(request.getRecipientEmail());
@@ -74,10 +88,7 @@ public class NotificationServiceImpl implements NotificationService {
         notificationLog.setChannel(NotificationChannel.EMAIL);
         notificationLog.setLocale(locale.getLanguage());
         notificationLog.setSubject(subject);
-        notificationLog.setStatus(NotificationStatus.SENT);
-        notificationLog.setProviderMessageId(resendResponse.getId());
         notificationLog.setRetryCount(0);
-        notificationLog.setSentAt(Instant.now());
 
         Map<String, Object> maskedParams =
                 SensitiveDataMasker.maskSensitiveData(request.getParameters());
@@ -87,9 +98,33 @@ public class NotificationServiceImpl implements NotificationService {
             log.warn("Failed to serialize parameters", e);
         }
 
+        try {
+            ResendEmailResponse resendResponse = resendEmailClient.sendEmail(resendRequest);
+
+            notificationLog.setStatus(NotificationStatus.SENT);
+            notificationLog.setProviderMessageId(resendResponse.getId());
+            notificationLog.setSentAt(Instant.now());
+
+            log.info("Email sent successfully. Provider message ID: {}", resendResponse.getId());
+
+        } catch (Exception e) {
+            log.error("Failed to send email via Resend after retries: {}", e.getMessage(), e);
+
+            notificationLog.setStatus(NotificationStatus.PERMANENTLY_FAILED);
+            notificationLog.setLastErrorMessage(e.getMessage());
+            notificationLog.setRetryCount(3); // All retry attempts exhausted
+
+            // Persist failure state before propagating exception
+            notificationLogRepository.save(notificationLog);
+
+            // Propagate exception to trigger RabbitMQ DLQ routing
+            throw new UnrecoverableDeliveryException(
+                    "Gửi email thất bại sau khi thử lại: " + e.getMessage(), e);
+        }
+
         NotificationLog saved = notificationLogRepository.save(notificationLog);
 
-        log.info("Notification dispatched successfully: id={}", saved.getId());
+        log.info("Notification log persisted: id={}, status={}", saved.getId(), saved.getStatus());
         return saved.getId();
     }
 
@@ -102,7 +137,7 @@ public class NotificationServiceImpl implements NotificationService {
                         .orElseThrow(
                                 () ->
                                         new IllegalArgumentException(
-                                                "Notification not found: " + notificationId));
+                                                "Không tìm thấy thông báo: " + notificationId));
 
         return NotificationStatusResponse.builder()
                 .id(log.getId())

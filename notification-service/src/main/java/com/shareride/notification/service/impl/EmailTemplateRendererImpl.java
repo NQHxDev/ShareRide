@@ -1,5 +1,6 @@
 package com.shareride.notification.service.impl;
 
+import com.shareride.notification.config.FreeMarkerMessageMethod;
 import com.shareride.notification.domain.NotificationType;
 import com.shareride.notification.dto.RenderedEmail;
 import com.shareride.notification.service.EmailTemplateRegistry;
@@ -12,6 +13,7 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -20,6 +22,7 @@ public class EmailTemplateRendererImpl implements EmailTemplateRenderer {
 
     private final Configuration freemarkerConfiguration;
     private final EmailTemplateRegistry templateRegistry;
+    private final MessageSource messageSource;
 
     @Override
     public RenderedEmail render(NotificationType type, Locale locale, Map<String, Object> model) {
@@ -46,6 +49,9 @@ public class EmailTemplateRendererImpl implements EmailTemplateRenderer {
 
             Map<String, Object> enrichedModel = strategy.enrichModel(model, locale);
 
+            // Add msg() helper for body template
+            enrichedModel.put("msg", new FreeMarkerMessageMethod(messageSource, locale));
+
             Template bodyTemplate =
                     freemarkerConfiguration.getTemplate(strategy.getHtmlTemplatePath(), locale);
 
@@ -57,6 +63,8 @@ public class EmailTemplateRendererImpl implements EmailTemplateRenderer {
             layoutModel.put("content", bodyContent);
             layoutModel.put("subject", strategy.getSubjectKey());
             layoutModel.put("locale", locale.getLanguage());
+            // Add msg() helper for layout template
+            layoutModel.put("msg", new FreeMarkerMessageMethod(messageSource, locale));
 
             Template layoutTemplate =
                     freemarkerConfiguration.getTemplate("layout/base_layout.ftl", locale);
@@ -77,6 +85,9 @@ public class EmailTemplateRendererImpl implements EmailTemplateRenderer {
             strategy.validateParameters(model);
 
             Map<String, Object> enrichedModel = strategy.enrichModel(model, locale);
+
+            // Add msg() helper for plain text template
+            enrichedModel.put("msg", new FreeMarkerMessageMethod(messageSource, locale));
 
             Template template =
                     freemarkerConfiguration.getTemplate(

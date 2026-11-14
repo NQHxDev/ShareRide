@@ -99,5 +99,9 @@ resilience4j:
         retryExceptions:
           - org.springframework.web.client.HttpServerErrorException
           - org.springframework.web.client.ResourceAccessException
+          - org.springframework.web.client.HttpClientErrorException$TooManyRequests
         ignoreExceptions:
-          - org.springframework.web.client.HttpClientErrorException
+          - org.springframework.web.client.HttpClientErrorException$BadRequest
+          - org.springframework.web.client.HttpClientErrorException$Unauthorized
+          - org.springframework.web.client.HttpClientErrorException$Forbidden
+          - org.springframework.web.client.HttpClientErrorException$NotFound
