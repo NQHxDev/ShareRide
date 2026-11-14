@@ -123,4 +123,51 @@ class EmailTemplateRendererTest {
         assertThat(plainText).doesNotContain("<");
         assertThat(plainText).doesNotContain("${");
     }
+
+    @Test
+    void shouldRenderFullEmailWithBothHtmlAndPlainText() {
+        Map<String, Object> model = new HashMap<>();
+        model.put("userName", "Test User");
+        model.put("verificationCode", "654321");
+        model.put("expiresInMinutes", 15);
+
+        when(mockStrategy.enrichModel(any(), any())).thenReturn(model);
+
+        com.shareride.notification.dto.RenderedEmail email =
+                templateRenderer.render(
+                        NotificationType.ACCOUNT_VERIFICATION, Locale.forLanguageTag("en"), model);
+
+        assertThat(email).isNotNull();
+        assertThat(email.getHtmlBody()).contains("Test User");
+        assertThat(email.getPlainTextBody()).contains("Test User");
+        assertThat(email.getSubject()).isEqualTo("Test Subject");
+    }
+
+    @Test
+    void shouldThrowRuntimeExceptionWhenRenderHtmlFails() {
+        when(mockStrategy.getHtmlTemplatePath()).thenReturn("non_existent_template.ftl");
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () ->
+                                templateRenderer.renderHtml(
+                                        NotificationType.ACCOUNT_VERIFICATION,
+                                        Locale.ENGLISH,
+                                        Map.of()))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Failed to render HTML template");
+    }
+
+    @Test
+    void shouldThrowRuntimeExceptionWhenRenderPlainTextFails() {
+        when(mockStrategy.getPlainTextTemplatePath()).thenReturn("non_existent_text_template.ftl");
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () ->
+                                templateRenderer.renderPlainText(
+                                        NotificationType.ACCOUNT_VERIFICATION,
+                                        Locale.ENGLISH,
+                                        Map.of()))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Failed to render plain text template");
+    }
 }

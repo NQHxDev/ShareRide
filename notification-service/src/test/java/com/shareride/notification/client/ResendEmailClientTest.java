@@ -130,4 +130,48 @@ class ResendEmailClientTest {
 
         mockServer.verify();
     }
+
+    @Test
+    void sendEmail_shouldHandleNonRetryableClientError() {
+        ResendEmailRequest request =
+                ResendEmailRequest.builder()
+                        .from("test@shareride.vn")
+                        .to(List.of("invalid-email"))
+                        .subject("Test Subject")
+                        .html("<p>Test HTML</p>")
+                        .build();
+
+        mockServer
+                .expect(requestTo("https://api.resend.com/emails"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withStatus(HttpStatus.BAD_REQUEST));
+
+        assertThatThrownBy(() -> resendEmailClient.sendEmail(request))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Non-retryable client error");
+
+        mockServer.verify();
+    }
+
+    @Test
+    void sendEmailFallback_shouldThrowDeliveryPermanentlyFailed() {
+        ResendEmailRequest request =
+                ResendEmailRequest.builder()
+                        .from("test@shareride.vn")
+                        .to(List.of("user@example.com"))
+                        .subject("Test Subject")
+                        .html("<p>Test HTML</p>")
+                        .build();
+
+        Throwable ex = new RuntimeException("Network down");
+        assertThatThrownBy(() -> resendEmailClient.sendEmailFallback(request, ex))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Email delivery permanently failed after retries");
+    }
+
+    @Test
+    void constructor_withPropertiesOnly_shouldInstantiateClient() {
+        ResendEmailClient client = new ResendEmailClient(resendProperties);
+        assertThat(client).isNotNull();
+    }
 }

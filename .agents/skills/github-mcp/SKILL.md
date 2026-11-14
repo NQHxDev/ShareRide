@@ -1,32 +1,53 @@
 ---
 name: github-mcp
 description: >-
-    Use this skill to monitor CI/CD workflows, inspect GitHub Actions run failures and logs, manage GitHub issues,
-    and perform repository code searches using the GitHub MCP server in ShareRide. Prohibits automated PR creation and direct code push.
-compatibility: Requires GitHub MCP server configured in .mcp.json and active repository access
+    Standardized GitHub MCP skill for ShareRide. Specializes in diagnosing Pull Request failures
+    (CI pipeline, Codecov coverage regressions, CD deployments), extracting actionable logs,
+    and creating structured GitHub issues synced with omni-todo. Strictly prohibits automated PR creation and direct code push.
+compatibility: Requires GitHub MCP server configured in .mcp.json or active repository environment
 metadata:
     author: NQHxZeion
+    version: 2.0.0
 ---
 
-# GitHub MCP Skill - CI/CD Monitoring & Issue Management
+# GitHub MCP Skill - PR Diagnostics, CI/CD Monitoring & Issue Management
 
-## Purpose
+## 1. Overview & Purpose
 
-This skill guides agents on utilizing the GitHub MCP Server to:
+This skill standardizes how coding agents interact with GitHub in the **ShareRide** monorepo using the official [GitHub MCP Server](https://github.com/github/github-mcp-server).
 
-1. **Monitor and analyze CI/CD failures** (primary use case)
-2. **Create and manage GitHub Issues**
-3. **Perform code search and repository analysis**
+Its primary objectives are:
+1. **Pull Request Failure Diagnostics**: Inspect and triage PR failures caused by **CI pipelines**, **Codecov coverage checks**, or **CD deployments**.
+2. **Issue Creation & Tracking**: Formulate standardized, high-context GitHub issues from diagnostics, seamlessly synchronized with `omni-todo`.
+3. **Repository Analysis & Code Search**: Support code inspection and commit verification without checking out separate trees.
 
-**IMPORTANT NOTICE**: This skill **STRICTLY PROHIBITS** creating Pull Requests or pushing code automatically. Pull Requests must be created manually by developers.
+---
 
-## Prerequisites
+## 2. STRICT GUARDRAILS & PROHIBITIONS (RED LINE)
 
-- `.mcp.json` configured with the GitHub MCP Server
-- GitHub authentication (OAuth or PAT) configured and active
-- Agent access permissions granted for the `ShareRide` repository
+> [!CAUTION]
+> **PULL REQUEST CREATION AND DIRECT CODE PUSH ARE STRICTLY FORBIDDEN FOR AGENTS.**
+> All Pull Requests must be authored, reviewed, and submitted manually by human developers.
 
-## Configuration
+### Prohibited Operations
+| Prohibited Tool / Action | Reason |
+| --- | --- |
+| `create_pull_request` / `pull_request_write(method="create")` | **PROHIBITED**: Agents must never create Pull Requests. |
+| `pull_request_write(method="merge")` / PR Merging | **PROHIBITED**: Agents must never merge Pull Requests. |
+| `push_files` / Remote Git Push | **PROHIBITED**: Agents must never push commits or branches to remote repositories. |
+| Destructive operations (`delete_*`, modifying repo settings) | **PROHIBITED**: Agents operate under read-mostly + issue tracking boundaries. |
+
+### Allowed Operations
+| Allowed Category | Permitted Tools |
+| --- | --- |
+| **Pull Request Inspection** (Read-Only) | `pull_request_read` (methods: `get`, `get_status`, `get_check_runs`, `get_comments`, `get_files`, `get_diff`, `get_reviews`, `get_commits`) |
+| **Actions & CI/CD** (Read-Only) | `actions_list` (methods: `list_workflows`, `list_workflow_runs`, `list_workflow_jobs`, `list_workflow_run_artifacts`), `actions_get` (methods: `get_workflow_run`, `get_workflow_job`, `get_workflow_job_logs`, `get_workflow_run_logs`) |
+| **Issue Management** (Write Permitted) | `issue_write` (methods: `create`, `update`), `issue_read`, `add_issue_comment`, `list_issues`, `search_issues` |
+| **Repository Search** (Read-Only) | `search_code`, `get_file_contents`, `list_commits`, `get_commit` |
+
+---
+
+## 3. Configuration & Server Setup
 
 The GitHub MCP Server is declared in `.mcp.json`:
 
@@ -45,590 +66,389 @@ The GitHub MCP Server is declared in `.mcp.json`:
 }
 ```
 
-## Use Case 1: CI/CD Monitoring & Troubleshooting
+### Tool Invocation Conventions
+The official `github-mcp-server` supports both **Modern Consolidated Tools** and **Legacy Aliases** (via `deprecated_tool_aliases.go`):
 
-### Typical Workflow on CI/CD Failure
+| Modern Consolidated Tool | Method Parameter | Legacy Alias (Backward Compatible) |
+| --- | --- | --- |
+| `pull_request_read` | `method="get_check_runs"` | `list_check_runs_for_ref` |
+| `pull_request_read` | `method="get_status"` | `get_combined_status_for_ref` |
+| `pull_request_read` | `method="get_comments"` | `list_issue_comments` |
+| `actions_list` | `method="list_workflow_runs"` | `list_workflow_runs` |
+| `actions_list` | `method="list_workflow_jobs"` | `list_workflow_run_jobs` |
+| `actions_get` | `method="get_workflow_job_logs"` | `get_workflow_run_job_logs` |
+| `issue_write` | `method="create"` | `create_issue` |
+| `issue_write` | `method="update"` | `update_issue` |
+| `issue_read` | `method="get"` | `get_issue` |
 
-#### Step 1: List workflow runs to find failures
+*Default repository parameters in ShareRide:*
+- `owner`: `"anhjkr"`
+- `repo`: `"ShareRide"`
+
+---
+
+## 4. Pull Request Diagnostic Workflow (CI, Codecov, CD)
+
+When a developer asks to inspect a Pull Request (e.g., *"Check why PR #12 is failing"*), execute this 3-tier diagnostic procedure:
+
+```mermaid
+flowchart TD
+    A[Start: Developer requests PR check] --> B["Fetch PR Checks & Status<br/>pull_request_read(method='get_check_runs')"]
+    B --> C{Which checks failed?}
+    
+    C -->|CI Jobs Failed| D[CI Pipeline Diagnostics]
+    C -->|Codecov Failed| E[Codecov Regression Diagnostics]
+    C -->|CD Jobs Failed| F[CD Deployment Diagnostics]
+    
+    D --> D1["Fetch failed job ID via actions_list<br/>Retrieve logs via actions_get(method='get_workflow_job_logs')"]
+    D1 --> D2["Filter log noise via pr_diagnostics.py parse-log<br/>Classify signature: Spotless, Tests, ArchUnit, etc."]
+    
+    E --> E1["Fetch PR comments via pull_request_read(method='get_comments')<br/>Parse Codecov Bot markdown report"]
+    E1 --> E2["Identify patch coverage % and uncovered line numbers<br/>Correlate with PR diff via get_diff"]
+    
+    F --> F1["Locate failed CD stage in cd-staging / cd-production<br/>Inspect Docker build, SSH handshake, or remote compose"]
+    
+    D2 --> G[Synthesize Report & Formulate Actionable Issue]
+    E2 --> G
+    F2 --> G
+    G --> H["Create GitHub Issue via issue_write(method='create')<br/>Sync Task to omni-todo"]
+```
+
+---
+
+### Step 1: Inspect PR Check Runs and Combined Status
+
+First, inspect all check runs and commit statuses associated with the pull request:
 
 ```bash
-# MCP tool: list_workflow_runs
-# Parameters:
-# - owner: "anhjkr" (or organization name)
-# - repo: "ShareRide"
-# - status: "failure" or "completed"
-# - event: "push" or "pull_request"
-# - perPage: 10 (number of runs to retrieve)
-```
-
-**Example response structure:**
-
-```json
-{
-    "workflow_runs": [
-        {
-            "id": 123456789,
-            "name": "CI Pipeline",
-            "status": "completed",
-            "conclusion": "failure",
-            "head_branch": "feature/new-service",
-            "head_sha": "abc123def456...",
-            "created_at": "2024-01-15T10:30:00Z",
-            "html_url": "https://github.com/anhjkr/ShareRide/actions/runs/123456789"
-        }
-    ]
-}
-```
-
-#### Step 2: Get workflow run details
-
-```bash
-# MCP tool: get_workflow_run
-# Parameters:
-# - owner: "anhjkr"
-# - repo: "ShareRide"
-# - runId: 123456789 (from list above)
-```
-
-**Key fields to examine:**
-
-- `conclusion`: failure, success, cancelled
-- `head_sha`: commit that triggered the run
-- `head_branch`: active branch name
-- `event`: trigger event (push, pull_request, schedule, etc.)
-- `jobs_url`: URL to retrieve jobs breakdown
-
-#### Step 3: List jobs of a workflow run
-
-```bash
-# MCP tool: list_workflow_run_jobs
-# Parameters:
-# - owner: "anhjkr"
-# - repo: "ShareRide"
-# - runId: 123456789
-```
-
-**Example response:**
-
-```json
-{
-    "jobs": [
-        {
-            "id": 987654321,
-            "name": "build-and-test",
-            "status": "completed",
-            "conclusion": "failure",
-            "started_at": "2024-01-15T10:31:00Z",
-            "completed_at": "2024-01-15T10:35:00Z",
-            "steps": [
-                {
-                    "name": "Checkout code",
-                    "status": "completed",
-                    "conclusion": "success"
-                },
-                {
-                    "name": "Run tests",
-                    "status": "completed",
-                    "conclusion": "failure",
-                    "number": 3
-                }
-            ]
-        }
-    ]
-}
-```
-
-**Job analysis steps:**
-
-- Identify which job failed
-- Locate the specific failed step within the job
-- Note `job.id` to extract execution logs
-
-#### Step 4: Retrieve failed job logs
-
-```bash
-# MCP tool: get_workflow_run_job_logs
+# MCP Tool: pull_request_read
+# Method: get_check_runs
 # Parameters:
 # - owner: "anhjkr"
 # - repo: "ShareRide"
-# - jobId: 987654321 (from jobs list)
+# - pull_number: 12
 ```
 
-**Log analysis checklist:**
-
-- Look for error markers: `ERROR`, `FAILED`, `Exception`, `at line ...`
-- Maven build errors: `[ERROR]`, `BUILD FAILURE`
-- Test failures: `Tests run:`, `Failures:`, `Errors:`
-- Checkstyle violations: `[ERROR] src/...`
-- Docker errors: `Error response from daemon`
-
-#### Step 5: Create an Issue if necessary
-
-After analyzing logs and determining the root cause, create an issue to track resolution:
+Also check the combined commit status (used by external status reporters):
 
 ```bash
-# MCP tool: create_issue
+# MCP Tool: pull_request_read
+# Method: get_status
 # Parameters:
 # - owner: "anhjkr"
 # - repo: "ShareRide"
-# - title: "[CI/CD] Build failure in auth-service tests"
-# - body: (see markdown template below)
-# - labels: ["bug", "ci-cd", "high-priority"]
-# - assignees: ["developer-username"]
+# - pull_number: 12
 ```
 
-**Issue template for CI/CD failures:**
+Examine the `check_runs` output and classify any failures into one of three buckets:
+1. **CI Pipeline Failures**: Job names containing `Code Quality`, `Unit Test`, `Integration Tests`, `Package`, or `CI Status Gate`.
+2. **Codecov Failures**: Check names containing `codecov/patch` or `codecov/project`.
+3. **CD Pipeline Failures**: Job names containing `deploy`, `staging`, `production`, `docker-build`, or `CD Status Gate`.
 
-````markdown
-## CI/CD Failure Report
+---
 
-**Workflow:** [workflow name]
-**Run ID:** [run id]
-**Job:** [failed job name]
-**Branch:** [branch name]
-**Commit:** [commit sha]
-**Run URL:** [github actions url]
+### Step 2A: Deep-Dive CI Pipeline Failures
 
-## Error Summary
+The ShareRide CI workflow (`.github/workflows/ci.yml`) runs in four parallel and sequential stages:
+1. `code-quality`: Spotless formatting (`spotless:check`) and Checkstyle rules (`checkstyle:check`).
+2. `test-modules`: Matrix unit tests across modules (`common`, `notification-service`, `auth-service`, `service-template`, `gateway-service`).
+3. `integration-test`: Testcontainers tests (`*IntegrationTest`) with PostgreSQL 17 and Valkey.
+4. `package-and-verify`: Maven package without tests (`mvn package -DskipTests`).
 
-[Concise 1-2 sentence summary of failure]
+#### 1. Retrieve the Failed Job Logs
+Find the failed job ID from the check run or workflow run:
 
-## Error Details
+```bash
+# MCP Tool: actions_list
+# Method: list_workflow_jobs
+# Parameters:
+# - owner: "anhjkr"
+# - repo: "ShareRide"
+# - resource_id: "<WORKFLOW_RUN_ID>"
+```
 
+Then fetch the execution log for the failing job:
+
+```bash
+# MCP Tool: actions_get
+# Method: get_workflow_job_logs
+# Parameters:
+# - owner: "anhjkr"
+# - repo: "ShareRide"
+# - resource_id: "<JOB_ID>"
+```
+
+#### 2. Extract Error Signatures (Eliminating Log Bloat)
+CI logs contain thousands of lines of Maven download messages. Use the helper script to isolate the error slice:
+
+```bash
+python3 .agents/skills/github-mcp/scripts/pr_diagnostics.py parse-log -f /path/to/raw_job_log.txt
+```
+
+#### 3. Match Known Failure Signatures
+
+- **Spotless Formatting Violation**:
+  ```txt
+  [ERROR] > The following files had format violations:
+  [ERROR]   services/auth-service/src/.../AuthServiceImpl.java
+  [ERROR] Run 'mvn spotless:apply' to fix these violations.
+  ```
+  *Remediation*: Run `mvn spotless:apply` and commit formatting changes.
+
+- **Checkstyle Violation**:
+  ```txt
+  [ERROR] src/main/java/com/shareride/.../AuthController.java:[12,1] (imports) CustomImportOrder
+  ```
+  *Remediation*: Fix unused or out-of-order imports, re-verify with `mvn checkstyle:check`.
+
+- **ArchUnit Architecture Rule Violation**:
+  ```txt
+  java.lang.AssertionError: Architecture Violation [Priority: MEDIUM]
+  Rule 'Controllers should not depend on repositories directly' was violated (1 times):
+  ```
+  *Remediation*: Remove direct repository injection in Controller; inject `*Service` interface instead.
+
+- **Unit Test Assertion Failure**:
+  ```txt
+  [ERROR] Failures: 
+  [ERROR]   AuthServiceImplTest.testLogin_WithInvalidPassword_ShouldThrow:45 expected: <401> but was: <500>
+  ```
+  *Remediation*: Review recent commit changes affecting that test method.
+
+- **Testcontainers / Integration Test Timeout**:
+  ```txt
+  org.testcontainers.containers.ContainerLaunchException: Timed out waiting for container port to open
+  ```
+  *Remediation*: Ensure class extends `AbstractIntegrationTest` with `@Testcontainers(disabledWithoutDocker = true)`.
+
+---
+
+### Step 2B: Deep-Dive Codecov Failures
+
+ShareRide requires **minimum 80% patch coverage** on all new code added in Pull Requests.
+
+#### 1. Inspect Codecov Status
+Check if `codecov/patch` or `codecov/project` failed in `pull_request_read(method="get_check_runs")`.
+
+#### 2. Retrieve Codecov Bot Report Comment
+The Codecov bot automatically comments on the PR with detailed file-by-file metrics and uncovered line numbers:
+
+```bash
+# MCP Tool: pull_request_read
+# Method: get_comments
+# Parameters:
+# - owner: "anhjkr"
+# - repo: "ShareRide"
+# - pull_number: 12
+```
+
+Locate the comment where `comment.user.login` is `codecov[bot]` or body contains `Codecov Report`.
+
+#### 3. Parse Uncovered Lines
+Extract the uncovered lines from the report table:
+```markdown
+| File | Coverage | Uncovered Lines |
+| `auth-service/.../TokenProvider.java` | 60.0% | `45-52, 60` |
+```
+
+#### 4. Correlate with PR Diff
+Fetch the diff to inspect what code was added at those lines:
+
+```bash
+# MCP Tool: pull_request_read
+# Method: get_diff
+# Parameters:
+# - owner: "anhjkr"
+# - repo: "ShareRide"
+# - pull_number: 12
+```
+
+#### 5. Recommend Exact Unit Tests
+Formulate concrete test scenarios to cover missing branches:
+- Uncovered branch: `if (user.isBlocked()) throw new UserBlockedException();`
+- Recommendation: Add unit test `testLogin_WhenUserIsBlocked_ShouldThrowUserBlockedException()` in `AuthServiceImplTest`.
+
+---
+
+### Step 2C: Deep-Dive Continuous Deployment (CD) Failures
+
+CD pipelines (`cd-staging.yml` and `cd-production.yml`) deploy containerized microservices to remote environments.
+
+#### Typical CD Failure Points:
+
+1. **`verify-ci` Failure**:
+   - Upstream CI pipeline did not pass on `staging` or `main`.
+   - *Fix*: Resolve CI failures before attempting deployment.
+
+2. **`build-and-push` Docker Build Failure**:
+   - `mvnw package -pl <service> -am -DskipTests` failed or Dockerfile syntax error.
+   - Docker Hub authentication failure (`401 Unauthorized`).
+   - *Fix*: Check Dockerfile multi-stage build, verify `DOCKER_USERNAME` / `DOCKER_PASSWORD` secrets.
+
+3. **`deploy-staging` / `deploy-production` SSH Failure**:
+   - `Host key verification failed` or connection timeout on port 22.
+   - Missing `SSH_HOST` or `SSH_PRIVATE_KEY` in environment secrets.
+   - *Fix*: Check server availability and GitHub Environment secrets.
+
+4. **Remote Docker Compose / Runtime Crash**:
+   - Container fails health check `/actuator/health` due to missing database connection or secret mismatch (`VALKEY_PASSWORD`, `DB_PASSWORD`, `PASSWORD_PEPPER`).
+   - *Fix*: Inspect remote container logs: `docker compose -f docker-compose.staging.yml logs <service>`.
+
+---
+
+## 5. Issue Management & omni-todo Integration
+
+When a failure is diagnosed and needs resolution tracking, create a GitHub Issue and synchronize it with `omni-todo`.
+
+### Step 1: Create GitHub Issue via MCP
+
+Use `issue_write` (or legacy `create_issue`):
+
+```bash
+# MCP Tool: issue_write
+# Method: "create"
+# Parameters:
+# - owner: "anhjkr"
+# - repo: "ShareRide"
+# - title: "[CI Failure] Spotless formatting violations in auth-service (PR #12)"
+# - body: (Use standard markdown template from templates/ directory)
+# - labels: ["bug", "ci-failure", "auth-service"]
+```
+
+### Step 2: Synchronize with omni-todo (Mandatory First Action Rule)
+
+Per ShareRide guidelines in `AGENTS.md`, any medium-to-large task must be recorded and tracked via the `omni-todo` CLI:
+
+```bash
+omni-todo add \
+  --title="Fix CI failure in auth-service on PR #12" \
+  --description="GitHub Issue #45 - Spotless format violations" \
+  --content="Run mvn spotless:apply and commit formatting fixes for AuthServiceImpl.java" \
+  --tag="bug" \
+  --tag="ci-cd" \
+  --tag="auth-service"
+```
+
+Once the fix is ready and verified:
+```bash
+omni-todo set --id=<TASK_ID> --status=completed
+```
+
+And update the GitHub Issue with resolution details:
+```bash
+# MCP Tool: add_issue_comment
+# Parameters:
+# - owner: "anhjkr"
+# - repo: "ShareRide"
+# - issue_number: 45
+# - body: "Fixed in commit abc123def. Re-run CI passed."
+
+# MCP Tool: issue_write
+# Method: "update"
+# Parameters:
+# - owner: "anhjkr"
+# - repo: "ShareRide"
+# - issue_number: 45
+# - state: "closed"
+```
+
+---
+
+## 6. Helper Script Reference (`scripts/pr_diagnostics.py`)
+
+The skill includes a dedicated helper script located at `.agents/skills/github-mcp/scripts/pr_diagnostics.py`. It requires only Python standard libraries and can be executed directly in the workspace.
+
+### Commands:
+
+#### 1. Parse Raw Log File (Filter 95% Noise)
+```bash
+python3 .agents/skills/github-mcp/scripts/pr_diagnostics.py parse-log -f /path/to/log.txt --lines 50
+```
+
+#### 2. Triage PR from Check Runs and Comments
+```bash
+python3 .agents/skills/github-mcp/scripts/pr_diagnostics.py triage \
+  --pr 12 \
+  --title "feat: add user authentication" \
+  --branch "feature/auth" \
+  --checks-file /tmp/checks.json \
+  --comments-file /tmp/comments.json \
+  --log-file /tmp/failed_job.log
+```
+
+#### 3. Generate Issue JSON Payload
+```bash
+python3 .agents/skills/github-mcp/scripts/pr_diagnostics.py make-issue \
+  --type ci \
+  --pr 12 \
+  --title "Spotless formatting violation in auth-service" \
+  --summary "Code quality check failed due to unformatted files." \
+  --log-file /tmp/failed_job.log \
+  --service "auth-service"
+```
+
+---
+
+## 7. Templates Reference
+
+Standardized Markdown issue templates are maintained in `.agents/skills/github-mcp/templates/`:
+- `templates/ci-failure-issue.md`: Template for CI pipeline failures (Spotless, Checkstyle, Tests, ArchUnit, Packaging).
+- `templates/codecov-regression-issue.md`: Template for Codecov patch/project coverage shortfalls.
+- `templates/cd-failure-issue.md`: Template for CD deployment failures (Docker, SSH, Compose, Migrations).
+
+Detailed error signatures and remediation guides are in `.agents/skills/github-mcp/references/error-patterns.md`.
+
+---
+
+## 8. End-to-End Troubleshooting Scenarios
+
+### Scenario A: PR CI Failure (ArchUnit Violation)
 ```txt
-[Paste relevant error logs here]
+1. User: "PR #15 failed in CI, tell me what went wrong."
+2. Agent calls pull_request_read(method="get_check_runs", pull_number=15).
+   -> Sees job "Unit Test (auth-service)" conclusion: "failure".
+3. Agent calls actions_list(method="list_workflow_jobs", resource_id=run_id).
+   -> Gets job_id 882193.
+4. Agent calls actions_get(method="get_workflow_job_logs", resource_id=882193).
+5. Agent runs pr_diagnostics.py parse-log on the retrieved log:
+   -> Detects: "Architecture Violation: Controllers should not depend on repositories directly".
+6. Agent reports exact file, line, and architectural violation to user.
+7. Agent asks or creates tracking issue using templates/ci-failure-issue.md.
+8. Agent links issue to omni-todo.
 ```
 
-## Root Cause Analysis
-
-[Analysis of why the failure occurred]
-
-## Suggested Fix
-
-- [ ] Action item 1
-- [ ] Action item 2
-
-## Related
-
-- Related to issue #XXX
-- Introduced by commit abc123
-````
-
-### Common CI/CD Error Patterns in ShareRide
-
-#### Pattern 1: Maven Build Failure
-
-**Indicators:**
-
+### Scenario B: PR Codecov Coverage Regression
 ```txt
-[ERROR] Failed to execute goal ... on project auth-service
-[ERROR] BUILD FAILURE
+1. User: "Codecov check failed on PR #18."
+2. Agent calls pull_request_read(method="get_check_runs", pull_number=18).
+   -> Confirms "codecov/patch" status: failure (64.5% < 80.0%).
+3. Agent calls pull_request_read(method="get_comments", pull_number=18).
+   -> Locates Codecov bot comment.
+4. Agent extracts uncovered lines:
+   -> services/auth-service/.../AuthServiceImpl.java, lines 112-128 (password reset branch).
+5. Agent calls pull_request_read(method="get_diff", pull_number=18) to inspect lines 112-128.
+6. Agent recommends specific test cases: "testResetPassword_WhenTokenExpired_ShouldThrowException()".
+7. Agent creates issue / reports actionable fix.
 ```
 
-**Actions:**
-
-1. Check whether recent `pom.xml` changes introduced invalid dependencies or version conflicts.
-2. Verify dependency versions and parent POM compatibility.
-3. Ensure root module builds cleanly locally with `mvn clean compile`.
-
-#### Pattern 2: Test Failures
-
-**Indicators:**
-
+### Scenario C: CD Staging Deployment Failure
 ```txt
-Tests run: 45, Failures: 2, Errors: 0, Skipped: 0
-[ERROR] com.shareride.auth.AuthServiceTest.testLogin:123 expected: <200> but was: <500>
+1. User: "Staging deployment failed after merge."
+2. Agent calls actions_list(method="list_workflow_runs", branch="staging", event="push").
+   -> Locates latest "Continuous Deployment - Staging" run.
+3. Agent calls actions_list(method="list_workflow_jobs", resource_id=run_id).
+   -> Identifies job "deploy-staging" failed at step "Deploy Containers on Staging Server".
+4. Agent calls actions_get(method="get_workflow_job_logs", resource_id=job_id).
+5. Agent isolates failure: "SSH connect to host 192.168.1.50 port 22: Connection timed out".
+6. Agent creates CD failure issue with templates/cd-failure-issue.md and tags high-priority.
 ```
 
-**Actions:**
-
-1. Identify the failing test class and method.
-2. Review recent changes touching that test or related production code.
-3. Verify whether it is a flaky test by inspecting historical runs.
-
-#### Pattern 3: Checkstyle Violations
-
-**Indicators:**
-
-```txt
-[ERROR] src/main/java/com/shareride/auth/Service.java:[42,5] (imports) UnusedImports
-[ERROR] src/main/java/com/shareride/auth/Controller.java:[15] (whitespace) FileTabCharacter
-```
-
-**Actions:**
-
-1. Run `mvn spotless:apply` locally to reformat source files.
-2. Run `mvn checkstyle:check` to verify all style violations are resolved.
-3. Commit formatting fixes.
-
-#### Pattern 4: ArchUnit Violations
-
-**Indicators:**
-
-```txt
-java.lang.AssertionError: Architecture Violation
-    Controllers should not depend on repositories directly
-```
-
-**Actions:**
-
-1. Review service layer architecture.
-2. Ensure Controllers only inject Services (`*Service` interfaces), never Repositories.
-3. Ensure implementations follow `service-template` standards.
-
-#### Pattern 5: Docker Build Failures
-
-**Indicators:**
-
-```txt
-Error response from daemon: manifest for image:tag not found
-failed to solve with frontend dockerfile.v0
-```
-
-**Actions:**
-
-1. Verify Dockerfile syntax and build arguments.
-2. Check base image tags and availability.
-3. Inspect Docker build context and excluded paths.
-
-## Use Case 2: Issue Management
-
-### Create Issue from Bug Report
-
-```bash
-# Tool: create_issue
-# Parameters:
-# - owner: "anhjkr"
-# - repo: "ShareRide"
-# - title: "[BUG] Auth service returns 500 on valid credentials"
-# - body: "## Description\n\n...\n\n## Steps to Reproduce\n\n1. ...\n2. ...\n\n## Expected vs Actual\n\n**Expected:** ...\n**Actual:** ...\n\n## Environment\n\n- Service: auth-service\n- Version: 1.0.0\n- Java: 21"
-# - labels: ["bug", "auth-service", "priority-high"]
-# - assignees: ["dev-username"]
-```
-
-### Create Issue from Task (Sync with omni-todo)
-
-When an omni-todo task needs tracking on GitHub:
-
-```bash
-# Tool: create_issue
-# Parameters:
-# - title: "[TASK] Implement rate limiting for API endpoints"
-# - body: "## Task from omni-todo\n\n**Task ID:** TASK-123\n\n## Description\n\n...\n\n## Acceptance Criteria\n\n- [ ] Criterion 1\n- [ ] Criterion 2\n\n## Technical Notes\n\n..."
-# - labels: ["enhancement", "task"]
-# - milestone: "Sprint 5"
-```
-
-### Update Issue Status
-
-```bash
-# Tool: update_issue
-# Parameters:
-# - owner: "anhjkr"
-# - repo: "ShareRide"
-# - issueNumber: 42
-# - state: "closed"  # or "open"
-# - body: "[Updated description]"
-# - labels: ["bug", "resolved"]
-```
-
-### Add Comment to Issue
-
-```bash
-# Tool: add_issue_comment
-# Parameters:
-# - owner: "anhjkr"
-# - repo: "ShareRide"
-# - issueNumber: 42
-# - body: "## Update\n\nFixed in commit abc123.\n\nTests passing: https://github.com/anhjkr/ShareRide/actions/runs/456"
-```
-
-### List Issues with Filters
-
-```bash
-# Tool: list_issues
-# Parameters:
-# - owner: "anhjkr"
-# - repo: "ShareRide"
-# - state: "open"  # "open", "closed", or "all"
-# - labels: "bug,high-priority"  # comma-separated
-# - assignee: "username"
-# - milestone: "Sprint 5"
-# - sort: "created"  # "created", "updated", or "comments"
-# - direction: "desc"
-# - perPage: 20
-```
-
-## Use Case 3: Code Search & Analysis
-
-### Search Patterns Across Codebase
-
-```bash
-# Tool: search_code
-# Parameters:
-# - query: "BaseEntity repo:anhjkr/ShareRide language:java"
-# - perPage: 10
-```
-
-**Query syntax examples:**
-
-```txt
-# Find all Controllers
-"@RestController repo:anhjkr/ShareRide"
-
-# Find all Service implementations
-"ServiceImpl repo:anhjkr/ShareRide path:service/impl"
-
-# Find TODO comments
-"TODO language:java repo:anhjkr/ShareRide"
-
-# Find specific method usage
-"idempotentMessageService language:java repo:anhjkr/ShareRide"
-
-# Find configuration files
-"spring.datasource filename:application.yml repo:anhjkr/ShareRide"
-```
-
-### Get File Content
-
-```bash
-# Tool: get_file_contents
-# Parameters:
-# - owner: "anhjkr"
-# - repo: "ShareRide"
-# - path: "services/auth-service/src/main/java/com/shareride/auth/AuthApplication.java"
-# - ref: "main"  # or branch name, commit SHA
-```
-
-### List Commits for Analysis
-
-```bash
-# Tool: list_commits
-# Parameters:
-# - owner: "anhjkr"
-# - repo: "ShareRide"
-# - sha: "main"  # branch name or commit SHA
-# - since: "2024-01-01T00:00:00Z"
-# - path: "services/auth-service"  # optional: filter by directory path
-# - perPage: 20
-```
-
-## Workflow Integration with omni-todo
-
-### Scenario: CI/CD Failure -> Create GitHub Issue -> Create omni-todo Task
-
-1. **Agent detects CI/CD failure:**
-
-    ```bash
-    # List workflow runs and locate failed run
-    # Fetch job details and logs, analyze error
-    ```
-
-2. **Create GitHub Issue to track:**
-
-    ```bash
-    # Call create_issue with relevant diagnostic information
-    # Note created issue number, e.g., #123
-    ```
-
-3. **Create omni-todo task for developer assignment:**
-
-    ```bash
-    omni-todo add \
-      --title="Fix CI failure in auth-service tests" \
-      --description="GitHub Issue #123" \
-      --content="Details from issue analysis..." \
-      --tag="bug" \
-      --tag="ci-cd"
-    ```
-
-4. **Update GitHub Issue when task is completed:**
-
-    ```bash
-    # Once omni-todo task status reaches completed
-    # Call add_issue_comment with fix summary and commit hash
-    # Call update_issue with state="closed" if issue is fully resolved
-    ```
-
-## Best Practices
-
-### 1. CI/CD Monitoring
-
-[DO]
-
-- Check workflow runs periodically upon push or PR activity.
-- Analyze logs thoroughly before filing an issue.
-- Include relevant logs, commit SHA, and run URL in the issue body.
-- Tag issues with accurate labels (`ci-cd`, `bug`, service name).
-- Assign issues to the responsible author or team.
-
-[DON'T]
-
-- Do not create issues without inspecting log contents.
-- Do not duplicate existing open issues (search before creation).
-- Do not create issues for transient network glitches or one-off flakes.
-- Do not dump entire log files; extract and format only relevant error excerpts.
-
-### 2. Issue Creation
-
-[DO]
-
-- Use standard markdown templates for bug reports and CI/CD failures.
-- Include clear reproduction steps.
-- Add appropriate labels, assignees, and milestones.
-- Link related issues and commit SHAs.
-- Post updates to the issue as progress occurs.
-
-[DON'T]
-
-- Do not create vague issues without context.
-- Do not omit essential labels.
-- Do not create issues for trivial cosmetic or whitespace fixes.
-
-### 3. Security
-
-[DO]
-
-- Use read-only operations whenever possible.
-- Verify `owner` and `repo` parameters before invoking commands.
-- Mask sensitive credentials or environmental variables found in logs.
-
-[DON'T]
-
-- **NEVER create Pull Requests automatically** (agents lack authorization for automated PR creation).
-- **NEVER push code directly via MCP** (agents operate in read-mostly mode).
-- Never include secrets, tokens, or passwords in issue bodies or comments.
-- Never expose internal IPs or confidential credentials in public issues.
-
-## Available Tools Reference
-
-### CI/CD & Workflows
-
-- `list_workflow_runs` - List workflow runs with filters
-- `get_workflow_run` - Get details of a single workflow run
-- `list_workflow_run_jobs` - List jobs within a workflow run
-- `get_workflow_run_job_logs` - Retrieve execution logs for a job
-- `list_workflows` - List all workflows configured in the repository
-
-### Issues
-
-- `create_issue` - Create a new GitHub issue
-- `update_issue` - Update issue metadata (title, body, state, labels)
-- `list_issues` - List issues with query filters
-- `get_issue` - Retrieve details of a specific issue
-- `add_issue_comment` - Add a comment to an existing issue
-- `list_issue_comments` - List comments on an issue
-
-### Repository & Code
-
-- `search_code` - Search code across the repository
-- `get_file_contents` - Retrieve file contents by path and ref
-- `list_commits` - List commit history with optional filters
-- `get_commit` - Retrieve details of a specific commit
-- `search_commits` - Search commit messages and history
-- `list_branches` - List repository branches
-- `get_repository` - Retrieve repository metadata
-
-### Read-Only Operations (Safe to use)
-
-- All `list_*` operations
-- All `get_*` operations
-- All `search_*` operations
-
-### Write Operations
-
-- `create_issue` - [ALLOWED] Safe, encouraged for tracking
-- `update_issue` - [ALLOWED] Safe, encouraged for status tracking
-- `add_issue_comment` - [ALLOWED] Safe, encouraged for progress updates
-- `create_pull_request` - [PROHIBITED] Strictly prohibited for agents
-- `push_files` - [PROHIBITED] Strictly prohibited for agents
-
-## Troubleshooting
-
-### Issue: "Authentication required"
-
-**Resolution:**
-
-- Verify GitHub authentication status in your environment.
-- In VS Code / editor: Toggle agent authentication or refresh GitHub OAuth.
-- Alternatively, verify that `GITHUB_PERSONAL_ACCESS_TOKEN` is exported in the environment.
-
-### Issue: "Resource not found"
-
-**Resolution:**
-
-- Verify that `owner` ("anhjkr") and `repo` ("ShareRide") are spelled accurately.
-- Verify that access permissions are granted for the target repository.
-- Verify that the specified branch or commit SHA exists in the remote repository.
-
-### Issue: "Rate limit exceeded"
-
-**Resolution:**
-
-- Wait for the GitHub API rate limit reset window.
-- Ensure requests are authenticated to take advantage of higher rate limits.
-- Optimize query volume by increasing `perPage` and avoiding repetitive polling calls.
-
-## Examples
-
-### Example 1: Complete CI/CD Troubleshooting Flow
-
-```txt
-User: "CI build failed, help me debug"
-
-Agent steps:
-1. list_workflow_runs(owner="anhjkr", repo="ShareRide", status="failure", perPage=5)
-2. Identify latest failure: run_id = 123456
-3. get_workflow_run(runId=123456)
-4. list_workflow_run_jobs(runId=123456)
-5. Identify failed job: job_id = 789012
-6. get_workflow_run_job_logs(jobId=789012)
-7. Analyze logs -> Identified failure: "AuthServiceTest.testLogin failed"
-8. search_code(query="AuthServiceTest.testLogin repo:anhjkr/ShareRide")
-9. get_file_contents(path="...AuthServiceTest.java")
-10. Analyze test code
-11. create_issue(title="[CI/CD] Auth test failure...", body="...", labels=["bug", "ci-cd", "auth-service"])
-12. Report back to user: "Created issue #145 to track this. Root cause: ..."
-```
-
-### Example 2: Monitor CI Status for Current Branch
-
-```txt
-User: "Check if my feature branch CI passed"
-
-Agent steps:
-1. list_workflow_runs(owner="anhjkr", repo="ShareRide", branch="feature/rate-limiting", perPage=1)
-2. Check latest run conclusion
-3. If failed: retrieve logs and summarize failure details
-4. If passed: confirm successful run
-```
-
-## Summary
-
-In ShareRide, the GitHub MCP Server is used for:
-
-1. **CI/CD Monitoring** (Main use case)
-    - Monitor workflow runs
-    - Analyze failures
-    - Track job logs
-    - Create tracking issues for failures
-
-2. **Issue Management** (Secondary use case)
-    - Create bug reports
-    - Track tasks and sync with omni-todo
-    - Update issue progress
-    - Comment on issue threads
-
-3. **Code Search** (Supporting use case)
-    - Locate patterns across services
-    - Inspect codebase without cloning separate trees
-    - Understand context and references
-
-**EXPLICITLY PROHIBITED:**
-
-- Creating Pull Requests
-- Pushing code or branches
-- Merging branches
-- Any destructive repository operations
-
-Agents operate in read-mostly mode and only write when managing issues.
+---
+
+## 9. Best Practices Checklist
+
+- [ ] **Always inspect logs before creating issues**: Never create an issue based solely on a high-level `failure` status string.
+- [ ] **Filter log bloat**: Use `pr_diagnostics.py parse-log` to extract only the 30-50 lines surrounding the actual exception.
+- [ ] **Never create Pull Requests**: Strictly leave PR creation and git pushes to developers.
+- [ ] **Mandatory omni-todo sync**: When an issue is opened, immediately create or update the corresponding task in `omni-todo`.
+- [ ] **Respect service isolation**: Ensure labels specify the affected microservice (`auth-service`, `gateway-service`, `notification-service`, `common`).

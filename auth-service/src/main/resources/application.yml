@@ -4,6 +4,8 @@ server:
 spring:
   application:
     name: auth-service
+  main:
+    allow-bean-definition-overriding: true
   config:
     import:
       - optional:file:../.env[.properties]

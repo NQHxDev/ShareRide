@@ -2,6 +2,7 @@ package com.shareride.auth.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -10,13 +11,16 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.shareride.auth.dto.LoginAttemptRecord;
 import com.shareride.auth.service.impl.LoginRateLimiterServiceImpl;
 import java.time.Duration;
+import java.util.concurrent.ConcurrentMap;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.test.util.ReflectionTestUtils;
 
 class LoginRateLimiterServiceImplTest {
 
@@ -167,5 +171,48 @@ class LoginRateLimiterServiceImplTest {
         assertEquals(1, count);
         assertEquals(1, serviceWithRedis.getIpFailedAttempts(ip));
         assertEquals(1, serviceWithRedis.getAccountFailedAttempts(email));
+    }
+
+    @Test
+    @DisplayName(
+            "Redis: Should handle String and Object values returned by Redis opsForValue().get()")
+    void testRedisGetCounterWithDifferentTypes() {
+        when(valueOperations.get("auth:ratelimit:login:ip:10.1.1.1")).thenReturn("3");
+        assertEquals(3, serviceWithRedis.getIpFailedAttempts("10.1.1.1"));
+
+        when(valueOperations.get("auth:ratelimit:login:ip:10.1.1.2"))
+                .thenReturn(new StringBuilder("7"));
+        assertEquals(7, serviceWithRedis.getIpFailedAttempts("10.1.1.2"));
+
+        when(valueOperations.get("auth:ratelimit:login:ip:10.1.1.3")).thenReturn(null);
+        assertEquals(0, serviceWithRedis.getIpFailedAttempts("10.1.1.3"));
+    }
+
+    @Test
+    @DisplayName("Redis: Should handle delete exception gracefully during reset")
+    void testRedisDeleteException() {
+        doThrow(new RuntimeException("Redis error")).when(redisTemplate).delete(anyString());
+        serviceWithRedis.resetLoginAttempts("10.1.1.1", "user@test.com");
+    }
+
+    @Test
+    @DisplayName("In-Memory: Should expire and remove attempt record when TTL elapsed")
+    @SuppressWarnings("unchecked")
+    void testInMemoryExpiration() {
+        LoginRateLimiterServiceImpl impl = new LoginRateLimiterServiceImpl();
+
+        impl.recordLoginFailure("192.168.1.50", null);
+        assertEquals(1, impl.getIpFailedAttempts("192.168.1.50"));
+
+        // Simulate expired record in inMemoryIpAttempts
+        ConcurrentMap<String, LoginAttemptRecord> map =
+                (ConcurrentMap<String, LoginAttemptRecord>)
+                        ReflectionTestUtils.getField(impl, "inMemoryIpAttempts");
+        assertNotNull(map);
+        LoginAttemptRecord record = map.get("192.168.1.50");
+        assertNotNull(record);
+        record.setExpiresAt(System.currentTimeMillis() - 1000);
+
+        assertEquals(0, impl.getIpFailedAttempts("192.168.1.50"));
     }
 }
