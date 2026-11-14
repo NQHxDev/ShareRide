@@ -8,6 +8,7 @@ import com.shareride.notification.service.EmailTemplateStrategy;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
 import java.io.StringWriter;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -22,9 +23,12 @@ public class EmailTemplateRendererImpl implements EmailTemplateRenderer {
 
     @Override
     public RenderedEmail render(NotificationType type, Locale locale, Map<String, Object> model) {
+        EmailTemplateStrategy strategy = templateRegistry.getStrategy(type);
+
+        strategy.validateParameters(model);
+
         String html = renderHtml(type, locale, model);
         String plainText = renderPlainText(type, locale, model);
-        EmailTemplateStrategy strategy = templateRegistry.getStrategy(type);
 
         RenderedEmail email = new RenderedEmail();
         email.setHtmlBody(html);
@@ -37,16 +41,31 @@ public class EmailTemplateRendererImpl implements EmailTemplateRenderer {
     public String renderHtml(NotificationType type, Locale locale, Map<String, Object> model) {
         try {
             EmailTemplateStrategy strategy = templateRegistry.getStrategy(type);
+
+            strategy.validateParameters(model);
+
             Map<String, Object> enrichedModel = strategy.enrichModel(model, locale);
 
-            Template template =
+            Template bodyTemplate =
                     freemarkerConfiguration.getTemplate(strategy.getHtmlTemplatePath(), locale);
 
-            StringWriter writer = new StringWriter();
-            template.process(enrichedModel, writer);
-            return writer.toString();
+            StringWriter bodyWriter = new StringWriter();
+            bodyTemplate.process(enrichedModel, bodyWriter);
+            String bodyContent = bodyWriter.toString();
+
+            Map<String, Object> layoutModel = new HashMap<>();
+            layoutModel.put("content", bodyContent);
+            layoutModel.put("subject", strategy.getSubjectKey());
+            layoutModel.put("locale", locale.getLanguage());
+
+            Template layoutTemplate =
+                    freemarkerConfiguration.getTemplate("layout/base_layout.ftl", locale);
+            StringWriter finalWriter = new StringWriter();
+            layoutTemplate.process(layoutModel, finalWriter);
+
+            return finalWriter.toString();
         } catch (Exception e) {
-            throw new RuntimeException("Failed to render HTML template", e);
+            throw new RuntimeException("Failed to render HTML template for type: " + type, e);
         }
     }
 
@@ -54,6 +73,9 @@ public class EmailTemplateRendererImpl implements EmailTemplateRenderer {
     public String renderPlainText(NotificationType type, Locale locale, Map<String, Object> model) {
         try {
             EmailTemplateStrategy strategy = templateRegistry.getStrategy(type);
+
+            strategy.validateParameters(model);
+
             Map<String, Object> enrichedModel = strategy.enrichModel(model, locale);
 
             Template template =
@@ -64,7 +86,7 @@ public class EmailTemplateRendererImpl implements EmailTemplateRenderer {
             template.process(enrichedModel, writer);
             return writer.toString();
         } catch (Exception e) {
-            throw new RuntimeException("Failed to render plain text template", e);
+            throw new RuntimeException("Failed to render plain text template for type: " + type, e);
         }
     }
 }

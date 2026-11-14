@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: shareride_notification_usr
       POSTGRES_PASSWORD: notification_secret_password
     ports:
-      - '${DB_PORT:-5513}:5432'
+      - '${DB_PORT:-5433}:5432'
     volumes:
       - pg_notification_data:/var/lib/postgresql/data
     healthcheck:

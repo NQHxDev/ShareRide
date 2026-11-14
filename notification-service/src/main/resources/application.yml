@@ -11,7 +11,7 @@ spring:
       - optional:file:notification-service/.env[.properties]
 
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5513}/${DB_NAME:shareride_notification}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${DB_NAME:shareride_notification}
     username: ${DB_USER:shareride_notification_usr}
     password: ${DB_PASSWORD:notification_secret_password}
     driver-class-name: org.postgresql.Driver
@@ -87,3 +87,17 @@ management:
       probes:
         enabled: true
       show-details: always
+
+# Resilience4j Retry Configuration
+resilience4j:
+  retry:
+    instances:
+      resendEmail:
+        maxAttempts: 3
+        waitDuration: 1000ms
+        exponentialBackoffMultiplier: 2.0
+        retryExceptions:
+          - org.springframework.web.client.HttpServerErrorException
+          - org.springframework.web.client.ResourceAccessException
+        ignoreExceptions:
+          - org.springframework.web.client.HttpClientErrorException

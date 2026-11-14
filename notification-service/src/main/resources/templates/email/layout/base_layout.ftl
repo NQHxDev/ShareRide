@@ -53,7 +53,7 @@
     <div class="email-container">
         <#include "header.ftl">
         <div class="email-body">
-            ${content}
+            ${content?no_esc}
         </div>
         <#include "footer.ftl">
     </div>
