@@ -2,14 +2,12 @@ package com.shareride.auth.config;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
 
 /**
  * Configuration properties for email Bloom filter optimization. Maps to 'app.bloom-filter' section
  * in application.yml.
  */
 @Data
-@Component
 @ConfigurationProperties(prefix = "app.bloom-filter")
 public class BloomFilterProperties {
 

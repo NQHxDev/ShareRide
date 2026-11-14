@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.shareride.auth.support.AbstractIntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -16,6 +17,7 @@ import org.springframework.test.web.servlet.MockMvc;
  * <p>Verifies end-to-end security gating with full Spring Boot context, Testcontainers (PostgreSQL,
  * Valkey), and mock gateway headers simulating authenticated callers with different roles.
  */
+@AutoConfigureMockMvc
 class AdminBloomFilterSecurityIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired private MockMvc mockMvc;
