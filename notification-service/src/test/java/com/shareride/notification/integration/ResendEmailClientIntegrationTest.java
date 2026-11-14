@@ -47,7 +47,7 @@ class ResendEmailClientIntegrationTest {
                         .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                         .build();
 
-        resendClient = new ResendEmailClient(restClient, properties);
+        resendClient = new ResendEmailClient(restClient);
     }
 
     @Test

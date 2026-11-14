@@ -6,17 +6,16 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 @SpringBootTest
 @Testcontainers(disabledWithoutDocker = true)
-@SuppressWarnings("resource")
 public abstract class AbstractIntegrationTest {
 
     @ServiceConnection
-    protected static final PostgreSQLContainer<?> postgresContainer =
-            new PostgreSQLContainer<>("postgres:17-alpine");
+    protected static final PostgreSQLContainer postgresContainer =
+            new PostgreSQLContainer("postgres:17-alpine");
 
     protected static final GenericContainer<?> valkeyContainer =
             new GenericContainer<>("valkey/valkey-extension:latest");

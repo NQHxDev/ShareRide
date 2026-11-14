@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Set;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
@@ -84,24 +85,43 @@ public class SecurityContextBridgeFilter extends OncePerRequestFilter {
 
         if (userContext.getRoles() != null) {
             for (String role : userContext.getRoles()) {
-                String normalizedRole = role;
-                if (role.startsWith(CommonSecurityConstants.AUTHORITY_ROLE_PREFIX)) {
-                    normalizedRole =
-                            role.substring(CommonSecurityConstants.AUTHORITY_ROLE_PREFIX.length());
+                if (role == null || role.isBlank()) {
+                    continue;
                 }
+                String normalizedRole = role.trim();
+                if (normalizedRole
+                        .toUpperCase(Locale.ROOT)
+                        .startsWith(CommonSecurityConstants.AUTHORITY_ROLE_PREFIX)) {
+                    normalizedRole =
+                            normalizedRole.substring(
+                                    CommonSecurityConstants.AUTHORITY_ROLE_PREFIX.length());
+                }
+                String upperRole = normalizedRole.toUpperCase(Locale.ROOT);
                 authorities.add(
                         new SimpleGrantedAuthority(
-                                CommonSecurityConstants.AUTHORITY_ROLE_PREFIX + normalizedRole));
-                authorities.add(new SimpleGrantedAuthority(normalizedRole));
+                                CommonSecurityConstants.AUTHORITY_ROLE_PREFIX + upperRole));
+                authorities.add(new SimpleGrantedAuthority(upperRole));
+                if (!upperRole.equals(normalizedRole)) {
+                    authorities.add(
+                            new SimpleGrantedAuthority(
+                                    CommonSecurityConstants.AUTHORITY_ROLE_PREFIX
+                                            + normalizedRole));
+                    authorities.add(new SimpleGrantedAuthority(normalizedRole));
+                }
             }
         }
 
         if (userContext.getPermissions() != null) {
             for (String permission : userContext.getPermissions()) {
-                String normalizedPermission = permission;
-                if (permission.startsWith(CommonSecurityConstants.AUTHORITY_PERM_PREFIX)) {
+                if (permission == null || permission.isBlank()) {
+                    continue;
+                }
+                String normalizedPermission = permission.trim();
+                if (normalizedPermission
+                        .toUpperCase(Locale.ROOT)
+                        .startsWith(CommonSecurityConstants.AUTHORITY_PERM_PREFIX)) {
                     normalizedPermission =
-                            permission.substring(
+                            normalizedPermission.substring(
                                     CommonSecurityConstants.AUTHORITY_PERM_PREFIX.length());
                 }
                 authorities.add(

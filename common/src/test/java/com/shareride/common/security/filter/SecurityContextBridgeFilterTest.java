@@ -1,6 +1,7 @@
 package com.shareride.common.security.filter;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 
 import com.shareride.common.context.UserContext;
@@ -9,6 +10,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -61,12 +63,66 @@ class SecurityContextBridgeFilterTest {
 
         UserContextHolder.setContext(userContext);
 
+        AtomicReference<Authentication> capturedAuth = new AtomicReference<>();
+        doAnswer(
+                        invocation -> {
+                            capturedAuth.set(
+                                    SecurityContextHolder.getContext().getAuthentication());
+                            return null;
+                        })
+                .when(filterChain)
+                .doFilter(request, response);
+
         filter.doFilterInternal(request, response, filterChain);
 
         verify(filterChain).doFilter(request, response);
 
+        assertThat(capturedAuth.get()).isNotNull();
+        assertThat(capturedAuth.get().getAuthorities())
+                .extracting(auth -> auth.getAuthority())
+                .contains(
+                        "ROLE_ADMIN",
+                        "ADMIN",
+                        "ROLE_RIDER",
+                        "RIDER",
+                        "PERM_account:read",
+                        "account:read");
+
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         assertThat(authentication).isNull();
+    }
+
+    @Test
+    void doFilterInternal_withLowercaseRoles_shouldNormalizeToUppercaseAuthorities()
+            throws Exception {
+        UserContext userContext =
+                UserContext.builder()
+                        .userId("018d9f1e-8742-7ef1-95c2-f123456789ab")
+                        .email("admin@shareride.com")
+                        .roles(Set.of("admin", "role_rider"))
+                        .permissions(Set.of("account:read"))
+                        .build();
+
+        UserContextHolder.setContext(userContext);
+
+        AtomicReference<Authentication> capturedAuth = new AtomicReference<>();
+        doAnswer(
+                        invocation -> {
+                            capturedAuth.set(
+                                    SecurityContextHolder.getContext().getAuthentication());
+                            return null;
+                        })
+                .when(filterChain)
+                .doFilter(request, response);
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        verify(filterChain).doFilter(request, response);
+
+        assertThat(capturedAuth.get()).isNotNull();
+        assertThat(capturedAuth.get().getAuthorities())
+                .extracting(auth -> auth.getAuthority())
+                .contains("ROLE_ADMIN", "ADMIN", "ROLE_RIDER", "RIDER");
     }
 
     @Test

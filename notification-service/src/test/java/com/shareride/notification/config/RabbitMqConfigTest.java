@@ -14,7 +14,7 @@ import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
-import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
+import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -67,7 +67,7 @@ class RabbitMqConfigTest {
 
         MessageConverter converter = rabbitMqConfig.messageConverter();
         assertNotNull(converter);
-        assertTrue(converter instanceof Jackson2JsonMessageConverter);
+        assertTrue(converter instanceof JacksonJsonMessageConverter);
 
         ConnectionFactory connectionFactory = mock(ConnectionFactory.class);
         SimpleRabbitListenerContainerFactory factory =

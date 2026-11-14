@@ -86,7 +86,7 @@ class NotificationServiceTest {
         savedLog.setId(UUID.randomUUID());
 
         when(notificationLogRepository.findByEventId(eventId)).thenReturn(Optional.empty());
-        when(messageSourceService.resolveLocale("vi-VN")).thenReturn(new Locale("vi"));
+        when(messageSourceService.resolveLocale("vi-VN")).thenReturn(Locale.of("vi"));
         when(emailTemplateRenderer.render(
                         eq(NotificationType.ACCOUNT_VERIFICATION), any(Locale.class), eq(params)))
                 .thenReturn(renderedEmail);

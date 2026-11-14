@@ -7,6 +7,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import io.rebloom.client.Client;
 import jakarta.annotation.PostConstruct;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Page;
@@ -219,19 +220,80 @@ public class EmailBloomFilterServiceImpl implements EmailBloomFilterService {
     @Override
     public BloomFilterInfo getFilterInfo() {
         try {
-            // jrebloom 2.2.2 may not have getInfo(), return basic info
             boolean exists = isInitialized();
             if (!exists) {
                 return new BloomFilterInfo(0, 0, 0, 0, 0);
             }
 
-            // Return configured values as placeholders
-            return new BloomFilterInfo(properties.getInitialCapacity(), 0, 1, 0, 2);
+            long capacity = properties.getInitialCapacity();
+            long size = 0L;
+            long numberOfFilters = 1L;
+            long numberOfItems = 0L;
+            long expansionRate = 2L;
+
+            try {
+                if (bloomClient != null) {
+                    Map<String, Object> infoMap = bloomClient.info(properties.getKey());
+                    if (infoMap != null && !infoMap.isEmpty()) {
+                        capacity = extractLong(infoMap, "Capacity", capacity);
+                        size = extractLong(infoMap, "Size", 0L);
+                        numberOfFilters =
+                                extractLong(infoMap, "Number of filters", numberOfFilters);
+                        numberOfItems =
+                                extractLong(infoMap, "Number of items inserted", numberOfItems);
+                        expansionRate = extractLong(infoMap, "Expansion rate", expansionRate);
+                    }
+                }
+            } catch (Exception e) {
+                log.debug(
+                        "Failed to retrieve BF.INFO from bloomClient, falling back to estimation",
+                        e);
+            }
+
+            if (size <= 0) {
+                // RedisBloom allocates the bit array upon reservation. Calculate theoretical bytes:
+                // m = -1 * (n * ln(p)) / (ln(2)^2)
+                // For 1,000,000 items with 1% error rate, standard size is ~1,437,608 bytes.
+                double errorRate = properties.getErrorRate() > 0 ? properties.getErrorRate() : 0.01;
+                long estimatedBits =
+                        (long)
+                                Math.ceil(
+                                        -1.0
+                                                * capacity
+                                                * Math.log(errorRate)
+                                                / (Math.log(2) * Math.log(2)));
+                size = Math.max(1024L, estimatedBits / 8);
+            }
+
+            return new BloomFilterInfo(
+                    capacity, size, numberOfFilters, numberOfItems, expansionRate);
 
         } catch (Exception e) {
             log.error("Failed to get Bloom filter info", e);
             throw new RuntimeException("Failed to retrieve Bloom filter statistics", e);
         }
+    }
+
+    private long extractLong(Map<String, Object> map, String key, long defaultValue) {
+        Object val = map.get(key);
+        if (val == null) {
+            for (Map.Entry<String, Object> entry : map.entrySet()) {
+                if (entry.getKey().equalsIgnoreCase(key)) {
+                    val = entry.getValue();
+                    break;
+                }
+            }
+        }
+        if (val instanceof Number num) {
+            return num.longValue();
+        }
+        if (val instanceof String str) {
+            try {
+                return Long.parseLong(str.trim());
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        return defaultValue;
     }
 
     private String normalizeEmail(String email) {

@@ -18,6 +18,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.rebloom.client.Client;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -94,6 +95,16 @@ class EmailBloomFilterServiceImplTest {
                 throw throwOnDelete;
             }
             return true;
+        }
+
+        @Override
+        public Map<String, Object> info(String key) {
+            return Map.of(
+                    "Capacity", 1000000L,
+                    "Size", 1437608L,
+                    "Number of filters", 1L,
+                    "Number of items inserted", 0L,
+                    "Expansion rate", 2L);
         }
     }
 
@@ -323,6 +334,7 @@ class EmailBloomFilterServiceImplTest {
 
         assertNotNull(info);
         assertEquals(1000000, info.capacity());
+        assertTrue(info.size() > 0);
         assertEquals(1, info.numberOfFilters());
     }
 

@@ -50,7 +50,7 @@ public class EmailTemplateRendererImpl implements EmailTemplateRenderer {
             Map<String, Object> enrichedModel = strategy.enrichModel(model, locale);
 
             // Add msg() helper for body template
-            enrichedModel.put("msg", new FreeMarkerMessageMethod(messageSource, locale));
+            enrichedModel.put("msg", FreeMarkerMessageMethod.of(messageSource, locale));
 
             Template bodyTemplate =
                     freemarkerConfiguration.getTemplate(strategy.getHtmlTemplatePath(), locale);
@@ -64,7 +64,7 @@ public class EmailTemplateRendererImpl implements EmailTemplateRenderer {
             layoutModel.put("subject", strategy.getSubjectKey());
             layoutModel.put("locale", locale.getLanguage());
             // Add msg() helper for layout template
-            layoutModel.put("msg", new FreeMarkerMessageMethod(messageSource, locale));
+            layoutModel.put("msg", FreeMarkerMessageMethod.of(messageSource, locale));
 
             Template layoutTemplate =
                     freemarkerConfiguration.getTemplate("layout/base_layout.ftl", locale);
@@ -87,7 +87,7 @@ public class EmailTemplateRendererImpl implements EmailTemplateRenderer {
             Map<String, Object> enrichedModel = strategy.enrichModel(model, locale);
 
             // Add msg() helper for plain text template
-            enrichedModel.put("msg", new FreeMarkerMessageMethod(messageSource, locale));
+            enrichedModel.put("msg", FreeMarkerMessageMethod.of(messageSource, locale));
 
             Template template =
                     freemarkerConfiguration.getTemplate(

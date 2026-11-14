@@ -50,7 +50,7 @@ class ResendEmailClientTest {
                         .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                         .build();
 
-        resendEmailClient = new ResendEmailClient(restClient, resendProperties);
+        resendEmailClient = new ResendEmailClient(restClient);
     }
 
     @Test
