@@ -2,8 +2,11 @@
 name: integration-testing
 description: >-
     Use this skill when creating, modifying, or debugging integration tests for microservices in ShareRide.
-    Covers setting up Testcontainers with Spring Boot, configuring isolated PostgreSQL and Valkey containers,
+    Covers setting up Testcontainers with Spring Boot 4.x, configuring isolated PostgreSQL 17 and Valkey containers,
     and keeping CI pipelines clean and scalable.
+compatibility: Requires Java 21, Spring Boot 4.x, Maven, and Docker for Testcontainers
+metadata:
+    author: NQHxZeion
 ---
 
 # Integration Testing with Testcontainers in ShareRide

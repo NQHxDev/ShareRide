@@ -40,11 +40,11 @@
     </properties>
 
     <modules>
-        <module>notification-service</module>
         <module>common</module>
         <module>auth-service</module>
         <module>service-template</module>
         <module>gateway-service</module>
+        <module>notification-service</module>
     </modules>
 
     <dependencyManagement>

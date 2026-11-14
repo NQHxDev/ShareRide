@@ -59,6 +59,9 @@ jobs:
           - name: auth-service
             context: ./auth-service
             dockerfile: ./auth-service/Dockerfile
+          - name: notification-service
+            context: ./notification-service
+            dockerfile: ./notification-service/Dockerfile
           - name: gateway-service
             context: ./gateway-service
             dockerfile: ./gateway-service/Dockerfile
@@ -175,7 +178,7 @@ jobs:
           DEPLOY_TAG=${DEPLOY_TAG}
           DB_USER=postgres
           DB_PASSWORD=${DB_PASSWORD}
-          POSTGRES_MULTIPLE_DATABASES=shareride_auth
+          POSTGRES_MULTIPLE_DATABASES=shareride_auth,shareride_notification
           VALKEY_PASSWORD=${VALKEY_PASSWORD}
           RABBITMQ_USER=shareride_mq
           RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}

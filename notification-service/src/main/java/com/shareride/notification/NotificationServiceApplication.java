@@ -3,7 +3,7 @@ package com.shareride.notification;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-@SpringBootApplication(scanBasePackages = {"com.shareride.notification", "com.shareride.common"})
+@SpringBootApplication(scanBasePackages = "com.shareride")
 public class NotificationServiceApplication {
 
     public static void main(String[] args) {
