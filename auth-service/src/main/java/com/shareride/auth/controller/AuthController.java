@@ -8,6 +8,7 @@ import com.shareride.auth.dto.AuthResponse;
 import com.shareride.auth.dto.LoginRequest;
 import com.shareride.auth.dto.RefreshTokenRequest;
 import com.shareride.auth.dto.RegisterRequest;
+import com.shareride.auth.exception.AccountPendingVerificationException;
 import com.shareride.auth.service.AuthService;
 import com.shareride.common.exception.RateLimitExceededException;
 import com.shareride.common.openapi.OpenApiAutoConfiguration;
@@ -57,6 +58,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+    private final com.shareride.auth.service.RegistrationService registrationService;
+    private final com.shareride.auth.service.AccountVerificationService accountVerificationService;
 
     /**
      * Đăng ký tài khoản xác thực mới.
@@ -115,13 +118,129 @@ public class AuthController {
     @PostMapping(AuthConstants.Endpoint.REGISTER)
     public ResponseEntity<BaseResponse<AccountResponse>> register(
             @Valid @RequestBody RegisterRequest request) {
-        AccountResponse response = authService.register(request);
+        AccountResponse response = registrationService.register(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(
                         BaseResponse.success(
                                 AuthResponseCode.ACCOUNT_REGISTERED,
                                 AuthMessage.ACCOUNT_REGISTERED_SUCCESS,
                                 response));
+    }
+
+    /**
+     * Xác thực email với mã OTP 6 ký tự alphanumeric (case-insensitive).
+     *
+     * @param request chứa email và mã xác thực
+     * @return thông tin tài khoản đã được kích hoạt (HTTP 200)
+     */
+    @Operation(
+            summary = "Xác thực email với mã OTP 6 ký tự",
+            description =
+                    "Xác thực email bằng mã OTP 6 ký tự alphanumeric (case-insensitive). Kiểm tra"
+                        + " SHA-256 hash, tracking failed attempts (max 5), và enforce 15-minute"
+                        + " expiration. Sau khi xác thực thành công, chuyển account status sang"
+                        + " ACTIVE và dispatch asynchronous WELCOME event.")
+    @ApiResponses({
+        @ApiResponse(
+                responseCode = "200",
+                description = "Xác thực thành công, tài khoản đã được kích hoạt",
+                content =
+                        @Content(
+                                mediaType = MediaType.APPLICATION_JSON_VALUE,
+                                schema = @Schema(implementation = BaseResponse.class))),
+        @ApiResponse(
+                responseCode = "400",
+                description = "Mã xác thực không chính xác, đã hết hạn, hoặc vượt quá số lần thử",
+                content =
+                        @Content(
+                                mediaType = MediaType.APPLICATION_JSON_VALUE,
+                                schema = @Schema(implementation = BaseResponse.class))),
+        @ApiResponse(
+                responseCode = "404",
+                description = "Không tìm thấy tài khoản",
+                content =
+                        @Content(
+                                mediaType = MediaType.APPLICATION_JSON_VALUE,
+                                schema = @Schema(implementation = BaseResponse.class))),
+        @ApiResponse(
+                responseCode = "409",
+                description = "Tài khoản đã được xác thực",
+                content =
+                        @Content(
+                                mediaType = MediaType.APPLICATION_JSON_VALUE,
+                                schema = @Schema(implementation = BaseResponse.class)))
+    })
+    @SecurityRequirements()
+    @PostMapping(AuthConstants.Endpoint.VERIFY_EMAIL)
+    public ResponseEntity<BaseResponse<AccountResponse>> verifyEmail(
+            @Valid @RequestBody com.shareride.auth.dto.VerifyEmailRequest request) {
+        AccountResponse response = accountVerificationService.verifyEmail(request);
+        return ResponseEntity.ok(
+                BaseResponse.success(
+                        AuthResponseCode.SUCCESS, AuthMessage.EMAIL_VERIFIED_SUCCESS, response));
+    }
+
+    /**
+     * Gửi lại mã xác thực email cho tài khoản chưa xác thực. Áp dụng rate limiting: 60s cooldown
+     * giữa các lần gửi và tối đa 5 lần/giờ.
+     *
+     * @param request chứa email cần gửi lại mã
+     * @return thông tin cooldown và message (HTTP 200)
+     */
+    @Operation(
+            summary = "Gửi lại mã xác thực email",
+            description =
+                    "Gửi lại mã xác thực 6 ký tự alphanumeric cho tài khoản chưa xác thực. Hệ thống"
+                        + " enforce rate limiting 2 tầng: (1) Cooldown 60 giây giữa các lần gửi qua"
+                        + " Valkey TTL, (2) Tối đa 5 lần gửi trong 1 giờ. Mã cũ sẽ bị invalidate"
+                        + " (status = EXPIRED) và mã mới được generate với thời hạn 15 phút.")
+    @ApiResponses({
+        @ApiResponse(
+                responseCode = "200",
+                description = "Mã xác thực mới đã được gửi thành công",
+                content =
+                        @Content(
+                                mediaType = MediaType.APPLICATION_JSON_VALUE,
+                                schema = @Schema(implementation = BaseResponse.class))),
+        @ApiResponse(
+                responseCode = "400",
+                description = "Vượt quá số lần gửi lại cho phép trong một giờ (5 lần)",
+                content =
+                        @Content(
+                                mediaType = MediaType.APPLICATION_JSON_VALUE,
+                                schema = @Schema(implementation = BaseResponse.class))),
+        @ApiResponse(
+                responseCode = "404",
+                description = "Không tìm thấy tài khoản",
+                content =
+                        @Content(
+                                mediaType = MediaType.APPLICATION_JSON_VALUE,
+                                schema = @Schema(implementation = BaseResponse.class))),
+        @ApiResponse(
+                responseCode = "409",
+                description = "Tài khoản đã được xác thực",
+                content =
+                        @Content(
+                                mediaType = MediaType.APPLICATION_JSON_VALUE,
+                                schema = @Schema(implementation = BaseResponse.class))),
+        @ApiResponse(
+                responseCode = "429",
+                description = "Cooldown đang active - cần chờ 60 giây",
+                content =
+                        @Content(
+                                mediaType = MediaType.APPLICATION_JSON_VALUE,
+                                schema = @Schema(implementation = BaseResponse.class)))
+    })
+    @SecurityRequirements()
+    @PostMapping(AuthConstants.Endpoint.RESEND_VERIFICATION)
+    public ResponseEntity<BaseResponse<com.shareride.auth.dto.ResendVerificationResponse>>
+            resendVerification(
+                    @Valid @RequestBody com.shareride.auth.dto.ResendVerificationRequest request) {
+        com.shareride.auth.dto.ResendVerificationResponse response =
+                accountVerificationService.resendVerification(request);
+        return ResponseEntity.ok(
+                BaseResponse.success(
+                        AuthResponseCode.SUCCESS, AuthMessage.VERIFICATION_CODE_RESENT, response));
     }
 
     /**
@@ -223,6 +342,29 @@ public class AuthController {
     public ResponseEntity<BaseResponse<Void>> handleRequestNotPermitted(
             RequestNotPermitted ex, HttpServletRequest request) {
         throw new RateLimitExceededException(AuthMessage.TOO_MANY_LOGIN_REQUESTS);
+    }
+
+    /**
+     * Bộ xử lý ngoại lệ bắt {@link AccountPendingVerificationException} khi tài khoản chưa xác thực
+     * email cố gắng đăng nhập với thông tin đăng nhập hợp lệ.
+     */
+    @ExceptionHandler(AccountPendingVerificationException.class)
+    public ResponseEntity<BaseResponse<Map<String, Object>>> handleAccountPendingVerification(
+            AccountPendingVerificationException ex) {
+        Map<String, Object> data =
+                Map.of(
+                        "email", ex.getEmail(),
+                        "remainingCooldownSeconds", ex.getRemainingCooldownSeconds());
+
+        BaseResponse<Map<String, Object>> response =
+                BaseResponse.<Map<String, Object>>builder()
+                        .success(false)
+                        .code(ex.getResponseCode())
+                        .message(ex.getMessage())
+                        .data(data)
+                        .build();
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
     }
 
     /**

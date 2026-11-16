@@ -64,6 +64,11 @@ class AuthControllerTest {
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     @MockitoBean private AuthService authService;
+    @MockitoBean private com.shareride.auth.service.RegistrationService registrationService;
+
+    @MockitoBean
+    private com.shareride.auth.service.AccountVerificationService accountVerificationService;
+
     @MockitoBean private SessionManagementService sessionManagementService;
     @MockitoBean private AccountManagementService accountManagementService;
 
@@ -93,7 +98,7 @@ class AuthControllerTest {
                         .updatedAt(Instant.now())
                         .build();
 
-        when(authService.register(any(RegisterRequest.class))).thenReturn(accountResponse);
+        when(registrationService.register(any(RegisterRequest.class))).thenReturn(accountResponse);
 
         RegisterRequest request =
                 RegisterRequest.builder()

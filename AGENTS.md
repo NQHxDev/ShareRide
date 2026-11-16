@@ -56,4 +56,5 @@ Welcome to the ShareRide monorepo. When writing code, tests, or configuring CI/C
 - Graphify rule: `.agents/rules/graphify.md`
 - Integration testing skill: `.agents/skills/integration-testing/SKILL.md`
 - Graphify skill: `.agents/skills/graphify/SKILL.md`
+- Archify skill: `.agents/skills/archify/SKILL.md`
 - Detailed docs: `docs/testing-strategy.md`

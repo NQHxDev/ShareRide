@@ -3,6 +3,7 @@ target/
 .m2/
 .git/
 .agents/
+.claude/
 .specify/
 .mcp/
 .mdl/

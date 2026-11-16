@@ -23,6 +23,8 @@ public interface AccountRepository extends JpaRepository<Account, UUID> {
     @EntityGraph(attributePaths = {"roles"})
     Optional<Account> findByEmailAndDeletedFalse(String email);
 
+    Optional<Account> findByEmail(String email);
+
     @EntityGraph(attributePaths = {"roles"})
     Optional<Account> findByPhoneNumberAndDeletedFalse(String phoneNumber);
 

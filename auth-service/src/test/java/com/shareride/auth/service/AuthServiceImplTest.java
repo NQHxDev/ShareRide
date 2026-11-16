@@ -46,6 +46,7 @@ class AuthServiceImplTest {
     @Mock private SessionManagementService sessionManagementService;
     @Mock private AccountManagementService accountManagementService;
     @Mock private LoginRateLimiterService loginRateLimiterService;
+    @Mock private org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
 
     private AuthService authService;
 
@@ -62,7 +63,8 @@ class AuthServiceImplTest {
                         registrationService,
                         sessionManagementService,
                         accountManagementService,
-                        loginRateLimiterService);
+                        loginRateLimiterService,
+                        redisTemplate);
     }
 
     @AfterEach

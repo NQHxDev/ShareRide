@@ -5,25 +5,34 @@ import com.shareride.auth.constant.AuthMessage;
 import com.shareride.auth.constant.AuthOutboxConstants;
 import com.shareride.auth.constant.AuthResponseCode;
 import com.shareride.auth.constant.AuthSecurityAuditConstants;
+import com.shareride.auth.constant.AuthVerificationConstants;
 import com.shareride.auth.domain.Account;
 import com.shareride.auth.domain.AccountStatus;
+import com.shareride.auth.domain.AccountVerification;
 import com.shareride.auth.domain.Role;
 import com.shareride.auth.domain.RoleCode;
+import com.shareride.auth.domain.VerificationStatus;
 import com.shareride.auth.dto.AccountResponse;
 import com.shareride.auth.dto.RegisterRequest;
 import com.shareride.auth.event.AccountRegisteredEvent;
+import com.shareride.auth.publisher.AuthEventPublisher;
 import com.shareride.auth.repository.AccountRepository;
+import com.shareride.auth.repository.AccountVerificationRepository;
 import com.shareride.auth.repository.RoleRepository;
 import com.shareride.auth.service.AccountManagementService;
 import com.shareride.auth.service.EmailBloomFilterService;
 import com.shareride.auth.service.RegistrationService;
 import com.shareride.auth.service.RolePermissionCacheService;
+import com.shareride.auth.util.AlphanumericCodeGenerator;
+import com.shareride.auth.util.HashingUtils;
 import com.shareride.auth.util.PasswordUtils;
 import com.shareride.common.cache.DistributedLockService;
 import com.shareride.common.exception.ConflictException;
 import com.shareride.common.logging.audit.AuditLogService;
 import com.shareride.common.logging.audit.SecurityAuditEvent;
 import com.shareride.common.outbox.OutboxService;
+import com.shareride.common.util.UuidUtils;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -54,6 +63,8 @@ public class RegistrationServiceImpl implements RegistrationService {
     private final AccountManagementService accountManagementService;
     private final EmailBloomFilterService emailBloomFilterService;
     private final ApplicationEventPublisher eventPublisher;
+    private final AccountVerificationRepository accountVerificationRepository;
+    private final AuthEventPublisher authEventPublisher;
 
     @Autowired
     public RegistrationServiceImpl(
@@ -65,7 +76,9 @@ public class RegistrationServiceImpl implements RegistrationService {
             AuditLogService auditLogService,
             AccountManagementService accountManagementService,
             EmailBloomFilterService emailBloomFilterService,
-            ApplicationEventPublisher eventPublisher) {
+            ApplicationEventPublisher eventPublisher,
+            AccountVerificationRepository accountVerificationRepository,
+            AuthEventPublisher authEventPublisher) {
         this.accountRepository = accountRepository;
         this.roleRepository = roleRepository;
         this.rolePermissionCacheService =
@@ -81,6 +94,8 @@ public class RegistrationServiceImpl implements RegistrationService {
         this.accountManagementService = accountManagementService;
         this.emailBloomFilterService = emailBloomFilterService;
         this.eventPublisher = eventPublisher;
+        this.accountVerificationRepository = accountVerificationRepository;
+        this.authEventPublisher = authEventPublisher;
     }
 
     public RegistrationServiceImpl(
@@ -91,7 +106,9 @@ public class RegistrationServiceImpl implements RegistrationService {
             AuditLogService auditLogService,
             AccountManagementService accountManagementService,
             EmailBloomFilterService emailBloomFilterService,
-            ApplicationEventPublisher eventPublisher) {
+            ApplicationEventPublisher eventPublisher,
+            AccountVerificationRepository accountVerificationRepository,
+            AuthEventPublisher authEventPublisher) {
         this(
                 accountRepository,
                 roleRepository,
@@ -101,7 +118,9 @@ public class RegistrationServiceImpl implements RegistrationService {
                 auditLogService,
                 accountManagementService,
                 emailBloomFilterService,
-                eventPublisher);
+                eventPublisher,
+                accountVerificationRepository,
+                authEventPublisher);
     }
 
     @Override
@@ -121,17 +140,21 @@ public class RegistrationServiceImpl implements RegistrationService {
     private AccountResponse doRegister(RegisterRequest request, String normalizedEmail) {
         String normalizedPhone = request.getPhoneNumber().trim();
 
-        // Bloom filter fast path: skip DB query if email definitely does not exist
+        // FR-013: Check if email already exists with PENDING_VERIFICATION status
         boolean mightExist = emailBloomFilterService.mightExist(normalizedEmail);
         if (mightExist) {
-            // Bloom filter hit: confirm with PostgreSQL (may be false positive)
-            if (accountRepository.existsByEmail(normalizedEmail)) {
+            Optional<Account> existingAccount = accountRepository.findByEmail(normalizedEmail);
+            if (existingAccount.isPresent()) {
+                if (existingAccount.get().getStatus() == AccountStatus.PENDING_VERIFICATION) {
+                    throw new ConflictException(
+                            AuthResponseCode.EMAIL_PENDING_VERIFICATION,
+                            AuthMessage.EMAIL_PENDING_VERIFICATION);
+                }
                 throw new ConflictException(
                         AuthResponseCode.EMAIL_ALREADY_EXISTS,
                         AuthMessage.emailAlreadyExists(normalizedEmail));
             }
         }
-        // If Bloom filter returns false, skip DB query (email definitely does not exist)
 
         if (accountRepository.existsByPhoneNumber(normalizedPhone)) {
             throw new ConflictException(
@@ -140,18 +163,56 @@ public class RegistrationServiceImpl implements RegistrationService {
         }
 
         Role role = resolveTargetRole(request.getRoleCode());
+
+        // FR-001: Create account with PENDING_VERIFICATION status
         Account account =
                 accountRepository.save(
                         Account.builder()
                                 .email(normalizedEmail)
                                 .phoneNumber(normalizedPhone)
                                 .passwordHash(PasswordUtils.hashPassword(request.getPassword()))
-                                .status(AccountStatus.ACTIVE)
+                                .status(AccountStatus.PENDING_VERIFICATION)
                                 .roles(role != null ? Set.of(role) : Set.of())
                                 .build());
 
         // Publish event for Bloom filter sync (AFTER_COMMIT listener will add email)
         eventPublisher.publishEvent(new AccountRegisteredEvent(account.getEmail()));
+
+        // FR-002: Generate 6-character alphanumeric verification code
+        String verificationCode = AlphanumericCodeGenerator.generate();
+        String codeHash = HashingUtils.sha256Hex(verificationCode);
+
+        // FR-002, FR-003: Persist verification challenge with 15-minute expiry
+        AccountVerification verification =
+                AccountVerification.builder()
+                        .accountId(account.getId())
+                        .verificationCodeHash(codeHash)
+                        .expiresAt(Instant.now().plus(AuthVerificationConstants.EXPIRY_DURATION))
+                        .failedAttempts(0)
+                        .status(VerificationStatus.PENDING)
+                        .build();
+        accountVerificationRepository.save(verification);
+
+        // FR-004: Dispatch ACCOUNT_VERIFICATION event via Outbox
+        String userName =
+                request.getFullName() != null && !request.getFullName().isBlank()
+                        ? request.getFullName().trim()
+                        : account.getEmail().split("@")[0];
+
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("userName", userName);
+        parameters.put("verificationCode", verificationCode);
+        parameters.put("expiresInMinutes", 15);
+
+        Map<String, Object> verificationPayload = new HashMap<>();
+        verificationPayload.put("eventId", UuidUtils.v7().toString());
+        verificationPayload.put("recipientEmail", account.getEmail());
+        verificationPayload.put("notificationType", "ACCOUNT_VERIFICATION");
+        verificationPayload.put("locale", "vi-VN");
+        verificationPayload.put("parameters", parameters);
+
+        authEventPublisher.publishAccountEvent(
+                account.getId().toString(), "ACCOUNT_VERIFICATION", verificationPayload);
 
         List<String> roleCodes =
                 account.getRoles() != null
@@ -161,17 +222,11 @@ public class RegistrationServiceImpl implements RegistrationService {
                                 .toList()
                         : List.of();
 
-        Map<String, Object> payload =
-                new HashMap<>(
-                        Map.of(
-                                AuthOutboxConstants.PayloadKey.ACCOUNT_ID,
-                                account.getId(),
-                                AuthOutboxConstants.PayloadKey.EMAIL,
-                                account.getEmail(),
-                                AuthOutboxConstants.PayloadKey.PHONE_NUMBER,
-                                account.getPhoneNumber(),
-                                AuthOutboxConstants.PayloadKey.ROLES,
-                                roleCodes));
+        Map<String, Object> payload = new HashMap<>();
+        payload.put(AuthOutboxConstants.PayloadKey.ACCOUNT_ID, account.getId());
+        payload.put(AuthOutboxConstants.PayloadKey.EMAIL, account.getEmail());
+        payload.put(AuthOutboxConstants.PayloadKey.PHONE_NUMBER, account.getPhoneNumber());
+        payload.put(AuthOutboxConstants.PayloadKey.ROLES, roleCodes);
         if (request.getFullName() != null && !request.getFullName().isBlank()) {
             payload.put(AuthOutboxConstants.PayloadKey.FULL_NAME, request.getFullName().trim());
         }
@@ -190,7 +245,10 @@ public class RegistrationServiceImpl implements RegistrationService {
                         .status(AuthSecurityAuditConstants.Status.SUCCESS)
                         .build());
 
-        log.info("Registered account [{}] with roles {}", account.getId(), roleCodes);
+        log.info(
+                "Registered account [{}] with PENDING_VERIFICATION status and dispatched"
+                        + " verification email",
+                account.getId());
         return accountManagementService.toAccountResponse(account);
     }
 

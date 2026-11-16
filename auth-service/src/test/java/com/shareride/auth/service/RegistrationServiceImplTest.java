@@ -13,7 +13,9 @@ import com.shareride.auth.domain.Role;
 import com.shareride.auth.domain.RoleCode;
 import com.shareride.auth.dto.AccountResponse;
 import com.shareride.auth.dto.RegisterRequest;
+import com.shareride.auth.publisher.AuthEventPublisher;
 import com.shareride.auth.repository.AccountRepository;
+import com.shareride.auth.repository.AccountVerificationRepository;
 import com.shareride.auth.repository.RoleRepository;
 import com.shareride.auth.service.impl.RegistrationServiceImpl;
 import com.shareride.auth.util.PasswordUtils;
@@ -45,6 +47,8 @@ class RegistrationServiceImplTest {
     @Mock private AccountManagementService accountManagementService;
     @Mock private EmailBloomFilterService emailBloomFilterService;
     @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock private AccountVerificationRepository accountVerificationRepository;
+    @Mock private AuthEventPublisher authEventPublisher;
 
     private RegistrationService registrationService;
 
@@ -63,7 +67,9 @@ class RegistrationServiceImplTest {
                         auditLogService,
                         accountManagementService,
                         emailBloomFilterService,
-                        eventPublisher);
+                        eventPublisher,
+                        accountVerificationRepository,
+                        authEventPublisher);
     }
 
     @AfterEach
@@ -85,7 +91,7 @@ class RegistrationServiceImplTest {
 
         Role riderRole = Role.builder().roleCode(RoleCode.ROLE_RIDER).roleName("Rider").build();
         when(emailBloomFilterService.mightExist(any())).thenReturn(true);
-        when(accountRepository.existsByEmail("rider@shareride.com")).thenReturn(false);
+        when(accountRepository.findByEmail("rider@shareride.com")).thenReturn(Optional.empty());
         when(accountRepository.existsByPhoneNumber("+84988111222")).thenReturn(false);
         when(roleRepository.findByRoleCode(RoleCode.ROLE_RIDER)).thenReturn(Optional.of(riderRole));
 
@@ -135,7 +141,14 @@ class RegistrationServiceImplTest {
                         .build();
 
         when(emailBloomFilterService.mightExist(any())).thenReturn(true);
-        when(accountRepository.existsByEmail("existing@shareride.com")).thenReturn(true);
+        Account existingAccount =
+                Account.builder()
+                        .email("existing@shareride.com")
+                        .status(AccountStatus.ACTIVE)
+                        .build();
+        existingAccount.setId(UUID.randomUUID());
+        when(accountRepository.findByEmail("existing@shareride.com"))
+                .thenReturn(Optional.of(existingAccount));
 
         assertThrows(ConflictException.class, () -> registrationService.register(request));
     }
@@ -151,7 +164,7 @@ class RegistrationServiceImplTest {
                         .build();
 
         when(emailBloomFilterService.mightExist(any())).thenReturn(true);
-        when(accountRepository.existsByEmail("unique@shareride.com")).thenReturn(false);
+        when(accountRepository.findByEmail("unique@shareride.com")).thenReturn(Optional.empty());
         when(accountRepository.existsByPhoneNumber("+84988111222")).thenReturn(true);
 
         assertThrows(ConflictException.class, () -> registrationService.register(request));
@@ -190,7 +203,9 @@ class RegistrationServiceImplTest {
                         auditLogService,
                         accountManagementService,
                         emailBloomFilterService,
-                        eventPublisher);
+                        eventPublisher,
+                        accountVerificationRepository,
+                        authEventPublisher);
 
         RegisterRequest request =
                 RegisterRequest.builder()
@@ -202,7 +217,8 @@ class RegistrationServiceImplTest {
                         .build();
 
         when(emailBloomFilterService.mightExist(any())).thenReturn(true);
-        when(accountRepository.existsByEmail("driver.locked@shareride.com")).thenReturn(false);
+        when(accountRepository.findByEmail("driver.locked@shareride.com"))
+                .thenReturn(Optional.empty());
         when(accountRepository.existsByPhoneNumber("+84988999888")).thenReturn(false);
         when(accountRepository.save(any()))
                 .thenAnswer(
@@ -237,7 +253,9 @@ class RegistrationServiceImplTest {
                         auditLogService,
                         accountManagementService,
                         emailBloomFilterService,
-                        eventPublisher);
+                        eventPublisher,
+                        accountVerificationRepository,
+                        authEventPublisher);
         assertNotNull(simpleService);
     }
 }

@@ -4,6 +4,7 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
 import com.shareride.common.persistence.BaseEntity;
+import com.shareride.common.versioning.ApiVersion;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
@@ -99,4 +100,25 @@ public class AuthArchitectureTest {
                     .because(
                             "All domain entities must extend BaseEntity or SoftDeletableEntity for"
                                     + " UUIDv7 and audit support");
+
+    @ArchTest
+    public static final ArchRule verification_repository_should_only_be_injected_in_service_layer =
+            noClasses()
+                    .that()
+                    .resideInAPackage("..controller..")
+                    .should()
+                    .dependOnClassesThat()
+                    .haveSimpleName("AccountVerificationRepository")
+                    .because(
+                            "AccountVerificationRepository must only be injected in .service.impl,"
+                                    + " never in controllers");
+
+    @ArchTest
+    public static final ArchRule auth_controller_should_have_api_version_annotation =
+            classes()
+                    .that()
+                    .haveSimpleName("AuthController")
+                    .should()
+                    .beAnnotatedWith(ApiVersion.class)
+                    .because("AuthController must declare @ApiVersion(\"v1\") for API versioning");
 }

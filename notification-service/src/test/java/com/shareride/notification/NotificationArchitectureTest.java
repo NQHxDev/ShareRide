@@ -174,4 +174,19 @@ class NotificationArchitectureTest {
                 .because("Repository layer must not depend on Service layer")
                 .check(importedClasses);
     }
+
+    @Test
+    void emailTemplateStrategiesShouldImplementEmailTemplateStrategy() {
+        classes()
+                .that()
+                .resideInAPackage("..service.impl..")
+                .and()
+                .haveSimpleNameEndingWith("TemplateStrategy")
+                .should()
+                .implement(com.shareride.notification.service.EmailTemplateStrategy.class)
+                .because(
+                        "All template strategies must implement EmailTemplateStrategy for"
+                                + " polymorphic template rendering")
+                .check(importedClasses);
+    }
 }

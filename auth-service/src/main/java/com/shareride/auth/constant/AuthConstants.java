@@ -114,6 +114,18 @@ public final class AuthConstants {
         /** Tiền tố rate limit đăng nhập theo tài khoản: {@code "auth:ratelimit:login:account:"}. */
         public static final String LOGIN_RATE_LIMIT_ACCOUNT_PREFIX =
                 "auth:ratelimit:login:account:";
+
+        /**
+         * Tiền tố khóa cooldown giữa các lần gửi lại mã xác thực: {@code
+         * "auth:verify:cooldown:{accountId}"}.
+         */
+        public static final String VERIFICATION_COOLDOWN_PREFIX = "auth:verify:cooldown:";
+
+        /**
+         * Tiền tố đếm số lần gửi lại mã xác thực theo giờ: {@code
+         * "auth:verify:resend-count:{accountId}:{yyyyMMddHH}"}.
+         */
+        public static final String VERIFICATION_RESEND_COUNT_PREFIX = "auth:verify:resend-count:";
     }
 
     /** Cấu hình ngưỡng và thời gian giới hạn cho Rate Limiting chống Brute-force. */
@@ -165,6 +177,8 @@ public final class AuthConstants {
         public static final String LOGIN = "/login";
         public static final String LOGOUT = "/logout";
         public static final String REFRESH = "/refresh";
+        public static final String VERIFY_EMAIL = "/verify-email";
+        public static final String RESEND_VERIFICATION = "/resend-verification";
         public static final String ACCOUNTS_BY_ID = "/accounts/{id}";
         public static final String SESSIONS = "/sessions";
         public static final String SESSION_BY_ID = "/sessions/{sessionId}";
