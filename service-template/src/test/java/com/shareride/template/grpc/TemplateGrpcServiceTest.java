@@ -11,6 +11,7 @@ import com.shareride.common.grpc.template.v1.TemplateHealthCheckRequest;
 import com.shareride.common.grpc.template.v1.TemplateHealthCheckResponse;
 import com.shareride.common.grpc.template.v1.VerifyTemplateRequest;
 import com.shareride.common.grpc.template.v1.VerifyTemplateResponse;
+import com.shareride.common.util.UuidUtils;
 import com.shareride.template.dto.TemplateItemResponse;
 import com.shareride.template.service.TemplateService;
 import io.grpc.stub.StreamObserver;
@@ -56,7 +57,7 @@ class TemplateGrpcServiceTest {
     @Test
     @DisplayName("GetTemplate: should retrieve template successfully")
     void testGetTemplate() {
-        UUID templateId = UUID.randomUUID();
+        UUID templateId = UuidUtils.v7();
         TemplateItemResponse mockResponse = new TemplateItemResponse();
         mockResponse.setId(templateId);
         mockResponse.setName("Test Template");
@@ -87,7 +88,7 @@ class TemplateGrpcServiceTest {
     @Test
     @DisplayName("GetTemplate: should handle error when template not found")
     void testGetTemplateNotFound() {
-        UUID templateId = UUID.randomUUID();
+        UUID templateId = UuidUtils.v7();
 
         when(templateService.getItemById(templateId))
                 .thenThrow(new RuntimeException("Template not found"));
@@ -103,7 +104,7 @@ class TemplateGrpcServiceTest {
     @Test
     @DisplayName("VerifyTemplate: should verify template checksum successfully")
     void testVerifyTemplateValid() {
-        UUID templateId = UUID.randomUUID();
+        UUID templateId = UuidUtils.v7();
         String content = "Test content";
 
         // Calculate the actual SHA-256 checksum for "Test content"
@@ -148,7 +149,7 @@ class TemplateGrpcServiceTest {
     @Test
     @DisplayName("VerifyTemplate: should detect invalid checksum")
     void testVerifyTemplateInvalid() {
-        UUID templateId = UUID.randomUUID();
+        UUID templateId = UuidUtils.v7();
         String content = "Test content";
         String wrongChecksum = "wrongchecksum";
 

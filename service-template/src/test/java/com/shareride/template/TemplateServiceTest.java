@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import com.shareride.common.exception.ConflictException;
 import com.shareride.common.exception.ResourceNotFoundException;
+import com.shareride.common.util.UuidUtils;
 import com.shareride.template.domain.TemplateItem;
 import com.shareride.template.domain.TemplateItemStatus;
 import com.shareride.template.dto.CreateTemplateItemRequest;
@@ -58,7 +59,7 @@ class TemplateServiceTest {
                         .description("Surge pricing factor")
                         .build();
 
-        UUID id = UUID.randomUUID();
+        UUID id = UuidUtils.v7();
         TemplateItem savedItem =
                 TemplateItem.builder()
                         .name("Dynamic Surge")
@@ -97,7 +98,7 @@ class TemplateServiceTest {
     @Test
     @DisplayName("getItemById should return item if present")
     void testGetItemByIdSuccess() {
-        UUID id = UUID.randomUUID();
+        UUID id = UuidUtils.v7();
         TemplateItem item =
                 TemplateItem.builder()
                         .name("Item 1")
@@ -116,7 +117,7 @@ class TemplateServiceTest {
     @Test
     @DisplayName("getItemById should throw ResourceNotFoundException if absent")
     void testGetItemByIdNotFound() {
-        UUID id = UUID.randomUUID();
+        UUID id = UuidUtils.v7();
         when(repository.findByIdAndDeletedFalse(id)).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () -> templateService.getItemById(id));
@@ -125,7 +126,7 @@ class TemplateServiceTest {
     @Test
     @DisplayName("updateItem should update fields and record outbox event")
     void testUpdateItemSuccess() {
-        UUID id = UUID.randomUUID();
+        UUID id = UuidUtils.v7();
         TemplateItem existing =
                 TemplateItem.builder()
                         .name("Old Name")

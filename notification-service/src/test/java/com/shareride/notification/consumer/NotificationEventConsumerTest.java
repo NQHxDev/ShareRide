@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shareride.common.communication.rabbitmq.consumer.IdempotentMessageService;
+import com.shareride.common.util.UuidUtils;
 import com.shareride.notification.dto.NotificationDispatchEvent;
 import com.shareride.notification.dto.NotificationDispatchRequest;
 import com.shareride.notification.service.NotificationService;
@@ -39,7 +40,7 @@ class NotificationEventConsumerTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        UUID eventId = UUID.randomUUID();
+        UUID eventId = UuidUtils.v7();
         sampleEvent =
                 NotificationDispatchEvent.builder()
                         .eventId(eventId)

@@ -6,8 +6,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shareride.common.grpc.auth.v1.AccountProto;
 import com.shareride.common.grpc.auth.v1.LoginResponse;
 import com.shareride.common.grpc.auth.v1.SessionProto;
+import com.shareride.common.util.UuidUtils;
 import java.time.Instant;
-import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -41,7 +41,7 @@ class SerializationLatencyBenchmarkTest {
 
         AccountProto account =
                 AccountProto.newBuilder()
-                        .setAccountId(UUID.randomUUID().toString())
+                        .setAccountId(UuidUtils.v7AsString())
                         .setEmail("benchmark.test@shareride.com")
                         .setPhoneNumber("+84901234567")
                         .setRoleCode("RIDER")
@@ -53,7 +53,7 @@ class SerializationLatencyBenchmarkTest {
 
         SessionProto session =
                 SessionProto.newBuilder()
-                        .setSessionId(UUID.randomUUID().toString())
+                        .setSessionId(UuidUtils.v7AsString())
                         .setDeviceId("test-device-id")
                         .setDeviceName("Test Device")
                         .setClientIp("192.168.1.100")

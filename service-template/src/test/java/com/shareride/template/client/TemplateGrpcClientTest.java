@@ -13,6 +13,7 @@ import com.shareride.common.grpc.template.v1.TemplateHealthCheckResponse;
 import com.shareride.common.grpc.template.v1.TemplateServiceGrpc;
 import com.shareride.common.grpc.template.v1.VerifyTemplateRequest;
 import com.shareride.common.grpc.template.v1.VerifyTemplateResponse;
+import com.shareride.common.util.UuidUtils;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.inprocess.InProcessChannelBuilder;
@@ -113,7 +114,7 @@ class TemplateGrpcClientTest {
     @Test
     @DisplayName("GetTemplate: should call downstream service and return response")
     void testGetTemplate() {
-        UUID templateId = UUID.randomUUID();
+        UUID templateId = UuidUtils.v7();
 
         GetTemplateResponse response = templateGrpcClient.getTemplate(templateId.toString(), "en");
 
@@ -127,7 +128,7 @@ class TemplateGrpcClientTest {
     @Test
     @DisplayName("VerifyTemplate: should call downstream service and return validation result")
     void testVerifyTemplate() {
-        UUID templateId = UUID.randomUUID();
+        UUID templateId = UuidUtils.v7();
         String checksum = "abcdef123456";
 
         VerifyTemplateResponse response =

@@ -29,8 +29,13 @@ import com.shareride.common.grpc.auth.v1.RevokeSessionResponse;
 import com.shareride.common.grpc.auth.v1.SessionProto;
 import com.shareride.common.grpc.auth.v1.VerifyEmailRequest;
 import com.shareride.common.grpc.auth.v1.VerifyEmailResponse;
+import com.shareride.common.util.UuidUtils;
 import java.time.Instant;
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -82,7 +87,7 @@ class AuthProtoMapperTest {
     @Test
     @DisplayName("toRegisterResponseProto: Should map AccountResponse to proto RegisterResponse")
     void testToRegisterResponseProto() {
-        UUID accountId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
         Instant createdAt = Instant.now();
 
         AccountResponse accountResponse =
@@ -109,7 +114,7 @@ class AuthProtoMapperTest {
             "toRegisterResponseProto: Should handle AccountResponse with null/empty optional"
                     + " fields")
     void testToRegisterResponseProtoWithNulls() {
-        UUID accountId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
 
         AccountResponse accountResponse =
                 AccountResponse.builder()
@@ -159,8 +164,8 @@ class AuthProtoMapperTest {
     @Test
     @DisplayName("toLoginResponseProto: Should map AuthResponse to proto LoginResponse")
     void testToLoginResponseProto() {
-        UUID accountId = UUID.randomUUID();
-        UUID sessionId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
+        UUID sessionId = UuidUtils.v7();
         Instant expiresIn = Instant.now().plusSeconds(3600);
 
         AccountResponse account =
@@ -197,7 +202,7 @@ class AuthProtoMapperTest {
     @Test
     @DisplayName("toLoginResponseProto: Should handle AuthResponse with null expiresIn")
     void testToLoginResponseProtoWithNullExpiry() {
-        UUID sessionId = UUID.randomUUID();
+        UUID sessionId = UuidUtils.v7();
 
         AuthResponse authResponse =
                 AuthResponse.builder()
@@ -299,7 +304,7 @@ class AuthProtoMapperTest {
                 LogoutRequest.newBuilder()
                         .setAccessToken("mock.access.token")
                         .setRefreshToken("mock.refresh.token")
-                        .setSessionId(UUID.randomUUID().toString())
+                        .setSessionId(UuidUtils.v7AsString())
                         .build();
 
         String accessToken = mapper.extractAccessToken(protoRequest);
@@ -314,7 +319,7 @@ class AuthProtoMapperTest {
                 LogoutRequest.newBuilder()
                         .setAccessToken("mock.access.token")
                         .setRefreshToken("mock.refresh.token")
-                        .setSessionId(UUID.randomUUID().toString())
+                        .setSessionId(UuidUtils.v7AsString())
                         .build();
 
         String refreshToken = mapper.extractRefreshTokenFromLogout(protoRequest);
@@ -351,7 +356,7 @@ class AuthProtoMapperTest {
     @Test
     @DisplayName("toVerifyEmailResponseProto: Should create VerifyEmailResponse with account ID")
     void testToVerifyEmailResponseProto() {
-        UUID accountId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
 
         VerifyEmailResponse proto =
                 mapper.toVerifyEmailResponseProto(true, "Email verified successfully", accountId);
@@ -487,7 +492,7 @@ class AuthProtoMapperTest {
     @Test
     @DisplayName("extractAccountId: Should extract and parse account UUID from GetAccountRequest")
     void testExtractAccountId() {
-        UUID accountId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
         GetAccountRequest protoRequest =
                 GetAccountRequest.newBuilder().setAccountId(accountId.toString()).build();
 
@@ -499,7 +504,7 @@ class AuthProtoMapperTest {
     @Test
     @DisplayName("toGetAccountResponseProto: Should map AccountResponse to proto with AccountProto")
     void testToGetAccountResponseProto() {
-        UUID accountId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
         Instant createdAt = Instant.now();
         Instant updatedAt = Instant.now();
 
@@ -540,7 +545,7 @@ class AuthProtoMapperTest {
     @DisplayName(
             "extractAccountIdFromGetSessions: Should extract account UUID from GetSessionsRequest")
     void testExtractAccountIdFromGetSessions() {
-        UUID accountId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
         GetSessionsRequest protoRequest =
                 GetSessionsRequest.newBuilder().setAccountId(accountId.toString()).build();
 
@@ -554,8 +559,8 @@ class AuthProtoMapperTest {
             "toGetSessionsResponseProto: Should map SessionResponse list to proto with"
                     + " SessionProto")
     void testToGetSessionsResponseProto() {
-        UUID sessionId1 = UUID.randomUUID();
-        UUID sessionId2 = UUID.randomUUID();
+        UUID sessionId1 = UuidUtils.v7();
+        UUID sessionId2 = UuidUtils.v7();
         Instant now = Instant.now();
 
         SessionResponse session1 =
@@ -616,8 +621,8 @@ class AuthProtoMapperTest {
             "extractAccountIdFromRevokeSession: Should extract account UUID from"
                     + " RevokeSessionRequest")
     void testExtractAccountIdFromRevokeSession() {
-        UUID accountId = UUID.randomUUID();
-        UUID sessionId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
+        UUID sessionId = UuidUtils.v7();
 
         RevokeSessionRequest protoRequest =
                 RevokeSessionRequest.newBuilder()
@@ -633,8 +638,8 @@ class AuthProtoMapperTest {
     @Test
     @DisplayName("extractSessionId: Should extract session UUID from RevokeSessionRequest")
     void testExtractSessionId() {
-        UUID accountId = UUID.randomUUID();
-        UUID sessionId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
+        UUID sessionId = UuidUtils.v7();
 
         RevokeSessionRequest protoRequest =
                 RevokeSessionRequest.newBuilder()

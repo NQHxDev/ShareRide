@@ -1,10 +1,10 @@
 package com.shareride.common.logging.audit;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.shareride.common.util.UuidUtils;
 import java.io.Serializable;
 import java.time.Instant;
 import java.util.Map;
-import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -21,7 +21,7 @@ import lombok.NoArgsConstructor;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class SecurityAuditEvent implements Serializable {
 
-    @Builder.Default private String eventId = UUID.randomUUID().toString();
+    @Builder.Default private String eventId = UuidUtils.v7AsString();
 
     private String eventType;
     private String userId;

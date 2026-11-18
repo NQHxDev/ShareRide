@@ -11,6 +11,7 @@ import com.shareride.common.context.UserContextHolder;
 import com.shareride.common.grpc.auth.v1.*;
 import com.shareride.common.outbox.OutboxMessageRepository;
 import com.shareride.common.outbox.OutboxStatus;
+import com.shareride.common.util.UuidUtils;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.inprocess.InProcessChannelBuilder;
@@ -74,7 +75,7 @@ class AuthGrpcIntegrationTest extends AbstractIntegrationTest {
         sessionRepository.deleteAll();
         accountRepository.deleteAll();
 
-        testEmail = "grpc.test." + UUID.randomUUID() + "@shareride.com";
+        testEmail = "grpc.test." + UuidUtils.v7() + "@shareride.com";
         testPassword = "SecurePassword123!";
     }
 

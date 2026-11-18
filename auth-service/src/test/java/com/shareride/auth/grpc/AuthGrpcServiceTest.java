@@ -33,6 +33,7 @@ import com.shareride.common.grpc.auth.v1.ResendVerificationResponse;
 import com.shareride.common.grpc.auth.v1.RevokeSessionRequest;
 import com.shareride.common.grpc.auth.v1.RevokeSessionResponse;
 import com.shareride.common.grpc.auth.v1.VerifyEmailResponse;
+import com.shareride.common.util.UuidUtils;
 import io.grpc.stub.StreamObserver;
 import java.time.Instant;
 import java.util.List;
@@ -101,7 +102,7 @@ class AuthGrpcServiceTest {
                         .setDisplayName("Test User")
                         .build();
 
-        String accountId = UUID.randomUUID().toString();
+        String accountId = UuidUtils.v7AsString();
         AccountResponse mockResponse =
                 AccountResponse.builder()
                         .accountId(UUID.fromString(accountId))
@@ -143,10 +144,10 @@ class AuthGrpcServiceTest {
                         .refreshToken("mock.refresh.token")
                         .tokenType("Bearer")
                         .expiresIn(Instant.now().plusSeconds(3600))
-                        .sessionId(UUID.randomUUID())
+                        .sessionId(UuidUtils.v7())
                         .account(
                                 AccountResponse.builder()
-                                        .accountId(UUID.randomUUID())
+                                        .accountId(UuidUtils.v7())
                                         .email("test@example.com")
                                         .status(com.shareride.auth.domain.AccountStatus.ACTIVE)
                                         .build())
@@ -168,7 +169,7 @@ class AuthGrpcServiceTest {
 
     @Test
     void getAccount_shouldReturnAccountDetails_whenAccountExists() {
-        String accountId = UUID.randomUUID().toString();
+        String accountId = UuidUtils.v7AsString();
         GetAccountRequest request = GetAccountRequest.newBuilder().setAccountId(accountId).build();
 
         AccountResponse mockAccount =
@@ -238,7 +239,7 @@ class AuthGrpcServiceTest {
                 LogoutRequest.newBuilder()
                         .setAccessToken("mock.access.token")
                         .setRefreshToken("mock.refresh.token")
-                        .setSessionId(UUID.randomUUID().toString())
+                        .setSessionId(UuidUtils.v7AsString())
                         .build();
 
         authGrpcService.logout(request, logoutResponseObserver);
@@ -254,8 +255,7 @@ class AuthGrpcServiceTest {
                         .setToken("valid-verification-token")
                         .build();
 
-        AccountResponse mockAccount =
-                AccountResponse.builder().accountId(UUID.randomUUID()).build();
+        AccountResponse mockAccount = AccountResponse.builder().accountId(UuidUtils.v7()).build();
         when(accountVerificationService.verifyEmail(any())).thenReturn(mockAccount);
 
         authGrpcService.verifyEmail(request, verifyEmailResponseObserver);
@@ -266,13 +266,13 @@ class AuthGrpcServiceTest {
 
     @Test
     void getSessions_shouldReturnActiveSessions_whenAccountExists() {
-        String accountId = UUID.randomUUID().toString();
+        String accountId = UuidUtils.v7AsString();
         GetSessionsRequest request =
                 GetSessionsRequest.newBuilder().setAccountId(accountId).build();
 
         SessionResponse mockSession =
                 SessionResponse.builder()
-                        .sessionId(UUID.randomUUID())
+                        .sessionId(UuidUtils.v7())
                         .deviceId("device-001")
                         .deviceName("iPhone 15")
                         .build();
@@ -290,8 +290,8 @@ class AuthGrpcServiceTest {
     void revokeSession_shouldRevokeSession_whenValidRequest() {
         RevokeSessionRequest request =
                 RevokeSessionRequest.newBuilder()
-                        .setAccountId(UUID.randomUUID().toString())
-                        .setSessionId(UUID.randomUUID().toString())
+                        .setAccountId(UuidUtils.v7AsString())
+                        .setSessionId(UuidUtils.v7AsString())
                         .build();
 
         authGrpcService.revokeSession(request, revokeSessionResponseObserver);

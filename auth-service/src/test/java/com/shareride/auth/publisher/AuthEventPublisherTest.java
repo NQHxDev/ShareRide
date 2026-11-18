@@ -15,9 +15,9 @@ import static org.mockito.Mockito.when;
 import com.shareride.common.outbox.OutboxMessage;
 import com.shareride.common.outbox.OutboxService;
 import com.shareride.common.outbox.OutboxStatus;
+import com.shareride.common.util.UuidUtils;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -36,7 +36,7 @@ class AuthEventPublisherTest {
 
     @Test
     void publishAccountEvent_ShouldRecordEventInOutboxWithCorrectSchema() {
-        final String accountId = UUID.randomUUID().toString();
+        final String accountId = UuidUtils.v7AsString();
         final String eventType = "ACCOUNT_VERIFICATION";
 
         // Create payload matching AccountVerificationEvent.json schema
@@ -46,7 +46,7 @@ class AuthEventPublisherTest {
         parameters.put("expiresInMinutes", 15);
 
         final Map<String, Object> payload = new HashMap<>();
-        payload.put("eventId", UUID.randomUUID().toString());
+        payload.put("eventId", UuidUtils.v7AsString());
         payload.put("recipientEmail", "test@example.com");
         payload.put("notificationType", "ACCOUNT_VERIFICATION");
         payload.put("locale", "vi-VN");
@@ -91,7 +91,7 @@ class AuthEventPublisherTest {
 
     @Test
     void publishAccountEvent_ShouldValidateNestedParametersStructure() {
-        final String accountId = UUID.randomUUID().toString();
+        final String accountId = UuidUtils.v7AsString();
         final String eventType = "ACCOUNT_VERIFICATION";
 
         final Map<String, Object> parameters = new HashMap<>();
@@ -100,7 +100,7 @@ class AuthEventPublisherTest {
         parameters.put("expiresInMinutes", 15);
 
         final Map<String, Object> payload = new HashMap<>();
-        payload.put("eventId", UUID.randomUUID().toString());
+        payload.put("eventId", UuidUtils.v7AsString());
         payload.put("recipientEmail", "user@example.com");
         payload.put("notificationType", "ACCOUNT_VERIFICATION");
         payload.put("locale", "vi-VN");
@@ -144,7 +144,7 @@ class AuthEventPublisherTest {
     @Test
     void publishDirect_ShouldSendEventToRabbitMQ() {
         final Map<String, Object> payload = new HashMap<>();
-        payload.put("eventId", UUID.randomUUID().toString());
+        payload.put("eventId", UuidUtils.v7AsString());
         payload.put("recipientEmail", "test@example.com");
 
         authEventPublisher.publishDirect(payload);
@@ -159,7 +159,7 @@ class AuthEventPublisherTest {
     @Test
     void publishDirect_ShouldThrowExceptionWhenRabbitMQFails() {
         final Map<String, Object> payload = new HashMap<>();
-        payload.put("eventId", UUID.randomUUID().toString());
+        payload.put("eventId", UuidUtils.v7AsString());
 
         doThrow(new RuntimeException("RabbitMQ connection failed"))
                 .when(rabbitTemplate)

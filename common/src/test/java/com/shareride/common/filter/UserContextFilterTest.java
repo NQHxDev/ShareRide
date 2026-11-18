@@ -23,6 +23,7 @@ import com.shareride.common.exception.UnauthorizedException;
 import com.shareride.common.logging.MdcConstants;
 import com.shareride.common.security.jwt.JwtClaimsConstant;
 import com.shareride.common.security.jwt.JwtTokenVerifier;
+import com.shareride.common.util.UuidUtils;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import java.io.IOException;
@@ -235,7 +236,7 @@ class UserContextFilterTest {
         UserContextFilter secureFilter =
                 new UserContextFilter(beanFactory.getBeanProvider(JwtTokenVerifier.class));
 
-        UUID accountId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
         Instant now = Instant.now();
 
         JWSHeader header =
@@ -246,7 +247,7 @@ class UserContextFilterTest {
 
         JWTClaimsSet claimsSet =
                 new JWTClaimsSet.Builder()
-                        .jwtID(UUID.randomUUID().toString())
+                        .jwtID(UuidUtils.v7AsString())
                         .subject(accountId.toString())
                         .issuer("shareride-auth")
                         .issueTime(Date.from(now))

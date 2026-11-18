@@ -5,6 +5,7 @@ import static org.awaitility.Awaitility.await;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shareride.common.communication.rabbitmq.consumer.IdempotentMessageService;
+import com.shareride.common.util.UuidUtils;
 import com.shareride.notification.domain.NotificationLog;
 import com.shareride.notification.domain.NotificationType;
 import com.shareride.notification.dto.NotificationDispatchEvent;
@@ -53,7 +54,7 @@ class WelcomeNotificationConsumerIntegrationTest extends AbstractIntegrationTest
     @Test
     @DisplayName("Should successfully consume and process WELCOME notification event")
     void shouldSuccessfullyProcessWelcomeEvent() throws Exception {
-        UUID eventId = UUID.randomUUID();
+        UUID eventId = UuidUtils.v7();
 
         NotificationDispatchEvent welcomeEvent =
                 NotificationDispatchEvent.builder()
@@ -98,7 +99,7 @@ class WelcomeNotificationConsumerIntegrationTest extends AbstractIntegrationTest
     @Test
     @DisplayName("Should deduplicate WELCOME event using idempotency service")
     void shouldDeduplicateWelcomeEvent() throws Exception {
-        UUID eventId = UUID.randomUUID();
+        UUID eventId = UuidUtils.v7();
 
         NotificationDispatchEvent welcomeEvent =
                 NotificationDispatchEvent.builder()
@@ -135,7 +136,7 @@ class WelcomeNotificationConsumerIntegrationTest extends AbstractIntegrationTest
     @Test
     @DisplayName("Should handle WELCOME event with English locale")
     void shouldHandleWelcomeEventWithEnglishLocale() throws Exception {
-        UUID eventId = UUID.randomUUID();
+        UUID eventId = UuidUtils.v7();
 
         NotificationDispatchEvent welcomeEvent =
                 NotificationDispatchEvent.builder()
@@ -164,7 +165,7 @@ class WelcomeNotificationConsumerIntegrationTest extends AbstractIntegrationTest
     @Test
     @DisplayName("Should mark event as processed in Valkey for idempotency")
     void shouldMarkEventAsProcessedInValkey() throws Exception {
-        UUID eventId = UUID.randomUUID();
+        UUID eventId = UuidUtils.v7();
 
         NotificationDispatchEvent welcomeEvent =
                 NotificationDispatchEvent.builder()

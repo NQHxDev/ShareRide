@@ -22,10 +22,10 @@ import com.shareride.auth.util.HashingUtils;
 import com.shareride.common.exception.BadRequestException;
 import com.shareride.common.exception.ConflictException;
 import com.shareride.common.exception.ResourceNotFoundException;
+import com.shareride.common.util.UuidUtils;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
-import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -74,7 +74,7 @@ class AccountVerificationServiceImplTest {
                         .status(AccountStatus.PENDING_VERIFICATION)
                         .passwordHash("$argon2id$...")
                         .build();
-        account.setId(UUID.randomUUID());
+        account.setId(UuidUtils.v7());
 
         final String codeHash = HashingUtils.sha256Hex(uppercaseCode);
 
@@ -86,7 +86,7 @@ class AccountVerificationServiceImplTest {
                         .failedAttempts(0)
                         .status(VerificationStatus.PENDING)
                         .build();
-        verification.setId(UUID.randomUUID());
+        verification.setId(UuidUtils.v7());
 
         when(accountRepository.findByEmail(email)).thenReturn(Optional.of(account));
         when(accountVerificationRepository.findFirstByAccountIdAndStatusOrderByCreatedAtDesc(
@@ -135,7 +135,7 @@ class AccountVerificationServiceImplTest {
                         .status(AccountStatus.PENDING_VERIFICATION)
                         .passwordHash("$argon2id$...")
                         .build();
-        account.setId(UUID.randomUUID());
+        account.setId(UuidUtils.v7());
 
         final AccountVerification verification =
                 AccountVerification.builder()
@@ -145,7 +145,7 @@ class AccountVerificationServiceImplTest {
                         .failedAttempts(0)
                         .status(VerificationStatus.PENDING)
                         .build();
-        verification.setId(UUID.randomUUID());
+        verification.setId(UuidUtils.v7());
 
         when(accountRepository.findByEmail(email)).thenReturn(Optional.of(account));
         when(accountVerificationRepository.findFirstByAccountIdAndStatusOrderByCreatedAtDesc(
@@ -179,7 +179,7 @@ class AccountVerificationServiceImplTest {
                         .status(AccountStatus.PENDING_VERIFICATION)
                         .passwordHash("$argon2id$...")
                         .build();
-        account.setId(UUID.randomUUID());
+        account.setId(UuidUtils.v7());
 
         final AccountVerification verification =
                 AccountVerification.builder()
@@ -189,7 +189,7 @@ class AccountVerificationServiceImplTest {
                         .failedAttempts(2)
                         .status(VerificationStatus.PENDING)
                         .build();
-        verification.setId(UUID.randomUUID());
+        verification.setId(UuidUtils.v7());
 
         when(accountRepository.findByEmail(email)).thenReturn(Optional.of(account));
         when(accountVerificationRepository.findFirstByAccountIdAndStatusOrderByCreatedAtDesc(
@@ -227,7 +227,7 @@ class AccountVerificationServiceImplTest {
                         .status(AccountStatus.PENDING_VERIFICATION)
                         .passwordHash("$argon2id$...")
                         .build();
-        account.setId(UUID.randomUUID());
+        account.setId(UuidUtils.v7());
 
         final AccountVerification verification =
                 AccountVerification.builder()
@@ -237,7 +237,7 @@ class AccountVerificationServiceImplTest {
                         .failedAttempts(4)
                         .status(VerificationStatus.PENDING)
                         .build();
-        verification.setId(UUID.randomUUID());
+        verification.setId(UuidUtils.v7());
 
         when(accountRepository.findByEmail(email)).thenReturn(Optional.of(account));
         when(accountVerificationRepository.findFirstByAccountIdAndStatusOrderByCreatedAtDesc(
@@ -291,7 +291,7 @@ class AccountVerificationServiceImplTest {
                         .status(AccountStatus.ACTIVE)
                         .passwordHash("$argon2id$...")
                         .build();
-        account.setId(UUID.randomUUID());
+        account.setId(UuidUtils.v7());
 
         when(accountRepository.findByEmail(email)).thenReturn(Optional.of(account));
 
@@ -318,7 +318,7 @@ class AccountVerificationServiceImplTest {
                         .status(AccountStatus.PENDING_VERIFICATION)
                         .passwordHash("$argon2id$...")
                         .build();
-        account.setId(UUID.randomUUID());
+        account.setId(UuidUtils.v7());
 
         when(accountRepository.findByEmail(email)).thenReturn(Optional.of(account));
         when(accountVerificationRepository.findFirstByAccountIdAndStatusOrderByCreatedAtDesc(

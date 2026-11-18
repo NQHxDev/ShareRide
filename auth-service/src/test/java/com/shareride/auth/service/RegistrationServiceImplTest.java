@@ -23,6 +23,7 @@ import com.shareride.common.context.UserContextHolder;
 import com.shareride.common.exception.ConflictException;
 import com.shareride.common.logging.audit.AuditLogService;
 import com.shareride.common.outbox.OutboxService;
+import com.shareride.common.util.UuidUtils;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -95,7 +96,7 @@ class RegistrationServiceImplTest {
         when(accountRepository.existsByPhoneNumber("+84988111222")).thenReturn(false);
         when(roleRepository.findByRoleCode(RoleCode.ROLE_RIDER)).thenReturn(Optional.of(riderRole));
 
-        UUID generatedId = UUID.randomUUID();
+        UUID generatedId = UuidUtils.v7();
         ArgumentCaptor<Account> accountCaptor = ArgumentCaptor.forClass(Account.class);
         when(accountRepository.save(accountCaptor.capture()))
                 .thenAnswer(
@@ -146,7 +147,7 @@ class RegistrationServiceImplTest {
                         .email("existing@shareride.com")
                         .status(AccountStatus.ACTIVE)
                         .build();
-        existingAccount.setId(UUID.randomUUID());
+        existingAccount.setId(UuidUtils.v7());
         when(accountRepository.findByEmail("existing@shareride.com"))
                 .thenReturn(Optional.of(existingAccount));
 
@@ -224,7 +225,7 @@ class RegistrationServiceImplTest {
                 .thenAnswer(
                         inv -> {
                             Account a = inv.getArgument(0);
-                            a.setId(UUID.randomUUID());
+                            a.setId(UuidUtils.v7());
                             return a;
                         });
 

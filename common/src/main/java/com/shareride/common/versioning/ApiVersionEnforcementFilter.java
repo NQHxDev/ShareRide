@@ -9,6 +9,7 @@ import com.shareride.common.logging.MdcConstants;
 import com.shareride.common.metrics.ShareRideMetrics;
 import com.shareride.common.response.BaseResponse;
 import com.shareride.common.response.ResponseMetadataContext;
+import com.shareride.common.util.UuidUtils;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,7 +19,6 @@ import java.time.Instant;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -233,8 +233,7 @@ public class ApiVersionEnforcementFilter extends OncePerRequestFilter {
         response.setContentType("application/json;charset=UTF-8");
 
         String traceId = TraceIdContext.getTraceId();
-        // TODO: Có thể nâng lên dùng uuidv7 không?
-        String errorId = UUID.randomUUID().toString();
+        String errorId = UuidUtils.v7AsString();
         String path = request.getRequestURI();
         Instant now = Instant.now();
 

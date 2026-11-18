@@ -20,6 +20,7 @@ import com.shareride.common.exception.ForbiddenException;
 import com.shareride.common.exception.ResourceNotFoundException;
 import com.shareride.common.exception.UnauthorizedException;
 import com.shareride.common.logging.audit.AuditLogService;
+import com.shareride.common.util.UuidUtils;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -58,7 +59,7 @@ class SessionManagementServiceImplTest {
     @Test
     @DisplayName("createSession: Successfully creates and saves active session")
     void testCreateSessionSuccess() {
-        UUID accountId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
         LoginRequest request =
                 LoginRequest.builder()
                         .deviceId("dev-1")
@@ -71,7 +72,7 @@ class SessionManagementServiceImplTest {
                 .thenAnswer(
                         invocation -> {
                             Session s = invocation.getArgument(0);
-                            s.setId(UUID.randomUUID());
+                            s.setId(UuidUtils.v7());
                             return s;
                         });
 
@@ -88,8 +89,8 @@ class SessionManagementServiceImplTest {
     @Test
     @DisplayName("refreshSession: Successfully validates and updates lastActiveAt")
     void testRefreshSessionSuccess() {
-        UUID sessionId = UUID.randomUUID();
-        UUID accountId = UUID.randomUUID();
+        UUID sessionId = UuidUtils.v7();
+        UUID accountId = UuidUtils.v7();
         String token = "valid-refresh-token";
 
         RefreshTokenData data =
@@ -119,8 +120,8 @@ class SessionManagementServiceImplTest {
     @Test
     @DisplayName("refreshSession: Fails when session is expired or revoked")
     void testRefreshSessionExpired() {
-        UUID sessionId = UUID.randomUUID();
-        UUID accountId = UUID.randomUUID();
+        UUID sessionId = UuidUtils.v7();
+        UUID accountId = UuidUtils.v7();
         String token = "expired-token";
 
         RefreshTokenData data =
@@ -147,8 +148,8 @@ class SessionManagementServiceImplTest {
     @Test
     @DisplayName("terminateSession: Revokes DB session and removes token from cache")
     void testTerminateSession() {
-        UUID sessionId = UUID.randomUUID();
-        UUID accountId = UUID.randomUUID();
+        UUID sessionId = UuidUtils.v7();
+        UUID accountId = UuidUtils.v7();
         String token = "logout-token";
 
         RefreshTokenData data =
@@ -171,8 +172,8 @@ class SessionManagementServiceImplTest {
     @Test
     @DisplayName("revokeSession: Succeeds when self or admin revokes session")
     void testRevokeSessionSuccess() {
-        UUID sessionId = UUID.randomUUID();
-        UUID accountId = UUID.randomUUID();
+        UUID sessionId = UuidUtils.v7();
+        UUID accountId = UuidUtils.v7();
 
         Session session =
                 Session.builder().accountId(accountId).status(SessionStatus.ACTIVE).build();
@@ -191,18 +192,18 @@ class SessionManagementServiceImplTest {
     @Test
     @DisplayName("revokeSession: Throws ResourceNotFoundException when session not found")
     void testRevokeSessionNotFound() {
-        UUID sessionId = UUID.randomUUID();
+        UUID sessionId = UuidUtils.v7();
         when(sessionRepository.findById(sessionId)).thenReturn(Optional.empty());
 
         assertThrows(
                 ResourceNotFoundException.class,
-                () -> sessionManagementService.revokeSession(sessionId, UUID.randomUUID()));
+                () -> sessionManagementService.revokeSession(sessionId, UuidUtils.v7()));
     }
 
     @Test
     @DisplayName("getActiveSessions: Returns active sessions for authorized user")
     void testGetActiveSessionsSuccess() {
-        UUID accountId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
         UserContextHolder.setContext(
                 UserContext.builder()
                         .userId(accountId.toString())
@@ -219,7 +220,7 @@ class SessionManagementServiceImplTest {
                         .lastActiveAt(Instant.now())
                         .expiresAt(Instant.now().plusSeconds(3600))
                         .build();
-        session.setId(UUID.randomUUID());
+        session.setId(UuidUtils.v7());
 
         when(sessionRepository.findByAccountIdAndStatusOrderByLastActiveAtDesc(
                         accountId, SessionStatus.ACTIVE))
@@ -235,8 +236,8 @@ class SessionManagementServiceImplTest {
     @Test
     @DisplayName("getActiveSessions: Throws ForbiddenException when viewing other user's sessions")
     void testGetActiveSessionsForbidden() {
-        UUID targetAccountId = UUID.randomUUID();
-        UUID otherUserId = UUID.randomUUID();
+        UUID targetAccountId = UuidUtils.v7();
+        UUID otherUserId = UuidUtils.v7();
         UserContextHolder.setContext(
                 UserContext.builder()
                         .userId(otherUserId.toString())
@@ -263,12 +264,9 @@ class SessionManagementServiceImplTest {
     @Test
     @DisplayName("refreshSession: Throws UnauthorizedException when session is missing in DB")
     void testRefreshSessionSessionNotFound() {
-        UUID sessionId = UUID.randomUUID();
+        UUID sessionId = UuidUtils.v7();
         RefreshTokenData data =
-                RefreshTokenData.builder()
-                        .sessionId(sessionId)
-                        .accountId(UUID.randomUUID())
-                        .build();
+                RefreshTokenData.builder().sessionId(sessionId).accountId(UuidUtils.v7()).build();
         when(refreshTokenCacheService.getRefreshTokenData("orphaned-token"))
                 .thenReturn(Optional.of(data));
         when(sessionRepository.findById(sessionId)).thenReturn(Optional.empty());
@@ -291,9 +289,9 @@ class SessionManagementServiceImplTest {
             "revokeSession: Throws UnauthorizedException when unauthenticated caller revokes other"
                     + " account session")
     void testRevokeSessionOtherAccountUnauthorized() {
-        UUID sessionId = UUID.randomUUID();
-        UUID ownerId = UUID.randomUUID();
-        UUID otherId = UUID.randomUUID();
+        UUID sessionId = UuidUtils.v7();
+        UUID ownerId = UuidUtils.v7();
+        UUID otherId = UuidUtils.v7();
 
         Session session = Session.builder().accountId(ownerId).status(SessionStatus.ACTIVE).build();
         session.setId(sessionId);
@@ -308,11 +306,11 @@ class SessionManagementServiceImplTest {
     @Test
     @DisplayName("revokeAllSessions: Marks all account sessions as REVOKED and purges cache")
     void testRevokeAllSessions() {
-        UUID accountId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
         Session s1 = Session.builder().accountId(accountId).status(SessionStatus.ACTIVE).build();
-        s1.setId(UUID.randomUUID());
+        s1.setId(UuidUtils.v7());
         Session s2 = Session.builder().accountId(accountId).status(SessionStatus.ACTIVE).build();
-        s2.setId(UUID.randomUUID());
+        s2.setId(UuidUtils.v7());
 
         when(sessionRepository.findByAccountIdOrderByLastActiveAtDesc(accountId))
                 .thenReturn(List.of(s1, s2));

@@ -5,9 +5,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.shareride.common.context.UserContext;
 import com.shareride.common.context.UserContextHolder;
 import com.shareride.common.filter.TraceIdContext;
+import com.shareride.common.util.UuidUtils;
 import java.io.Serializable;
 import java.time.Instant;
-import java.util.UUID;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.ToString;
@@ -55,7 +55,7 @@ public class ShareRideEvent<T> implements Serializable {
             @JsonProperty("userId") String userId,
             @JsonProperty("tenantId") String tenantId,
             @JsonProperty("payload") T payload) {
-        this.eventId = eventId != null ? eventId : UUID.randomUUID().toString();
+        this.eventId = eventId != null ? eventId : UuidUtils.v7AsString();
         this.eventType = eventType;
         this.aggregateType = aggregateType;
         this.aggregateId = aggregateId;
@@ -91,7 +91,7 @@ public class ShareRideEvent<T> implements Serializable {
                         : currentTraceId;
 
         return ShareRideEvent.<T>builder()
-                .eventId(UUID.randomUUID().toString())
+                .eventId(UuidUtils.v7AsString())
                 .eventType(eventType)
                 .aggregateType(aggregateType)
                 .aggregateId(aggregateId)

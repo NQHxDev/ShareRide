@@ -3,8 +3,8 @@ package com.shareride.auth.domain;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import com.shareride.common.util.UuidUtils;
 import java.util.HashSet;
-import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -14,7 +14,7 @@ class RolePermissionDomainTest {
     @DisplayName("Role: Builders, getters, setters and backwards-compatible methods")
     void testRoleDomain() {
         Role role1 = new Role();
-        role1.setId(UUID.randomUUID());
+        role1.setId(UuidUtils.v7());
         role1.setCode(RoleCode.ROLE_RIDER);
         role1.setName("Rider Role");
         role1.setDescription("Can book rides");
@@ -46,7 +46,7 @@ class RolePermissionDomainTest {
     @DisplayName("Permission: Builders, getters, setters and backwards-compatible methods")
     void testPermissionDomain() {
         Permission perm1 = new Permission();
-        perm1.setId(UUID.randomUUID());
+        perm1.setId(UuidUtils.v7());
         perm1.setCode(PermissionCode.RIDE_CREATE);
         perm1.setName("Create Ride");
         perm1.setDescription("Create new ride request");

@@ -23,6 +23,7 @@ import com.shareride.common.exception.ForbiddenException;
 import com.shareride.common.exception.RateLimitExceededException;
 import com.shareride.common.exception.UnauthorizedException;
 import com.shareride.common.logging.audit.AuditLogService;
+import com.shareride.common.util.UuidUtils;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;
@@ -85,7 +86,7 @@ class AuthServiceImplTest {
 
         AccountResponse expectedResponse =
                 AccountResponse.builder()
-                        .accountId(UUID.randomUUID())
+                        .accountId(UuidUtils.v7())
                         .email("rider@shareride.com")
                         .phoneNumber("+84988111222")
                         .status(AccountStatus.ACTIVE)
@@ -106,8 +107,8 @@ class AuthServiceImplTest {
     void testLoginSuccessWithArgon2id() {
         String rawPassword = "ValidPassword123";
         String argon2idHash = PasswordUtils.hashPassword(rawPassword);
-        UUID accountId = UUID.randomUUID();
-        UUID sessionId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
+        UUID sessionId = UuidUtils.v7();
 
         Account account =
                 Account.builder()
@@ -175,7 +176,7 @@ class AuthServiceImplTest {
                         .passwordHash(argon2idHash)
                         .status(AccountStatus.ACTIVE)
                         .build();
-        account.setId(UUID.randomUUID());
+        account.setId(UuidUtils.v7());
 
         when(accountRepository.findByEmailAndDeletedFalse("user@shareride.com"))
                 .thenReturn(Optional.of(account));
@@ -217,7 +218,7 @@ class AuthServiceImplTest {
                         .passwordHash("dummyHash")
                         .status(AccountStatus.LOCKED)
                         .build();
-        account.setId(UUID.randomUUID());
+        account.setId(UuidUtils.v7());
 
         when(accountRepository.findByEmailAndDeletedFalse("locked@shareride.com"))
                 .thenReturn(Optional.of(account));
@@ -246,7 +247,7 @@ class AuthServiceImplTest {
                         .passwordHash(argon2idHash)
                         .status(AccountStatus.ACTIVE)
                         .build();
-        account.setId(UUID.randomUUID());
+        account.setId(UuidUtils.v7());
 
         when(accountRepository.findByEmailAndDeletedFalse("target@shareride.com"))
                 .thenReturn(Optional.of(account));
@@ -270,7 +271,7 @@ class AuthServiceImplTest {
     @Test
     @DisplayName("getAccountById: delegates to AccountManagementService")
     void testGetAccountByIdDelegates() {
-        UUID accountId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
         AccountResponse expected =
                 AccountResponse.builder().accountId(accountId).email("self@shareride.com").build();
 
@@ -285,7 +286,7 @@ class AuthServiceImplTest {
     @Test
     @DisplayName("getActiveSessions: delegates to SessionManagementService")
     void testGetActiveSessionsDelegates() {
-        UUID accountId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
         when(sessionManagementService.getActiveSessions(accountId)).thenReturn(java.util.List.of());
 
         var sessions = authService.getActiveSessions(accountId);
@@ -296,8 +297,8 @@ class AuthServiceImplTest {
     @Test
     @DisplayName("revokeSession: delegates to SessionManagementService")
     void testRevokeSessionDelegates() {
-        UUID sessionId = UUID.randomUUID();
-        UUID accountId = UUID.randomUUID();
+        UUID sessionId = UuidUtils.v7();
+        UUID accountId = UuidUtils.v7();
 
         authService.revokeSession(sessionId, accountId);
         verify(sessionManagementService).revokeSession(sessionId, accountId);
@@ -306,7 +307,7 @@ class AuthServiceImplTest {
     @Test
     @DisplayName("softDeleteAccount: delegates to AccountManagementService")
     void testSoftDeleteAccountDelegates() {
-        UUID accountId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
         authService.softDeleteAccount(accountId, "admin");
         verify(accountManagementService).softDeleteAccount(accountId, "admin");
     }
@@ -338,7 +339,7 @@ class AuthServiceImplTest {
                         .passwordHash(argon2idHash)
                         .status(AccountStatus.INACTIVE)
                         .build();
-        account.setId(UUID.randomUUID());
+        account.setId(UuidUtils.v7());
 
         when(accountRepository.findByEmailAndDeletedFalse("inactive@shareride.com"))
                 .thenReturn(Optional.of(account));
@@ -358,8 +359,8 @@ class AuthServiceImplTest {
     @DisplayName("RefreshToken: Successfully rotates token and returns updated AuthResponse")
     void testRefreshTokenSuccess() {
         String token = "old-refresh-token";
-        UUID sessionId = UUID.randomUUID();
-        UUID accountId = UUID.randomUUID();
+        UUID sessionId = UuidUtils.v7();
+        UUID accountId = UuidUtils.v7();
 
         Session session =
                 Session.builder().accountId(accountId).status(SessionStatus.ACTIVE).build();

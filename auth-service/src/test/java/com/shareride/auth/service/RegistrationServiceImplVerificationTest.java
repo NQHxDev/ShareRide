@@ -27,9 +27,9 @@ import com.shareride.auth.service.impl.RegistrationServiceImpl;
 import com.shareride.common.exception.ConflictException;
 import com.shareride.common.logging.audit.AuditLogService;
 import com.shareride.common.outbox.OutboxService;
+import com.shareride.common.util.UuidUtils;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -96,7 +96,7 @@ class RegistrationServiceImplVerificationTest {
                         .status(AccountStatus.PENDING_VERIFICATION)
                         .roles(Set.of(riderRole))
                         .build();
-        savedAccount.setId(UUID.randomUUID());
+        savedAccount.setId(UuidUtils.v7());
 
         when(emailBloomFilterService.mightExist(anyString())).thenReturn(false);
         when(accountRepository.existsByPhoneNumber(anyString())).thenReturn(false);
@@ -131,7 +131,7 @@ class RegistrationServiceImplVerificationTest {
                         .status(AccountStatus.PENDING_VERIFICATION)
                         .roles(Set.of(riderRole))
                         .build();
-        savedAccount.setId(UUID.randomUUID());
+        savedAccount.setId(UuidUtils.v7());
 
         when(emailBloomFilterService.mightExist(anyString())).thenReturn(false);
         when(accountRepository.existsByPhoneNumber(anyString())).thenReturn(false);
@@ -172,7 +172,7 @@ class RegistrationServiceImplVerificationTest {
                         .status(AccountStatus.PENDING_VERIFICATION)
                         .roles(Set.of(riderRole))
                         .build();
-        savedAccount.setId(UUID.randomUUID());
+        savedAccount.setId(UuidUtils.v7());
 
         when(emailBloomFilterService.mightExist(anyString())).thenReturn(false);
         when(accountRepository.existsByPhoneNumber(anyString())).thenReturn(false);

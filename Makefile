@@ -48,7 +48,7 @@ check-style: ## Kiểm tra code style (Checkstyle)
 .PHONY: compile
 compile: ## Compile toàn bộ project (skip tests)
 	@echo "$(YELLOW)Compiling project...$(NC)"
-	@$(MVN) compile -DskipTests
+	@$(MVN) test-compile -DskipTests
 	@echo "$(GREEN)✓ Compilation successful!$(NC)"
 
 .PHONY: test

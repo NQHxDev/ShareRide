@@ -3,6 +3,7 @@ package com.shareride.notification.integration;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.shareride.common.util.UuidUtils;
 import com.shareride.notification.domain.NotificationChannel;
 import com.shareride.notification.domain.NotificationLog;
 import com.shareride.notification.domain.NotificationStatus;
@@ -21,7 +22,7 @@ class NotificationPersistenceIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void shouldPersistNotificationLogWithAllFields() {
-        UUID eventId = UUID.randomUUID();
+        UUID eventId = UuidUtils.v7();
         NotificationLog log = new NotificationLog();
         log.setEventId(eventId);
         log.setRecipientEmail("test@example.com");
@@ -50,7 +51,7 @@ class NotificationPersistenceIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void shouldEnforceUniqueEventIdConstraint() {
-        UUID eventId = UUID.randomUUID();
+        UUID eventId = UuidUtils.v7();
 
         NotificationLog log1 = new NotificationLog();
         log1.setEventId(eventId);
@@ -80,7 +81,7 @@ class NotificationPersistenceIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void shouldFindByEventId() {
-        UUID eventId = UUID.randomUUID();
+        UUID eventId = UuidUtils.v7();
         NotificationLog log = new NotificationLog();
         log.setEventId(eventId);
         log.setRecipientEmail("finder@example.com");
@@ -105,7 +106,7 @@ class NotificationPersistenceIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void shouldUpdateStatusWithOptimisticLocking() {
-        UUID eventId = UUID.randomUUID();
+        UUID eventId = UuidUtils.v7();
         NotificationLog log = new NotificationLog();
         log.setEventId(eventId);
         log.setRecipientEmail("optimistic@example.com");

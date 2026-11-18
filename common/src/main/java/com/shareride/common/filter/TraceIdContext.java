@@ -1,9 +1,9 @@
 package com.shareride.common.filter;
 
+import com.shareride.common.util.UuidUtils;
 import io.micrometer.tracing.Span;
 import io.micrometer.tracing.Tracer;
 import java.security.SecureRandom;
-import java.util.UUID;
 import java.util.function.Supplier;
 
 /**
@@ -155,7 +155,7 @@ public final class TraceIdContext {
     }
 
     public static String generateTraceId() {
-        return UUID.randomUUID().toString().replace("-", "").toLowerCase();
+        return UuidUtils.v7AsString().replace("-", "").toLowerCase();
     }
 
     public static String generateSpanId() {

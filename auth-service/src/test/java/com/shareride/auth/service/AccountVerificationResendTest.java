@@ -26,6 +26,7 @@ import com.shareride.common.exception.BadRequestException;
 import com.shareride.common.exception.ConflictException;
 import com.shareride.common.exception.RateLimitExceededException;
 import com.shareride.common.exception.ResourceNotFoundException;
+import com.shareride.common.util.UuidUtils;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
@@ -72,7 +73,7 @@ class AccountVerificationResendTest {
     @DisplayName("Resend: Rejects request within 60-second cooldown with HTTP 429")
     void testResendRejectsDuringCooldown() {
         final String email = "user@example.com";
-        final UUID accountId = UUID.randomUUID();
+        final UUID accountId = UuidUtils.v7();
 
         final Account account =
                 Account.builder()
@@ -104,7 +105,7 @@ class AccountVerificationResendTest {
     @DisplayName("Resend: Rejects after 5 resends in one hour with HTTP 400")
     void testResendRejectsAfterHourlyLimit() {
         final String email = "user@example.com";
-        final UUID accountId = UUID.randomUUID();
+        final UUID accountId = UuidUtils.v7();
 
         final Account account =
                 Account.builder()
@@ -143,7 +144,7 @@ class AccountVerificationResendTest {
     @DisplayName("Resend: Invalidates previous PENDING codes to EXPIRED")
     void testResendInvalidatesPreviousCodes() {
         final String email = "user@example.com";
-        final UUID accountId = UUID.randomUUID();
+        final UUID accountId = UuidUtils.v7();
 
         final Account account =
                 Account.builder()
@@ -193,7 +194,7 @@ class AccountVerificationResendTest {
     @DisplayName("Resend: Successfully generates new code and dispatches event")
     void testResendSuccessfullyDispatchesNewCode() {
         final String email = "user@example.com";
-        final UUID accountId = UUID.randomUUID();
+        final UUID accountId = UuidUtils.v7();
 
         final Account account =
                 Account.builder()
@@ -256,7 +257,7 @@ class AccountVerificationResendTest {
     @DisplayName("Resend: Throws ConflictException for already ACTIVE account")
     void testResendThrowsForActiveAccount() {
         final String email = "active@example.com";
-        final UUID accountId = UUID.randomUUID();
+        final UUID accountId = UuidUtils.v7();
 
         final Account account =
                 Account.builder()

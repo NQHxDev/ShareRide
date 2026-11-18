@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.shareride.common.util.UuidUtils;
 import com.shareride.notification.client.ResendEmailClient;
 import com.shareride.notification.client.dto.ResendEmailRequest;
 import com.shareride.notification.client.dto.ResendEmailResponse;
@@ -59,7 +60,7 @@ class NotificationServiceTest {
 
     @Test
     void dispatchNotification_shouldSendVerificationEmail() {
-        UUID eventId = UUID.randomUUID();
+        UUID eventId = UuidUtils.v7();
         Map<String, Object> params = new HashMap<>();
         params.put("userName", "Nguyen Van A");
         params.put("verificationCode", "123456");
@@ -83,7 +84,7 @@ class NotificationServiceTest {
         resendResponse.setId("msg_test123");
 
         NotificationLog savedLog = new NotificationLog();
-        savedLog.setId(UUID.randomUUID());
+        savedLog.setId(UuidUtils.v7());
 
         when(notificationLogRepository.findByEventId(eventId)).thenReturn(Optional.empty());
         when(messageSourceService.resolveLocale("vi-VN")).thenReturn(Locale.of("vi"));
@@ -105,8 +106,8 @@ class NotificationServiceTest {
 
     @Test
     void dispatchNotification_shouldReturnExistingIdForDuplicateEvent() {
-        UUID eventId = UUID.randomUUID();
-        UUID existingNotificationId = UUID.randomUUID();
+        UUID eventId = UuidUtils.v7();
+        UUID existingNotificationId = UuidUtils.v7();
 
         NotificationLog existingLog = new NotificationLog();
         existingLog.setId(existingNotificationId);
@@ -130,7 +131,7 @@ class NotificationServiceTest {
 
     @Test
     void getNotificationStatus_shouldReturnStatus() {
-        UUID notificationId = UUID.randomUUID();
+        UUID notificationId = UuidUtils.v7();
         NotificationLog log = new NotificationLog();
         log.setId(notificationId);
         log.setStatus(NotificationStatus.SENT);
@@ -147,7 +148,7 @@ class NotificationServiceTest {
 
     @Test
     void getNotificationStatus_shouldThrowExceptionWhenNotFound() {
-        UUID notificationId = UUID.randomUUID();
+        UUID notificationId = UuidUtils.v7();
 
         when(notificationLogRepository.findById(notificationId)).thenReturn(Optional.empty());
 

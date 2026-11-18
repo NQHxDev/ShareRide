@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.shareride.common.exception.ForbiddenException;
 import com.shareride.common.exception.UnauthorizedException;
+import com.shareride.common.util.UuidUtils;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -159,8 +160,8 @@ class UserContextTest {
     @Test
     @DisplayName("UserContextHolder.requireSelfOrAdmin allows owner and admin, rejects others")
     void testRequireSelfOrAdmin() {
-        UUID ownerId = UUID.randomUUID();
-        UUID otherId = UUID.randomUUID();
+        UUID ownerId = UuidUtils.v7();
+        UUID otherId = UuidUtils.v7();
 
         // 1. Unauthenticated -> UnauthorizedException
         assertThrows(
@@ -187,7 +188,7 @@ class UserContextTest {
         // 3. Authenticated as ADMIN -> can access ANY account
         UserContext adminUser =
                 UserContext.builder()
-                        .userId(UUID.randomUUID().toString())
+                        .userId(UuidUtils.v7AsString())
                         .roles(Set.of("ROLE_ADMIN"))
                         .build();
         UserContextHolder.setContext(adminUser);

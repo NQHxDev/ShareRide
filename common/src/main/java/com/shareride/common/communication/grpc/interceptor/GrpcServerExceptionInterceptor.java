@@ -7,6 +7,7 @@ import com.shareride.common.communication.grpc.mapper.GrpcStatusExceptionMapper;
 import com.shareride.common.exception.BadRequestException;
 import com.shareride.common.exception.BaseException;
 import com.shareride.common.response.FieldErrorDetail;
+import com.shareride.common.util.UuidUtils;
 import io.grpc.ForwardingServerCall;
 import io.grpc.ForwardingServerCallListener;
 import io.grpc.Metadata;
@@ -17,7 +18,6 @@ import io.grpc.Status;
 import io.grpc.StatusException;
 import io.grpc.StatusRuntimeException;
 import io.grpc.protobuf.StatusProto;
-import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -45,7 +45,7 @@ public class GrpcServerExceptionInterceptor implements ServerInterceptor {
 
         // Generate correlation ID if missing for better traceability
         if (correlationId == null || correlationId.isEmpty()) {
-            correlationId = UUID.randomUUID().toString();
+            correlationId = UuidUtils.v7AsString();
             log.debug(
                     "Generated correlation ID for gRPC call: method={}, correlationId={}",
                     methodName,

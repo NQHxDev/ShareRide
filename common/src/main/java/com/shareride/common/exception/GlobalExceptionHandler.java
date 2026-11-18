@@ -1,6 +1,5 @@
 package com.shareride.common.exception;
 
-import com.github.f4b6a3.uuid.UuidCreator;
 import com.shareride.common.constant.ResponseCode;
 import com.shareride.common.context.UserContextHolder;
 import com.shareride.common.filter.TraceIdContext;
@@ -13,6 +12,7 @@ import com.shareride.common.logging.masking.DataMaskingUtils;
 import com.shareride.common.metrics.ShareRideMetrics;
 import com.shareride.common.response.BaseResponse;
 import com.shareride.common.response.FieldErrorDetail;
+import com.shareride.common.util.UuidUtils;
 import com.shareride.common.versioning.UnsupportedApiVersionException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
@@ -106,7 +106,7 @@ public class GlobalExceptionHandler {
     }
 
     private String initErrorContext() {
-        String errorId = UuidCreator.getTimeOrderedEpoch().toString();
+        String errorId = UuidUtils.v7AsString();
         MDC.put(MdcConstants.ERROR_ID, errorId);
         return errorId;
     }

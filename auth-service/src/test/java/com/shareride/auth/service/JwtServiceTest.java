@@ -30,6 +30,7 @@ import com.shareride.common.exception.UnauthorizedException;
 import com.shareride.common.security.jwt.JwtClaimsConstant;
 import com.shareride.common.security.jwt.JwtTokenVerifier;
 import com.shareride.common.security.jwt.JwtUserClaims;
+import com.shareride.common.util.UuidUtils;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
@@ -138,8 +139,8 @@ class JwtServiceTest {
     @DisplayName(
             "generateAccessToken should issue a valid EdDSA signed JWT with full enterprise claims")
     void testGenerateAccessTokenSuccess() throws Exception {
-        UUID accountId = UUID.randomUUID();
-        UUID sessionId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
+        UUID sessionId = UuidUtils.v7();
         Account account = createSampleAccount(accountId);
         Session session = createSampleSession(sessionId, accountId);
 
@@ -180,7 +181,7 @@ class JwtServiceTest {
     @Test
     @DisplayName("validateToken should reject token with tampered payload")
     void testValidateTamperedToken() {
-        UUID accountId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
         Account account = createSampleAccount(accountId);
         String token = jwtService.generateAccessToken(account, null);
 
@@ -205,7 +206,7 @@ class JwtServiceTest {
     @Test
     @DisplayName("validateToken should reject blacklisted token via JTI")
     void testValidateBlacklistedToken() {
-        UUID accountId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
         Account account = createSampleAccount(accountId);
         String token = jwtService.generateAccessToken(account, null);
 
@@ -222,7 +223,7 @@ class JwtServiceTest {
             "revokeToken should extract JTI and register in TokenBlacklistService with remaining"
                     + " TTL")
     void testRevokeTokenSuccess() {
-        UUID accountId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
         Account account = createSampleAccount(accountId);
         String token = jwtService.generateAccessToken(account, null);
 
@@ -258,7 +259,7 @@ class JwtServiceTest {
     @Test
     @DisplayName("extractJti and extractExpiration should parse safely without throwing")
     void testExtractSafeHelpers() {
-        UUID accountId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
         Account account = createSampleAccount(accountId);
         String token = jwtService.generateAccessToken(account, null);
 
@@ -303,7 +304,7 @@ class JwtServiceTest {
                         beanFactory.getBeanProvider(TokenBlacklistService.class),
                         beanFactory.getBeanProvider(RolePermissionCacheService.class));
 
-        Account account = createSampleAccount(UUID.randomUUID());
+        Account account = createSampleAccount(UuidUtils.v7());
         String token = cachedJwtService.generateAccessToken(account, null);
         assertNotNull(token);
         verify(cacheService).getPermissionsByRoleCodes(any());
@@ -341,7 +342,7 @@ class JwtServiceTest {
                         .build();
         com.nimbusds.jwt.JWTClaimsSet claims =
                 new com.nimbusds.jwt.JWTClaimsSet.Builder()
-                        .jwtID(UUID.randomUUID().toString())
+                        .jwtID(UuidUtils.v7().toString())
                         .expirationTime(Date.from(past))
                         .build();
         SignedJWT expiredJwt = new SignedJWT(header, claims);

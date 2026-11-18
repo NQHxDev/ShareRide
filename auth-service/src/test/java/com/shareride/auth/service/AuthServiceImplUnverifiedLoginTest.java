@@ -18,9 +18,9 @@ import com.shareride.auth.exception.AccountPendingVerificationException;
 import com.shareride.auth.repository.AccountRepository;
 import com.shareride.auth.util.PasswordUtils;
 import com.shareride.common.exception.UnauthorizedException;
+import com.shareride.common.util.UuidUtils;
 import java.time.Instant;
 import java.util.Optional;
-import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -70,7 +70,7 @@ class AuthServiceImplUnverifiedLoginTest {
         PasswordUtils.setSecret("test_argon2id_secret_pepper_for_unit_tests_only");
 
         pendingAccount = new Account();
-        pendingAccount.setId(UUID.randomUUID());
+        pendingAccount.setId(UuidUtils.v7());
         pendingAccount.setEmail(TEST_EMAIL);
         pendingAccount.setPasswordHash(PasswordUtils.hashPassword(TEST_PASSWORD));
         pendingAccount.setStatus(AccountStatus.PENDING_VERIFICATION);

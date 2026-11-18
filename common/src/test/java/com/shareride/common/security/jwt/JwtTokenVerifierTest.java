@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
-import com.github.f4b6a3.uuid.UuidCreator;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JOSEObjectType;
 import com.nimbusds.jose.JWSAlgorithm;
@@ -21,6 +20,7 @@ import com.nimbusds.jwt.SignedJWT;
 import com.shareride.common.cache.TokenBlacklistService;
 import com.shareride.common.context.UserContext;
 import com.shareride.common.exception.UnauthorizedException;
+import com.shareride.common.util.UuidUtils;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
@@ -90,9 +90,9 @@ class JwtTokenVerifierTest {
     @Test
     @DisplayName("Verify: Should successfully verify valid Ed25519 signed token and extract claims")
     void testVerifyValidToken() throws Exception {
-        String jti = UuidCreator.getTimeOrderedEpoch().toString();
-        UUID accountId = UUID.randomUUID();
-        UUID sessionId = UUID.randomUUID();
+        String jti = UuidUtils.v7AsString();
+        UUID accountId = UuidUtils.v7();
+        UUID sessionId = UuidUtils.v7();
         Instant now = Instant.now();
 
         String token =
@@ -132,9 +132,9 @@ class JwtTokenVerifierTest {
     @Test
     @DisplayName("Tamper Resistance: Modifying 1 byte in payload must fail verification")
     void testTamperedPayloadFailsVerification() throws Exception {
-        String jti = UuidCreator.getTimeOrderedEpoch().toString();
-        UUID accountId = UUID.randomUUID();
-        UUID sessionId = UUID.randomUUID();
+        String jti = UuidUtils.v7AsString();
+        UUID accountId = UuidUtils.v7();
+        UUID sessionId = UuidUtils.v7();
         Instant now = Instant.now();
 
         String validToken =
@@ -169,9 +169,9 @@ class JwtTokenVerifierTest {
     @Test
     @DisplayName("Temporal Check: Expired token must throw UnauthorizedException")
     void testExpiredTokenFails() throws Exception {
-        String jti = UuidCreator.getTimeOrderedEpoch().toString();
-        UUID accountId = UUID.randomUUID();
-        UUID sessionId = UUID.randomUUID();
+        String jti = UuidUtils.v7AsString();
+        UUID accountId = UuidUtils.v7();
+        UUID sessionId = UuidUtils.v7();
         Instant past = Instant.now().minusSeconds(60);
 
         String expiredToken =
@@ -194,9 +194,9 @@ class JwtTokenVerifierTest {
     @Test
     @DisplayName("Temporal Check: Premature token before nbf must throw UnauthorizedException")
     void testPrematureTokenFails() throws Exception {
-        String jti = UuidCreator.getTimeOrderedEpoch().toString();
-        UUID accountId = UUID.randomUUID();
-        UUID sessionId = UUID.randomUUID();
+        String jti = UuidUtils.v7AsString();
+        UUID accountId = UuidUtils.v7();
+        UUID sessionId = UuidUtils.v7();
         Instant future = Instant.now().plusSeconds(60);
 
         String prematureToken =
@@ -219,9 +219,9 @@ class JwtTokenVerifierTest {
     @Test
     @DisplayName("JTI Blacklist Revocation: Blacklisted token must be rejected immediately")
     void testBlacklistedTokenFails() throws Exception {
-        String jti = UuidCreator.getTimeOrderedEpoch().toString();
-        UUID accountId = UUID.randomUUID();
-        UUID sessionId = UUID.randomUUID();
+        String jti = UuidUtils.v7AsString();
+        UUID accountId = UuidUtils.v7();
+        UUID sessionId = UuidUtils.v7();
         Instant now = Instant.now();
 
         when(tokenBlacklistService.isBlacklisted(jti)).thenReturn(true);
@@ -246,9 +246,9 @@ class JwtTokenVerifierTest {
     @Test
     @DisplayName("Extraction: extractJti and extractExpiration should parse without verifying")
     void testExtractJtiAndExpiration() throws Exception {
-        String jti = UuidCreator.getTimeOrderedEpoch().toString();
-        UUID accountId = UUID.randomUUID();
-        UUID sessionId = UUID.randomUUID();
+        String jti = UuidUtils.v7AsString();
+        UUID accountId = UuidUtils.v7();
+        UUID sessionId = UuidUtils.v7();
         Instant exp = Instant.now().plusSeconds(600);
 
         String token =
