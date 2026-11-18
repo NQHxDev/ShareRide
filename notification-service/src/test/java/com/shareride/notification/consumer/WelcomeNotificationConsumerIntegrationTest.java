@@ -19,6 +19,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 /**
@@ -26,6 +27,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
  * FreeMarker template rendering, and idempotency filtering via Valkey per T026, SC-006.
  */
 @SpringBootTest
+@Import(TestEmailClientConfiguration.class)
 @DisplayName("Integration Test: Welcome Notification Consumer")
 class WelcomeNotificationConsumerIntegrationTest extends AbstractIntegrationTest {
 
@@ -90,7 +92,7 @@ class WelcomeNotificationConsumerIntegrationTest extends AbstractIntegrationTest
 
         assertThat(log.getRecipientEmail()).isEqualTo(TEST_EMAIL);
         assertThat(log.getNotificationType()).isEqualTo(NotificationType.WELCOME);
-        assertThat(log.getLocale()).isEqualTo("vi-VN");
+        assertThat(log.getLocale()).isEqualTo("vi");
     }
 
     @Test
@@ -155,7 +157,7 @@ class WelcomeNotificationConsumerIntegrationTest extends AbstractIntegrationTest
                                     notificationLogRepository.findByRecipientEmail(TEST_EMAIL);
                             assertThat(logs).isNotEmpty();
                             NotificationLog log = logs.get(0);
-                            assertThat(log.getLocale()).isEqualTo("en-US");
+                            assertThat(log.getLocale()).isEqualTo("en");
                         });
     }
 

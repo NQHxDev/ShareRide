@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# ==============================================================================
+# ------------------------------------------------------------------------------
 # ShareRide Pre-Push Hook (Smart & Impact-Based)
-# ==============================================================================
+# ------------------------------------------------------------------------------
 # Intelligent monorepo build & test suite execution before push:
 #   1. Branch protection (prevent accidental direct push to main/master)
 #   2. Impact Analysis:
@@ -14,7 +14,7 @@
 #   4. Quality & Standards check (Spotless & Checkstyle)
 #   5. Thorough test suite execution (Unit, Slice, ArchUnit & Testcontainers integration tests)
 #   6. Dynamic artifact packaging verification (verifies generated JARs)
-# ==============================================================================
+# ------------------------------------------------------------------------------
 
 set -e
 
@@ -309,9 +309,9 @@ echo ""
 exit 0
 else
 echo ""
-echo -e "${RED}${BOLD}========================================================================${NC}"
+echo -e "${RED}${BOLD}----------------------------------------------------------${NC}"
 print_error "Pre-push verification FAILED!"
-echo -e "${RED}${BOLD}========================================================================${NC}"
+echo -e "${RED}${BOLD}----------------------------------------------------------${NC}"
 echo -e "${YELLOW}Nguyên nhân có thể do:${NC}"
 echo -e "  1. Có Unit Test hoặc Architecture Test (ArchUnit) bị lỗi"
 echo -e "  2. Có vi phạm chuẩn định dạng (Spotless) hoặc quy tắc code (Checkstyle)"
@@ -327,8 +327,8 @@ echo ""
 exit 1
 fi
 
-# ==============================================================================
+# ------------------------------------------------------------------------------
 # Git LFS Pre-Push Hook
-# ==============================================================================
+# ------------------------------------------------------------------------------
 command -v git-lfs >/dev/null 2>&1 || { printf >&2 "\n%s\n\n" "This repository is configured for Git LFS but 'git-lfs' was not found on your path. If you no longer wish to use Git LFS, remove this hook by deleting the 'pre-push' file in the hooks directory (set by 'core.hookspath'; usually '.git/hooks')."; exit 2; }
 git lfs pre-push "$@"

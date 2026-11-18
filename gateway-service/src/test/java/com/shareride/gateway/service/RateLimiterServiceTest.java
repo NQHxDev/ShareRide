@@ -1,7 +1,8 @@
 package com.shareride.gateway.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -37,11 +38,28 @@ class RateLimiterServiceTest {
         rateLimiterService = new RateLimiterServiceImpl(config);
     }
 
-    @SuppressWarnings("unchecked")
-    private <T> ObjectProvider<T> mockProvider(T instance) {
-        ObjectProvider<T> provider = mock(ObjectProvider.class);
-        when(provider.getIfAvailable()).thenReturn(instance);
-        return provider;
+    private <T> ObjectProvider<T> createMockProvider(T instance) {
+        return new ObjectProvider<T>() {
+            @Override
+            public T getObject() {
+                return instance;
+            }
+
+            @Override
+            public T getObject(Object... args) {
+                return instance;
+            }
+
+            @Override
+            public T getIfAvailable() {
+                return instance;
+            }
+
+            @Override
+            public T getIfUnique() {
+                return instance;
+            }
+        };
     }
 
     @Test
@@ -211,18 +229,17 @@ class RateLimiterServiceTest {
 
     @Test
     @DisplayName("Should evaluate rate limit with Redis when template is provided")
-    @SuppressWarnings("unchecked")
     void shouldEvaluateRateLimitWithRedisTemplate() {
         ReactiveStringRedisTemplate redisTemplate = mock(ReactiveStringRedisTemplate.class);
-        RedisScript<List<Long>> script = mock(RedisScript.class);
+        RedisScript<List<Long>> script = config.rateLimiterRedisScript();
 
         // Mock redis returning: allowed=1, remaining=19, resetTimestamp=1762777200, retryAfter=0
-        when(redisTemplate.execute(any(RedisScript.class), any(List.class), any(List.class)))
+        when(redisTemplate.execute(eq(script), anyList(), anyList()))
                 .thenReturn(Flux.just(List.of(1L, 19L, 1762777200L, 0L)));
 
         RateLimiterServiceImpl serviceWithRedis =
                 new RateLimiterServiceImpl(
-                        config, mockProvider(redisTemplate), mockProvider(script));
+                        config, createMockProvider(redisTemplate), createMockProvider(script));
 
         MockServerHttpRequest request =
                 MockServerHttpRequest.get("/api/v1/test")
@@ -243,19 +260,18 @@ class RateLimiterServiceTest {
 
     @Test
     @DisplayName("Should fail open when Redis throws an exception")
-    @SuppressWarnings("unchecked")
     void shouldFailOpenWhenRedisThrowsException() {
         ReactiveStringRedisTemplate redisTemplate = mock(ReactiveStringRedisTemplate.class);
-        RedisScript<List<Long>> script = mock(RedisScript.class);
+        RedisScript<List<Long>> script = config.rateLimiterRedisScript();
 
-        when(redisTemplate.execute(any(RedisScript.class), any(List.class), any(List.class)))
+        when(redisTemplate.execute(eq(script), anyList(), anyList()))
                 .thenReturn(Flux.error(new RuntimeException("Redis connection refused")));
 
         config.setFailOpen(true);
 
         RateLimiterServiceImpl serviceWithRedis =
                 new RateLimiterServiceImpl(
-                        config, mockProvider(redisTemplate), mockProvider(script));
+                        config, createMockProvider(redisTemplate), createMockProvider(script));
 
         MockServerHttpRequest request =
                 MockServerHttpRequest.get("/api/v1/test")

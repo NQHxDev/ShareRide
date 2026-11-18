@@ -100,4 +100,35 @@ public class GatewayArchitectureTest {
                     .because(
                             "Gateway is a reactive WebFlux service and must not import blocking"
                                     + " Servlet or JPA dependencies");
+
+    @ArchTest
+    public static final ArchRule synchronous_inter_service_calls_must_use_grpc =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.shareride.gateway..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "org.springframework.web.client..",
+                            "org.springframework.web.reactive.function.client..",
+                            "java.net.http..")
+                    .because(
+                            "Constitution Principle IV: All internal synchronous inter-service"
+                                    + " communication MUST use gRPC, not RestTemplate, WebClient,"
+                                    + " RestClient, or HttpClient");
+
+    @ArchTest
+    public static final ArchRule grpc_clients_must_use_channel_factory =
+            classes()
+                    .that()
+                    .resideInAPackage("..client..")
+                    .and()
+                    .haveSimpleNameEndingWith("GrpcClient")
+                    .should()
+                    .dependOnClassesThat()
+                    .haveSimpleName("GrpcChannelFactory")
+                    .because(
+                            "All gRPC client wrappers must obtain managed channels via"
+                                    + " GrpcChannelFactory for connection pooling and lifecycle"
+                                    + " management");
 }

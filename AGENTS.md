@@ -57,4 +57,5 @@ Welcome to the ShareRide monorepo. When writing code, tests, or configuring CI/C
 - Integration testing skill: `.agents/skills/integration-testing/SKILL.md`
 - Graphify skill: `.agents/skills/graphify/SKILL.md`
 - Archify skill: `.agents/skills/archify/SKILL.md`
+- Pretty Mermaid skill: `.agents/skills/pretty-mermaid/SKILL.md`
 - Detailed docs: `docs/testing-strategy.md`

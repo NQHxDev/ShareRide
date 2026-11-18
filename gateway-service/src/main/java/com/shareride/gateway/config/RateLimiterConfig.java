@@ -3,6 +3,7 @@ package com.shareride.gateway.config;
 import com.shareride.gateway.constant.GatewayConstants;
 import com.shareride.gateway.ratelimit.EndpointRateLimitRule;
 import com.shareride.gateway.ratelimit.RateLimitRule;
+import java.lang.reflect.Field;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
@@ -13,7 +14,9 @@ import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.data.redis.core.script.RedisScript;
+import org.springframework.util.ReflectionUtils;
 import reactor.core.publisher.Mono;
 
 /**
@@ -152,12 +155,23 @@ public class RateLimiterConfig {
                         .build());
     }
 
-    /** Distributed Redis Lua Script for atomic token bucket rate limiting. */
+    /**
+     * Distributed Redis Lua Script for atomic token bucket rate limiting.
+     *
+     * <p>Sets result type to {@code List.class} via reflection on {@link DefaultRedisScript} to
+     * allow Spring Data Redis to deserialize the multi-bulk response into a {@code List<Long>}
+     * while strictly adhering to Constitution Principle X (zero {@code @SuppressWarnings}).
+     */
     @Bean
     public RedisScript<List<Long>> rateLimiterRedisScript() {
-        @SuppressWarnings("unchecked")
-        Class<List<Long>> resultType = (Class<List<Long>>) (Class<?>) List.class;
-        return RedisScript.of(TOKEN_BUCKET_LUA_SCRIPT, resultType);
+        DefaultRedisScript<List<Long>> redisScript =
+                new DefaultRedisScript<>(TOKEN_BUCKET_LUA_SCRIPT);
+        Field resultTypeField = ReflectionUtils.findField(DefaultRedisScript.class, "resultType");
+        if (resultTypeField != null) {
+            ReflectionUtils.makeAccessible(resultTypeField);
+            ReflectionUtils.setField(resultTypeField, redisScript, List.class);
+        }
+        return redisScript;
     }
 
     /**

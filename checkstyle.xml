@@ -8,9 +8,9 @@
    <property name="severity" value="error"/>
    <property name="fileExtensions" value="java, properties, xml"/>
 
-   <!-- Excludes all 'module-info.java' files -->
+   <!-- Excludes all 'module-info.java' files and generated build artifacts (target/) -->
    <module name="BeforeExecutionExclusionFileFilter">
-      <property name="fileNamePattern" value="module\-info\.java$"/>
+      <property name="fileNamePattern" value="module\-info\.java$|(^|[\\/])target[\\/].*"/>
    </module>
 
    <!-- Size Violations -->

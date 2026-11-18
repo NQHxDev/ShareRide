@@ -41,6 +41,7 @@ public class JwtConfig {
         return new OctetKeyPairGenerator(Curve.Ed25519)
                 .keyID(properties.getKeyId())
                 .keyUse(KeyUse.SIGNATURE)
+                .algorithm(com.nimbusds.jose.JWSAlgorithm.EdDSA)
                 .generate();
     }
 

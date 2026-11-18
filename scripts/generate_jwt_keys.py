@@ -159,9 +159,9 @@ def main():
     if args.print_json:
         print(json.dumps({"private_jwk": private_jwk, "public_jwk": public_jwk}, indent=2))
     else:
-        print("================================================================================")
+        print("------------------------------------------------------------------------")
         print(" ShareRide Ed25519 (EdDSA) Asymmetric Key Pair Generated Successfully")
-        print("================================================================================")
+        print("------------------------------------------------------------------------")
         print(f"Key ID (kid) : {args.kid}")
         print(f"Algorithm    : EdDSA (Curve Ed25519)")
         print(f"Saved Files  :")
@@ -169,13 +169,13 @@ def main():
         print(f"  - Gateway Public JWK : {out_path / 'public_key.jwk.json'}")
         print(f"  - PKCS#8 Private PEM : {out_path / 'private_key.pem'}")
         print(f"  - X.509 Public PEM   : {out_path / 'public_key.pem'}")
-        print("--------------------------------------------------------------------------------")
+        print("------------------------------------------------------------------------")
         print("[Auth Service Configuration (Signing Key)]")
         print(f"JWT_PRIVATE_KEY_JWK='{priv_jwk_json}'")
-        print("--------------------------------------------------------------------------------")
+        print("------------------------------------------------------------------------")
         print("[Gateway Service Configuration (Verification Key)]")
         print(f"JWT_PUBLIC_KEY_JWK='{pub_jwk_json}'")
-        print("================================================================================")
+        print("------------------------------------------------------------------------")
 
 
 if __name__ == "__main__":

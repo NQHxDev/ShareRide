@@ -101,7 +101,7 @@ public final class AuthMessage {
 
     /** Thông báo thành công khi gửi lại mã xác thực. */
     public static final String VERIFICATION_CODE_RESENT =
-            "Mã xác thực mới đã được gửi tới email của bạn";
+            "Verification code has been resent to your email";
 
     /** Thông báo thành công khi xác thực email thành công. */
     public static final String EMAIL_VERIFIED_SUCCESS = "Email đã được xác thực thành công";

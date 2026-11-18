@@ -212,6 +212,10 @@ public class GlobalExceptionHandler {
                             .success(false)
                             .code(ex.getCode())
                             .message(message)
+                            .errors(
+                                    ex.getErrors() != null && !ex.getErrors().isEmpty()
+                                            ? ex.getErrors()
+                                            : null)
                             .errorId(errorId)
                             .traceId(TraceIdContext.getTraceId())
                             .timestamp(Instant.now())

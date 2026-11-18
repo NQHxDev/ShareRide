@@ -9,45 +9,58 @@ import io.grpc.ForwardingClientCallListener;
 import io.grpc.Metadata;
 import io.grpc.MethodDescriptor;
 import io.grpc.Status;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
-/** Client-side gRPC interceptor logging method calls, latency duration, and response status. */
+/**
+ * gRPC client interceptor that logs structured information about outgoing RPC calls including
+ * method name, status codes, and latency measurements for observability and debugging.
+ */
+@Slf4j
 public class GrpcClientLoggingInterceptor implements ClientInterceptor {
-
-    private static final Logger log = LoggerFactory.getLogger(GrpcClientLoggingInterceptor.class);
 
     @Override
     public <ReqT, RespT> ClientCall<ReqT, RespT> interceptCall(
             MethodDescriptor<ReqT, RespT> method, CallOptions callOptions, Channel next) {
 
-        final long start = System.currentTimeMillis();
-
-        return new ForwardingClientCall.SimpleForwardingClientCall<>(
+        return new ForwardingClientCall.SimpleForwardingClientCall<ReqT, RespT>(
                 next.newCall(method, callOptions)) {
+
+            private long startTimeNanos;
+
             @Override
             public void start(Listener<RespT> responseListener, Metadata headers) {
+                startTimeNanos = System.nanoTime();
+
+                log.debug(
+                        "gRPC client call started: method={}, deadline={}",
+                        method.getFullMethodName(),
+                        callOptions.getDeadline());
+
                 super.start(
-                        new ForwardingClientCallListener.SimpleForwardingClientCallListener<>(
+                        new ForwardingClientCallListener.SimpleForwardingClientCallListener<RespT>(
                                 responseListener) {
+
                             @Override
                             public void onClose(Status status, Metadata trailers) {
-                                long duration = System.currentTimeMillis() - start;
+                                long latencyMs = (System.nanoTime() - startTimeNanos) / 1_000_000;
+
                                 if (status.isOk()) {
                                     log.debug(
-                                            "[gRPC Client] {} completed in {}ms status={}",
+                                            "gRPC client call completed: method={}, status={},"
+                                                    + " latencyMs={}",
                                             method.getFullMethodName(),
-                                            duration,
-                                            status.getCode());
+                                            status.getCode(),
+                                            latencyMs);
                                 } else {
                                     log.warn(
-                                            "[gRPC Client] {} FAILED in {}ms status={}"
-                                                    + " description={}",
+                                            "gRPC client call failed: method={}, status={},"
+                                                    + " description={}, latencyMs={}",
                                             method.getFullMethodName(),
-                                            duration,
                                             status.getCode(),
-                                            status.getDescription());
+                                            status.getDescription(),
+                                            latencyMs);
                                 }
+
                                 super.onClose(status, trailers);
                             }
                         },

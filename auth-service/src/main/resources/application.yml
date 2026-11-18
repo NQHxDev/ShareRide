@@ -59,6 +59,19 @@ spring:
         shutdown-timeout: 100ms
 
 shareride:
+  grpc:
+    server:
+      enabled: true
+      port: ${GRPC_PORT:9081}
+      max-inbound-message-size: 10485760
+      keep-alive-time-seconds: 60
+      keep-alive-timeout-seconds: 20
+      permit-keep-alive-time-seconds: 30
+      permit-keep-alive-without-calls: false
+      shutdown-grace-period-seconds: 5
+      max-connection-idle-seconds: 300
+      max-connection-age-seconds: 3600
+      max-connection-age-grace-seconds: 120
   openapi:
     title: 'ShareRide Auth Service API'
     description: 'Enterprise Authentication & Authorization Microservice. Features asymmetric EdDSA (Ed25519) JWT issuance, RFC 7517 JWKS public key discovery, token rotation, Valkey session tracking, and transactional outbox event publishing.'

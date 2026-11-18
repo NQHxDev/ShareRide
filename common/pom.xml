@@ -5,10 +5,10 @@
    <modelVersion>4.0.0</modelVersion>
 
    <parent>
-      <groupId>com.shareride</groupId>
-      <artifactId>shareride-parent</artifactId>
-      <version>1.0.0-SNAPSHOT</version>
-      <relativePath>../pom.xml</relativePath>
+        <groupId>com.shareride</groupId>
+        <artifactId>shareride-parent</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
    </parent>
 
    <artifactId>common</artifactId>
@@ -17,167 +17,321 @@
    <description>Core base response, exception handling, i18n, metrics, probes, telemetry, persistence, caching, communication and resilience</description>
 
 <dependencies>
-   <!-- Spring Boot Web & Validation -->
-   <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-web</artifactId>
-   </dependency>
-   <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-validation</artifactId>
-   </dependency>
-   <dependency>
-      <groupId>com.fasterxml.jackson.datatype</groupId>
-      <artifactId>jackson-datatype-jsr310</artifactId>
-   </dependency>
+    <!-- Spring Boot Web & Validation -->
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-validation</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>com.fasterxml.jackson.datatype</groupId>
+        <artifactId>jackson-datatype-jsr310</artifactId>
+    </dependency>
 
-   <!-- SpringDoc OpenAPI 3.0 & Swagger UI Documentation -->
-   <dependency>
-      <groupId>org.springdoc</groupId>
-      <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-   </dependency>
+    <!-- SpringDoc OpenAPI 3.0 & Swagger UI Documentation -->
+    <dependency>
+        <groupId>org.springdoc</groupId>
+        <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+    </dependency>
 
-   <!-- RabbitMQ & AMQP for Asynchronous Event-Driven Messaging -->
-   <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-amqp</artifactId>
-   </dependency>
+    <!-- RabbitMQ & AMQP for Asynchronous Event-Driven Messaging -->
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-amqp</artifactId>
+    </dependency>
 
-   <!-- gRPC & Protobuf for Synchronous Internal Service Calls -->
-   <dependency>
-      <groupId>io.grpc</groupId>
-      <artifactId>grpc-netty-shaded</artifactId>
-   </dependency>
-   <dependency>
-      <groupId>io.grpc</groupId>
-      <artifactId>grpc-protobuf</artifactId>
-   </dependency>
-   <dependency>
-      <groupId>io.grpc</groupId>
-      <artifactId>grpc-stub</artifactId>
-   </dependency>
+    <!-- gRPC & Protobuf for Synchronous Internal Service Calls -->
+    <dependency>
+        <groupId>io.grpc</groupId>
+        <artifactId>grpc-netty-shaded</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>io.grpc</groupId>
+        <artifactId>grpc-protobuf</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>io.grpc</groupId>
+        <artifactId>grpc-stub</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>io.grpc</groupId>
+        <artifactId>grpc-services</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>com.google.protobuf</groupId>
+        <artifactId>protobuf-java</artifactId>
+        <version>3.25.5</version>
+    </dependency>
+    <dependency>
+        <groupId>com.google.api.grpc</groupId>
+        <artifactId>proto-google-common-protos</artifactId>
+        <version>2.45.1</version>
+    </dependency>
+    <dependency>
+        <groupId>javax.annotation</groupId>
+        <artifactId>javax.annotation-api</artifactId>
+        <version>1.3.2</version>
+    </dependency>
 
-   <!-- Actuator, Metrics & Probes -->
-   <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-actuator</artifactId>
-   </dependency>
-   <dependency>
-      <groupId>io.micrometer</groupId>
-      <artifactId>micrometer-registry-prometheus</artifactId>
-   </dependency>
+    <!-- Actuator, Metrics & Probes -->
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>io.micrometer</groupId>
+        <artifactId>micrometer-registry-prometheus</artifactId>
+    </dependency>
 
-   <!-- Telemetry & Distributed Tracing (OpenTelemetry Bridge) -->
-   <dependency>
-      <groupId>io.micrometer</groupId>
-      <artifactId>micrometer-tracing-bridge-otel</artifactId>
-   </dependency>
+    <!-- Telemetry & Distributed Tracing (OpenTelemetry Bridge) -->
+    <dependency>
+        <groupId>io.micrometer</groupId>
+        <artifactId>micrometer-tracing-bridge-otel</artifactId>
+    </dependency>
 
-   <!-- Relational Persistence (JPA & PostgreSQL) -->
-   <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-data-jpa</artifactId>
-   </dependency>
-   <dependency>
-      <groupId>org.postgresql</groupId>
-      <artifactId>postgresql</artifactId>
-      <scope>runtime</scope>
-   </dependency>
-   <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-flyway</artifactId>
-   </dependency>
-   <dependency>
-      <groupId>org.flywaydb</groupId>
-      <artifactId>flyway-database-postgresql</artifactId>
-   </dependency>
+    <!-- Relational Persistence (JPA & PostgreSQL) -->
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-data-jpa</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>org.postgresql</groupId>
+        <artifactId>postgresql</artifactId>
+        <scope>runtime</scope>
+    </dependency>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-flyway</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>org.flywaydb</groupId>
+        <artifactId>flyway-database-postgresql</artifactId>
+    </dependency>
 
-   <!-- Redis & Distributed Caching -->
-   <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-data-redis</artifactId>
-   </dependency>
+    <!-- Redis & Distributed Caching -->
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-data-redis</artifactId>
+    </dependency>
 
-   <!-- UUIDv7 Generator (RFC 9562 compliant) -->
-   <dependency>
-      <groupId>com.github.f4b6a3</groupId>
-      <artifactId>uuid-creator</artifactId>
-      <version>5.3.7</version>
-   </dependency>
+    <!-- UUIDv7 Generator (RFC 9562 compliant) -->
+    <dependency>
+        <groupId>com.github.f4b6a3</groupId>
+        <artifactId>uuid-creator</artifactId>
+        <version>5.3.7</version>
+    </dependency>
 
-   <!-- Spring Security -->
-   <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-security</artifactId>
-   </dependency>
-   <dependency>
-      <groupId>org.springframework.security</groupId>
-      <artifactId>spring-security-test</artifactId>
-      <scope>test</scope>
-   </dependency>
+    <!-- Spring Security -->
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-security</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>org.springframework.security</groupId>
+        <artifactId>spring-security-test</artifactId>
+        <scope>test</scope>
+    </dependency>
 
-   <!-- Nimbus JOSE + JWT for EdDSA (Ed25519) Digital Signing and Verification -->
-   <dependency>
-      <groupId>com.nimbusds</groupId>
-      <artifactId>nimbus-jose-jwt</artifactId>
-   </dependency>
-   <!-- Google Tink for Ed25519 Cryptographic Curve Support in Nimbus JOSE -->
-   <dependency>
-      <groupId>com.google.crypto.tink</groupId>
-      <artifactId>tink</artifactId>
-   </dependency>
+    <!-- Nimbus JOSE + JWT for EdDSA (Ed25519) Digital Signing and Verification -->
+    <dependency>
+        <groupId>com.nimbusds</groupId>
+        <artifactId>nimbus-jose-jwt</artifactId>
+    </dependency>
+    <!-- Google Tink for Ed25519 Cryptographic Curve Support in Nimbus JOSE -->
+    <dependency>
+        <groupId>com.google.crypto.tink</groupId>
+        <artifactId>tink</artifactId>
+    </dependency>
 
-   <!-- Structured JSON Logging -->
-   <dependency>
-      <groupId>net.logstash.logback</groupId>
-      <artifactId>logstash-logback-encoder</artifactId>
-   </dependency>
+    <!-- Structured JSON Logging -->
+    <dependency>
+        <groupId>net.logstash.logback</groupId>
+        <artifactId>logstash-logback-encoder</artifactId>
+    </dependency>
 
-   <!-- FreeMarker for i18n -->
-   <dependency>
-      <groupId>org.freemarker</groupId>
-      <artifactId>freemarker</artifactId>
-   </dependency>
+    <!-- FreeMarker for i18n -->
+    <dependency>
+        <groupId>org.freemarker</groupId>
+        <artifactId>freemarker</artifactId>
+    </dependency>
 
-   <!-- Lombok & Configuration Processor -->
-   <dependency>
-      <groupId>org.projectlombok</groupId>
-      <artifactId>lombok</artifactId>
-      <optional>true</optional>
-   </dependency>
-   <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-configuration-processor</artifactId>
-      <optional>true</optional>
-   </dependency>
+    <!-- Lombok & Configuration Processor -->
+    <dependency>
+        <groupId>org.projectlombok</groupId>
+        <artifactId>lombok</artifactId>
+        <optional>true</optional>
+    </dependency>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-configuration-processor</artifactId>
+        <optional>true</optional>
+    </dependency>
 
-   <!-- In-memory DB for Testing -->
-   <dependency>
-      <groupId>com.h2database</groupId>
-      <artifactId>h2</artifactId>
-      <scope>test</scope>
-   </dependency>
+    <!-- In-memory DB for Testing -->
+    <dependency>
+        <groupId>com.h2database</groupId>
+        <artifactId>h2</artifactId>
+        <scope>test</scope>
+    </dependency>
 
-   <!-- Testing -->
-   <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-test</artifactId>
-      <scope>test</scope>
-   </dependency>
-   <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-webmvc-test</artifactId>
-      <scope>test</scope>
-   </dependency>
-   <dependency>
-      <groupId>io.grpc</groupId>
-      <artifactId>grpc-testing</artifactId>
-      <scope>test</scope>
-   </dependency>
-   <dependency>
-      <groupId>org.springframework.amqp</groupId>
-      <artifactId>spring-rabbit-test</artifactId>
-      <scope>test</scope>
-   </dependency>
+    <!-- Testing -->
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-test</artifactId>
+        <scope>test</scope>
+    </dependency>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-webmvc-test</artifactId>
+        <scope>test</scope>
+    </dependency>
+    <dependency>
+        <groupId>io.grpc</groupId>
+        <artifactId>grpc-testing</artifactId>
+        <scope>test</scope>
+    </dependency>
+    <dependency>
+        <groupId>org.springframework.amqp</groupId>
+        <artifactId>spring-rabbit-test</artifactId>
+        <scope>test</scope>
+    </dependency>
 </dependencies>
+
+<build>
+   <extensions>
+      <extension>
+         <groupId>kr.motd.maven</groupId>
+         <artifactId>os-maven-plugin</artifactId>
+         <version>1.7.1</version>
+      </extension>
+   </extensions>
+   <plugins>
+      <plugin>
+         <groupId>kr.motd.maven</groupId>
+         <artifactId>os-maven-plugin</artifactId>
+         <version>1.7.1</version>
+         <executions>
+            <execution>
+               <phase>initialize</phase>
+               <goals>
+                  <goal>detect</goal>
+               </goals>
+            </execution>
+         </executions>
+      </plugin>
+      <plugin>
+         <groupId>org.xolstice.maven.plugins</groupId>
+         <artifactId>protobuf-maven-plugin</artifactId>
+         <version>0.6.1</version>
+         <configuration>
+            <protocArtifact>com.google.protobuf:protoc:3.25.5:exe:${os.detected.classifier}</protocArtifact>
+            <pluginId>grpc-java</pluginId>
+            <pluginArtifact>io.grpc:protoc-gen-grpc-java:1.68.0:exe:${os.detected.classifier}</pluginArtifact>
+            <protoSourceRoot>${project.basedir}/src/main/proto</protoSourceRoot>
+            <clearOutputDirectory>false</clearOutputDirectory>
+         </configuration>
+         <executions>
+            <execution>
+               <goals>
+                  <goal>compile</goal>
+                  <goal>compile-custom</goal>
+               </goals>
+            </execution>
+         </executions>
+      </plugin>
+   </plugins>
+</build>
+
+   <profiles>
+      <profile>
+         <id>os-mac-arm64</id>
+         <activation>
+            <os>
+               <family>mac</family>
+               <arch>aarch64</arch>
+            </os>
+         </activation>
+         <properties>
+            <os.detected.classifier>osx-aarch_64</os.detected.classifier>
+         </properties>
+      </profile>
+      <profile>
+         <id>os-mac-x86_64</id>
+         <activation>
+            <os>
+               <family>mac</family>
+               <arch>x86_64</arch>
+            </os>
+         </activation>
+         <properties>
+            <os.detected.classifier>osx-x86_64</os.detected.classifier>
+         </properties>
+      </profile>
+      <profile>
+         <id>os-linux-x86_64</id>
+         <activation>
+            <os>
+               <family>unix</family>
+               <name>linux</name>
+               <arch>amd64</arch>
+            </os>
+         </activation>
+         <properties>
+            <os.detected.classifier>linux-x86_64</os.detected.classifier>
+         </properties>
+      </profile>
+      <profile>
+         <id>os-linux-x86_64-alt</id>
+         <activation>
+            <os>
+               <family>unix</family>
+               <name>linux</name>
+               <arch>x86_64</arch>
+            </os>
+         </activation>
+         <properties>
+            <os.detected.classifier>linux-x86_64</os.detected.classifier>
+         </properties>
+      </profile>
+      <profile>
+         <id>os-linux-arm64</id>
+         <activation>
+            <os>
+               <family>unix</family>
+               <name>linux</name>
+               <arch>aarch64</arch>
+            </os>
+         </activation>
+         <properties>
+            <os.detected.classifier>linux-aarch_64</os.detected.classifier>
+         </properties>
+      </profile>
+      <profile>
+         <id>os-windows-x86_64</id>
+         <activation>
+            <os>
+               <family>windows</family>
+               <arch>amd64</arch>
+            </os>
+         </activation>
+         <properties>
+            <os.detected.classifier>windows-x86_64</os.detected.classifier>
+         </properties>
+      </profile>
+      <profile>
+         <id>os-windows-x86_64-alt</id>
+         <activation>
+            <os>
+               <family>windows</family>
+               <arch>x86_64</arch>
+            </os>
+         </activation>
+         <properties>
+            <os.detected.classifier>windows-x86_64</os.detected.classifier>
+         </properties>
+      </profile>
+   </profiles>
 </project>

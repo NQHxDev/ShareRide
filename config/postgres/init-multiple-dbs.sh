@@ -2,7 +2,7 @@
 set -e
 set -u
 
-# ==============================================================================
+# ------------------------------------------------------------------------------
 # ShareRide - Automatic Multiple PostgreSQL Database Initializer
 # ------------------------------------------------------------------------------
 # Script này được Docker PostgreSQL tự động thực thi khi khởi chạy container lần đầu
@@ -12,7 +12,7 @@ set -u
 # 1. Quét biến POSTGRES_MULTIPLE_DATABASES (dạng cách nhau bởi dấu phẩy)
 # 2. Kiểm tra nếu DB chưa tồn tại thì tự động tạo mới (Idempotent)
 # 3. Cấp quyền sở hữu và truy cập đầy đủ cho POSTGRES_USER
-# ==============================================================================
+# ------------------------------------------------------------------------------
 
 function create_database() {
     local database=$1
@@ -34,15 +34,15 @@ EOSQL
 DEFAULT_DATABASES="shareride_auth,shareride_notification"
 TARGET_DATABASES="${POSTGRES_MULTIPLE_DATABASES:-$DEFAULT_DATABASES}"
 
-echo "=============================================================================="
+echo "----------------------------------------------------------------------------"
 echo " [ShareRide] Initializing Multiple Databases on Single PostgreSQL Instance"
-echo "=============================================================================="
+echo "----------------------------------------------------------------------------"
 
 for db in $(echo "$TARGET_DATABASES" | tr ',' ' '); do
     create_database "$db"
 done
 
-echo "=============================================================================="
+echo "----------------------------------------------------------"
 echo " [ShareRide] All Databases Initialized Successfully!"
-echo "=============================================================================="
+echo "----------------------------------------------------------"
 

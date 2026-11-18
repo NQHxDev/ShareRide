@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package shareride.template.v1;
+
+option java_multiple_files = true;
+option java_package = "com.shareride.common.grpc.template.v1";
+option java_outer_classname = "TemplateServiceProto";
+
+// TemplateService defines the reference RPC operations for service-template.
+service TemplateService {
+  rpc GetTemplate (GetTemplateRequest) returns (GetTemplateResponse);
+  rpc VerifyTemplate (VerifyTemplateRequest) returns (VerifyTemplateResponse);
+  rpc HealthCheck (TemplateHealthCheckRequest) returns (TemplateHealthCheckResponse);
+}
+
+message GetTemplateRequest {
+  string template_id = 1;
+  string locale = 2;
+}
+
+message GetTemplateResponse {
+  string template_id = 1;
+  string name = 2;
+  string content = 3;
+  string version = 4;
+  string created_at = 5;
+}
+
+message VerifyTemplateRequest {
+  string template_id = 1;
+  string checksum = 2;
+}
+
+message VerifyTemplateResponse {
+  bool is_valid = 1;
+  string status = 2;
+  string message = 3;
+}
+
+message TemplateHealthCheckRequest {}
+
+message TemplateHealthCheckResponse {
+  string status = 1;
+  int64 uptime_seconds = 2;
+}

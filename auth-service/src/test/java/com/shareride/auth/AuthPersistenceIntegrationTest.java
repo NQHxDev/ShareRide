@@ -212,7 +212,9 @@ class AuthPersistenceIntegrationTest extends AbstractIntegrationTest {
                                                         m.getAggregateType())
                                                 && response.getAccountId()
                                                         .toString()
-                                                        .equals(m.getAggregateId()))
+                                                        .equals(m.getAggregateId())
+                                                && AuthOutboxConstants.EventType.ACCOUNT_REGISTERED
+                                                        .equals(m.getEventType()))
                         .findFirst()
                         .orElseThrow();
 
@@ -234,6 +236,11 @@ class AuthPersistenceIntegrationTest extends AbstractIntegrationTest {
                         .roleCode("ROLE_RIDER")
                         .build();
         authService.register(registerRequest);
+
+        // Activate account for test (bypass email verification)
+        Account account = accountRepository.findByEmail("login.user@shareride.com").orElseThrow();
+        account.setStatus(AccountStatus.ACTIVE);
+        accountRepository.save(account);
 
         // Login success with device metadata
         LoginRequest loginRequest =
@@ -295,6 +302,11 @@ class AuthPersistenceIntegrationTest extends AbstractIntegrationTest {
                         .build();
         authService.register(registerRequest);
 
+        // Activate account for test (bypass email verification)
+        Account account = accountRepository.findByEmail("refresh.user@shareride.com").orElseThrow();
+        account.setStatus(AccountStatus.ACTIVE);
+        accountRepository.save(account);
+
         LoginRequest loginRequest =
                 LoginRequest.builder()
                         .email("refresh.user@shareride.com")
@@ -337,6 +349,11 @@ class AuthPersistenceIntegrationTest extends AbstractIntegrationTest {
                         .build();
         authService.register(registerRequest);
 
+        // Activate account for test (bypass email verification)
+        Account account = accountRepository.findByEmail("logout.user@shareride.com").orElseThrow();
+        account.setStatus(AccountStatus.ACTIVE);
+        accountRepository.save(account);
+
         LoginRequest loginRequest =
                 LoginRequest.builder()
                         .email("logout.user@shareride.com")
@@ -374,6 +391,12 @@ class AuthPersistenceIntegrationTest extends AbstractIntegrationTest {
                         .phoneNumber("+84988999222")
                         .build();
         AccountResponse account = authService.register(registerRequest);
+
+        // Activate account for test (bypass email verification)
+        Account accountEntity =
+                accountRepository.findByEmail("revoke.user@shareride.com").orElseThrow();
+        accountEntity.setStatus(AccountStatus.ACTIVE);
+        accountRepository.save(accountEntity);
 
         LoginRequest loginRequest =
                 LoginRequest.builder()

@@ -2,19 +2,25 @@ package com.shareride.notification;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.library.Architectures;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
  * ArchUnit architecture test enforcing ShareRide enterprise layered pattern, package boundaries,
  * and zero-tolerance code quality policies.
- *
- * <p>Note: @SuppressWarnings enforcement is delegated to Checkstyle since the annotation
- * has @Retention(SOURCE) and is not available at runtime for ArchUnit inspection.
  */
 class NotificationArchitectureTest {
 
@@ -188,5 +194,44 @@ class NotificationArchitectureTest {
                         "All template strategies must implement EmailTemplateStrategy for"
                                 + " polymorphic template rendering")
                 .check(importedClasses);
+    }
+
+    @Test
+    void shouldNotUseSuppressWarningsAnnotation() throws IOException {
+        Path sourceRoot = Path.of("src");
+        if (!Files.exists(sourceRoot)) {
+            return;
+        }
+        try (Stream<Path> paths = Files.walk(sourceRoot)) {
+            List<String> violations =
+                    paths.filter(Files::isRegularFile)
+                            .filter(p -> p.toString().endsWith(".java"))
+                            .flatMap(
+                                    p -> {
+                                        try {
+                                            List<String> lines =
+                                                    Files.readAllLines(p, StandardCharsets.UTF_8);
+                                            List<String> fileViolations = new ArrayList<>();
+                                            for (int i = 0; i < lines.size(); i++) {
+                                                String trimmed = lines.get(i).trim();
+                                                if (trimmed.startsWith("@SuppressWarnings")
+                                                        || trimmed.startsWith(
+                                                                "@java.lang.SuppressWarnings")) {
+                                                    fileViolations.add(
+                                                            p + ":" + (i + 1) + ": " + trimmed);
+                                                }
+                                            }
+                                            return fileViolations.stream();
+                                        } catch (IOException e) {
+                                            throw new UncheckedIOException(e);
+                                        }
+                                    })
+                            .toList();
+
+            assertTrue(
+                    violations.isEmpty(),
+                    "Constitution Principle X Violation: @SuppressWarnings is strictly forbidden:\n"
+                            + String.join("\n", violations));
+        }
     }
 }

@@ -1,114 +1,142 @@
 package com.shareride.template.client;
 
 import com.shareride.common.communication.grpc.client.GrpcChannelFactory;
-import com.shareride.common.communication.grpc.mapper.GrpcStatusExceptionMapper;
-import com.shareride.common.resilience.executor.ResilientCallExecutor;
+import com.shareride.common.grpc.template.v1.GetTemplateRequest;
+import com.shareride.common.grpc.template.v1.GetTemplateResponse;
+import com.shareride.common.grpc.template.v1.TemplateHealthCheckRequest;
+import com.shareride.common.grpc.template.v1.TemplateHealthCheckResponse;
+import com.shareride.common.grpc.template.v1.TemplateServiceGrpc;
+import com.shareride.common.grpc.template.v1.VerifyTemplateRequest;
+import com.shareride.common.grpc.template.v1.VerifyTemplateResponse;
 import io.grpc.Channel;
-import io.grpc.StatusRuntimeException;
-import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
- * Enterprise standard gRPC Client Wrapper. Provides all essential calling patterns so microservices
- * never have to re-implement boilerplate:
+ * Reference gRPC client implementation for template-service demonstrating best practices for
+ * calling downstream gRPC services.
+ *
+ * <p>This client provides a canonical blueprint for future microservices, showcasing:
  *
  * <ul>
- *   <li>Managed Channel retrieval with automatic client tracing, dead-line, and logging
- *       interceptors.
- *   <li>Automatic translation between gRPC StatusRuntimeException and ShareRide BaseException.
- *   <li>Resilience integration (Circuit Breaker, Exponential Retry, and Timeout).
- *   <li>Asynchronous non-blocking invocation.
+ *   <li>Channel creation via {@link GrpcChannelFactory} with connection pooling
+ *   <li>Deadline configuration for timeout enforcement
+ *   <li>Blocking stub usage for synchronous RPC calls
  * </ul>
+ *
+ * <p>Per T042 (Phase 6 User Story 4).
  */
 @Slf4j
 @Component
 public class TemplateGrpcClient {
 
-    private final GrpcChannelFactory grpcChannelFactory;
-    private final ResilientCallExecutor resilientCallExecutor;
+    private final TemplateServiceGrpc.TemplateServiceBlockingStub blockingStub;
+    private final long defaultDeadlineMs;
 
     public TemplateGrpcClient(
-            GrpcChannelFactory grpcChannelFactory,
-            ObjectProvider<ResilientCallExecutor> resilientCallExecutorProvider) {
-        this.grpcChannelFactory = grpcChannelFactory;
-        this.resilientCallExecutor =
-                resilientCallExecutorProvider.getIfAvailable(ResilientCallExecutor::new);
+            GrpcChannelFactory channelFactory,
+            @Value("${shareride.grpc.client.template-service.host:localhost}") String host,
+            @Value("${shareride.grpc.client.template-service.port:9082}") int port,
+            @Value("${shareride.grpc.client.default-deadline-ms:5000}") long defaultDeadlineMs) {
+        Channel channel = channelFactory.getChannel(host, port);
+        this.blockingStub = TemplateServiceGrpc.newBlockingStub(channel);
+        this.defaultDeadlineMs = defaultDeadlineMs;
+        log.info(
+                "TemplateGrpcClient initialized for target {}:{} with deadline {}ms",
+                host,
+                port,
+                defaultDeadlineMs);
     }
 
     /**
-     * Gets or creates a cached, interceptor-enhanced gRPC Channel for the target service.
+     * Retrieves a template by ID with optional locale.
      *
-     * @param targetServiceName name of the target service (e.g., "auth-service", "ride-service")
-     * @return resilient gRPC Channel
+     * @param templateId the template UUID
+     * @param locale optional locale (e.g., "vi", "en")
+     * @return GetTemplateResponse containing template details
      */
-    public Channel getChannel(String targetServiceName) {
-        return grpcChannelFactory.getChannel(targetServiceName);
-    }
+    public GetTemplateResponse getTemplate(String templateId, String locale) {
+        log.debug("Calling gRPC GetTemplate for templateId: {}, locale: {}", templateId, locale);
 
-    /**
-     * Executes a synchronous gRPC call, automatically converting any gRPC {@link
-     * StatusRuntimeException} into a standard ShareRide {@link
-     * com.shareride.common.exception.BaseException}.
-     *
-     * @param targetServiceName target microservice identifier
-     * @param callFunc function accepting Channel and returning response from gRPC blocking stub
-     * @param <R> response type
-     * @return response payload
-     */
-    public <R> R executeCall(String targetServiceName, Function<Channel, R> callFunc) {
-        Channel channel = getChannel(targetServiceName);
+        GetTemplateRequest request =
+                GetTemplateRequest.newBuilder()
+                        .setTemplateId(templateId)
+                        .setLocale(locale != null ? locale : "")
+                        .build();
+
         try {
-            return callFunc.apply(channel);
-        } catch (StatusRuntimeException e) {
-            log.error(
-                    "gRPC call to service [{}] failed with status [{}]: {}",
-                    targetServiceName,
-                    e.getStatus().getCode(),
-                    e.getMessage());
-            throw GrpcStatusExceptionMapper.toBaseException(e);
+            GetTemplateResponse response =
+                    blockingStub
+                            .withDeadlineAfter(defaultDeadlineMs, TimeUnit.MILLISECONDS)
+                            .getTemplate(request);
+
+            log.info("gRPC GetTemplate succeeded for templateId: {}", templateId);
+            return response;
+        } catch (Exception e) {
+            log.error("gRPC GetTemplate failed for templateId: {}", templateId, e);
+            throw e;
         }
     }
 
     /**
-     * Executes a synchronous gRPC call protected by Circuit Breaker and Exponential Backoff Retry.
+     * Verifies a template's checksum.
      *
-     * @param targetServiceName target microservice identifier
-     * @param operationName operation name for circuit breaker metric grouping
-     * @param callFunc function accepting Channel and returning response
-     * @param <R> response type
-     * @return response payload
+     * @param templateId the template UUID
+     * @param checksum the expected SHA-256 checksum
+     * @return VerifyTemplateResponse indicating validity
      */
-    public <R> R executeResilientCall(
-            String targetServiceName, String operationName, Function<Channel, R> callFunc) {
-        return resilientCallExecutor.execute(
-                targetServiceName + ":" + operationName,
-                () -> executeCall(targetServiceName, callFunc));
+    public VerifyTemplateResponse verifyTemplate(String templateId, String checksum) {
+        log.debug(
+                "Calling gRPC VerifyTemplate for templateId: {}, checksum: {}",
+                templateId,
+                checksum);
+
+        VerifyTemplateRequest request =
+                VerifyTemplateRequest.newBuilder()
+                        .setTemplateId(templateId)
+                        .setChecksum(checksum)
+                        .build();
+
+        try {
+            VerifyTemplateResponse response =
+                    blockingStub
+                            .withDeadlineAfter(defaultDeadlineMs, TimeUnit.MILLISECONDS)
+                            .verifyTemplate(request);
+
+            log.info(
+                    "gRPC VerifyTemplate succeeded for templateId: {}, isValid: {}",
+                    templateId,
+                    response.getIsValid());
+            return response;
+        } catch (Exception e) {
+            log.error("gRPC VerifyTemplate failed for templateId: {}", templateId, e);
+            throw e;
+        }
     }
 
     /**
-     * Executes an asynchronous non-blocking gRPC call.
+     * Performs a health check on the template service.
      *
-     * @param targetServiceName target microservice identifier
-     * @param callFunc function accepting Channel and returning CompletableFuture
-     * @param <R> response type
-     * @return CompletableFuture completing with response payload
+     * @return TemplateHealthCheckResponse with service status and uptime
      */
-    public <R> CompletableFuture<R> executeAsyncCall(
-            String targetServiceName, Function<Channel, CompletableFuture<R>> callFunc) {
-        Channel channel = getChannel(targetServiceName);
-        return callFunc.apply(channel)
-                .exceptionally(
-                        throwable -> {
-                            if (throwable instanceof StatusRuntimeException sre) {
-                                throw GrpcStatusExceptionMapper.toBaseException(sre);
-                            }
-                            if (throwable.getCause() instanceof StatusRuntimeException sre) {
-                                throw GrpcStatusExceptionMapper.toBaseException(sre);
-                            }
-                            throw new RuntimeException(throwable);
-                        });
+    public TemplateHealthCheckResponse healthCheck() {
+        log.debug("Calling gRPC HealthCheck");
+
+        TemplateHealthCheckRequest request = TemplateHealthCheckRequest.newBuilder().build();
+
+        try {
+            TemplateHealthCheckResponse response =
+                    blockingStub
+                            .withDeadlineAfter(defaultDeadlineMs, TimeUnit.MILLISECONDS)
+                            .healthCheck(request);
+
+            log.debug("gRPC HealthCheck succeeded, status: {}", response.getStatus());
+            return response;
+        } catch (Exception e) {
+            log.error("gRPC HealthCheck failed", e);
+            throw e;
+        }
     }
 }
