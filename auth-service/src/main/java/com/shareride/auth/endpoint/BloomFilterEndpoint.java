@@ -17,11 +17,11 @@ import org.springframework.stereotype.Component;
  * <p>Replaces the legacy AdminBloomFilterController REST endpoint with an Actuator-based management
  * interface, removing business logic from public HTTP controllers.
  *
- * <p>Accessible at: POST http://localhost:8081/actuator/bloom-filter/rebuild
+ * <p>Accessible at: POST http://localhost:8081/actuator/bloomfilter/rebuild
  */
 @Slf4j
 @Component
-@Endpoint(id = "bloom-filter")
+@Endpoint(id = "bloomfilter")
 @RequiredArgsConstructor
 public class BloomFilterEndpoint {
 

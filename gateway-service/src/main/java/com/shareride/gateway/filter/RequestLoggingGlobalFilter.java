@@ -122,6 +122,18 @@ public class RequestLoggingGlobalFilter implements GlobalFilter, Ordered {
                                             userId);
                                     shareRideMetrics.ifPresent(
                                             m -> m.recordSlowRequest(method, path, statusValue));
+                                } else if (statusValue == 502
+                                        || statusValue == 503
+                                        || statusValue == 504) {
+                                    log.warn(
+                                            "[HTTP] {} {} status={} duration={}ms clientIp={}"
+                                                    + " userId={}",
+                                            method,
+                                            fullPath,
+                                            statusValue,
+                                            durationMs,
+                                            clientIp,
+                                            userId);
                                 } else if (statusValue >= 500) {
                                     log.error(
                                             "[HTTP] {} {} status={} duration={}ms clientIp={}"

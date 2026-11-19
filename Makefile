@@ -69,6 +69,12 @@ clean: ## Xoá các artifacts build (target/)
 	@$(MVN) clean
 	@echo "$(GREEN)✓ Clean complete!$(NC)"
 
+.PHONY: clean-logs
+clean-logs: ## Xoá toàn bộ các file log trong thư mục logs/
+	@echo "$(YELLOW)Cleaning logs directory...$(NC)"
+	@rm -rf logs/*.log logs/*.log.gz
+	@echo "$(GREEN)✓ Cleaned logs directory!$(NC)"
+
 .PHONY: ci-quality
 ci-quality: ## [CI Job 1] Kiểm tra Code Quality (Spotless & Checkstyle)
 	@echo "$(CYAN)▶ [CI Job 1/3] Running Code Quality checks (Spotless & Checkstyle)...$(NC)"
@@ -126,6 +132,7 @@ ci: ## Chạy TOÀN BỘ các case kiểm tra trong CI theo từng Job
 
 .PHONY: dev
 dev: ## Khởi chạy hệ thống môi trường phát triển với Process-Compose
+	@mkdir -p logs
 	@PC_PORT_NUM=9999 process-compose up
 
 .PHONY: graph-update

@@ -1,6 +1,10 @@
 server:
   port: ${PORT:8080}
 
+logging:
+  file:
+    name: logs/gateway-service.log
+
 spring:
   application:
     name: gateway-service
@@ -9,6 +13,7 @@ spring:
       - optional:file:../.env[.properties]
       - optional:file:.env[.properties]
       - optional:file:gateway-service/.env[.properties]
+      - optional:classpath:application-rate-limit-defaults.yml
 
   autoconfigure:
     exclude:
@@ -17,14 +22,7 @@ spring:
       - com.shareride.common.probe.ProbeAutoConfiguration
       - com.shareride.common.versioning.ApiVersioningAutoConfiguration
       - com.shareride.common.resilience.config.ResilienceAutoConfiguration
-      - com.shareride.common.cache.ShareRideCacheAutoConfiguration
-
-  data:
-    redis:
-      host: ${CACHE_SHARED_HOST:${VALKEY_HOST:${REDIS_SHARED_HOST:localhost}}}
-      port: ${CACHE_SHARED_PORT:${VALKEY_PORT:${REDIS_SHARED_PORT:6379}}}
-      password: ${CACHE_SHARED_PASSWORD:${VALKEY_PASSWORD:${REDIS_PASSWORD:shared_valkey_secret}}}
-      timeout: 2000ms
+      - org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration
 
   cloud:
     gateway:
@@ -40,26 +38,39 @@ spring:
                 - Path=/api/v1/auth/v3/api-docs/**
               filters:
                 - RewritePath=/api/v1/auth/v3/api-docs(?<segment>.*), /v3/api-docs${segment}
-            - id: template-service-api-docs-route
-              uri: ${TEMPLATE_SERVICE_URI:http://localhost:8082}
-              predicates:
-                - Path=/api/v1/templates/v3/api-docs/**
-              filters:
-                - RewritePath=/api/v1/templates/v3/api-docs(?<segment>.*), /v3/api-docs${segment}
+                - name: CircuitBreaker
+                  args:
+                    name: authServiceCircuitBreaker
+                    fallbackUri: forward:/fallback/auth
 
 springdoc:
   api-docs:
     enabled: true
+    path: /v3/api-docs
   swagger-ui:
     enabled: true
     path: /swagger-ui.html
-    urls:
-      - name: "Auth Service"
-        url: /api/v1/auth/v3/api-docs
-      - name: "Template Service"
-        url: /api/v1/templates/v3/api-docs
+  group-configs:
+    - group: 'all'
+      display-name: 'All Services'
+      paths-to-match:
+        - '/api/**'
+    - group: 'auth'
+      display-name: 'Auth Service'
+      paths-to-match:
+        - '/api/v1/auth/**'
 
 shareride:
+  cache:
+    enabled: true
+    shared:
+      host: ${CACHE_SHARED_HOST:localhost}
+      port: ${CACHE_SHARED_PORT:6379}
+      password: ${CACHE_SHARED_PASSWORD:shared_valkey_secret}
+      database: 1
+    local:
+      enabled: false
+
   security:
     jwt:
       public-key-jwk: ${JWT_PUBLIC_KEY_JWK:}
@@ -79,6 +90,8 @@ shareride:
       - /v3/api-docs/**
       - /swagger-ui/**
       - /swagger-ui.html
+      - /docs
+      - /docs/**
 
   gateway:
     rate-limiting:
@@ -94,34 +107,8 @@ shareride:
       premium:
         replenish-rate: 100
         burst-capacity: 200
-      endpoints:
-        - path-pattern: /api/v1/auth/login
-          method: POST
-          replenish-rate: 5
-          burst-capacity: 10
-        - path-pattern: /api/v1/auth/register
-          method: POST
-          replenish-rate: 5
-          burst-capacity: 10
-        - path-pattern: /api/v1/auth/refresh
-          method: POST
-          replenish-rate: 10
-          burst-capacity: 20
-        - path-pattern: /.well-known/**
-          replenish-rate: 50
-          burst-capacity: 100
-        - path-pattern: /api/v1/auth/jwks.json
-          replenish-rate: 50
-          burst-capacity: 100
-        - path-pattern: /v3/api-docs/**
-          replenish-rate: 50
-          burst-capacity: 100
-        - path-pattern: /api/**/v3/api-docs/**
-          replenish-rate: 50
-          burst-capacity: 100
-        - path-pattern: /swagger-ui/**
-          replenish-rate: 50
-          burst-capacity: 100
+      # Endpoint-specific rate limit groups are loaded from application-rate-limit-defaults.yml
+      # Override or extend them here if needed for this environment
     security:
       headers:
         enabled: true
@@ -147,6 +134,9 @@ management:
       show-details: always
     gateway:
       enabled: true
+  health:
+    redis:
+      enabled: false
 
 resilience4j:
   circuitbreaker:
@@ -158,6 +148,8 @@ resilience4j:
         permittedNumberOfCallsInHalfOpenState: 3
     instances:
       authServiceCircuitBreaker:
+        baseConfig: default
+      defaultCircuitBreaker:
         baseConfig: default
   timelimiter:
     configs:

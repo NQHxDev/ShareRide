@@ -23,16 +23,16 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 @EnableConfigurationProperties(BloomFilterProperties.class)
 public class ValkeyConfig {
 
-    @Value("${spring.data.redis.host:localhost}")
+    @Value("${shareride.cache.shared.host:localhost}")
     private String host;
 
-    @Value("${spring.data.redis.port:6379}")
+    @Value("${shareride.cache.shared.port:6379}")
     private int port;
 
-    @Value("${spring.data.redis.password:}")
+    @Value("${shareride.cache.shared.password:}")
     private String password;
 
-    @Value("${spring.data.redis.database:0}")
+    @Value("${shareride.cache.shared.database:0}")
     private int database;
 
     /**

@@ -1,5 +1,7 @@
 version: '0.5'
 
+log_location: ./logs/process-compose.log
+
 environment:
   - 'PC_PORT_NUM=9999'
   - 'SPRING_PROFILES_ACTIVE=dev'
@@ -11,13 +13,14 @@ processes:
     working_dir: '.'
     namespace: 'infra'
     disabled: false
+    log_location: ./logs/infra.log
     availability:
       restart: 'no'
     shutdown:
       command: 'docker compose down'
     readiness_probe:
       exec:
-        command: 'docker compose exec -T valkey-shared valkey-cli -a shared_valkey_secret ping'
+        command: 'docker compose exec -T valkey-shared valkey-cli -a "${VALKEY_PASSWORD:-shared_valkey_secret}" ping'
       initial_delay_seconds: 2
       period_seconds: 2
       timeout_seconds: 2
@@ -30,6 +33,7 @@ processes:
     working_dir: '.'
     namespace: 'core'
     env_file: './gateway-service/.env'
+    log_location: ./logs/gateway-service.log
     availability:
       restart: 'no'
     depends_on:
@@ -60,6 +64,7 @@ processes:
     namespace: 'services'
     disabled: true
     env_file: './auth-service/.env'
+    log_location: ./logs/auth-service.log
     availability:
       restart: 'no'
     depends_on:
@@ -89,6 +94,7 @@ processes:
     namespace: 'services'
     disabled: true
     env_file: './notification-service/.env'
+    log_location: ./logs/notification-service.log
     availability:
       restart: 'no'
     depends_on:

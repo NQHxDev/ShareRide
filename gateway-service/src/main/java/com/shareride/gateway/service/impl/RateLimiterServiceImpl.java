@@ -1,5 +1,6 @@
 package com.shareride.gateway.service.impl;
 
+import com.shareride.gateway.config.RateLimitProperties;
 import com.shareride.gateway.config.RateLimiterConfig;
 import com.shareride.gateway.constant.GatewayConstants;
 import com.shareride.gateway.ratelimit.EndpointRateLimitRule;
@@ -11,6 +12,7 @@ import com.shareride.gateway.service.RateLimiterService;
 import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -43,6 +45,8 @@ import reactor.core.publisher.Mono;
 @Service
 public class RateLimiterServiceImpl implements RateLimiterService {
 
+    private final RateLimitProperties properties;
+    private final List<EndpointRateLimitRule> endpointRules;
     private final RateLimiterConfig config;
     private final ObjectProvider<ReactiveStringRedisTemplate> redisTemplateProvider;
     private final ObjectProvider<RedisScript<List<Long>>> redisScriptProvider;
@@ -51,23 +55,79 @@ public class RateLimiterServiceImpl implements RateLimiterService {
     // In-memory fallback token bucket store for test contexts or Redis failover
     private final Map<String, InMemoryBucket> inMemoryBuckets = new ConcurrentHashMap<>();
 
-    @Autowired
     public RateLimiterServiceImpl(
+            RateLimitProperties properties,
+            List<EndpointRateLimitRule> endpointRules,
             RateLimiterConfig config,
             ObjectProvider<ReactiveStringRedisTemplate> redisTemplateProvider,
             ObjectProvider<RedisScript<List<Long>>> redisScriptProvider) {
-        this.config = config != null ? config : new RateLimiterConfig();
+        this.properties = properties != null ? properties : createDefaultProperties();
+        this.endpointRules = endpointRules != null ? endpointRules : Collections.emptyList();
+        this.config = config;
         this.redisTemplateProvider = redisTemplateProvider;
         this.redisScriptProvider = redisScriptProvider;
     }
 
+    public RateLimiterServiceImpl(
+            RateLimitProperties properties,
+            List<EndpointRateLimitRule> endpointRules,
+            ObjectProvider<ReactiveStringRedisTemplate> redisTemplateProvider,
+            ObjectProvider<RedisScript<List<Long>>> redisScriptProvider) {
+        this(properties, endpointRules, null, redisTemplateProvider, redisScriptProvider);
+    }
+
+    @Autowired
+    public RateLimiterServiceImpl(
+            RateLimitProperties properties,
+            ObjectProvider<List<EndpointRateLimitRule>> endpointRulesProvider,
+            ObjectProvider<ReactiveStringRedisTemplate> redisTemplateProvider,
+            ObjectProvider<RedisScript<List<Long>>> redisScriptProvider) {
+        this(
+                properties,
+                endpointRulesProvider != null
+                        ? endpointRulesProvider.getIfAvailable(Collections::emptyList)
+                        : Collections.emptyList(),
+                null,
+                redisTemplateProvider,
+                redisScriptProvider);
+    }
+
     public RateLimiterServiceImpl(RateLimiterConfig config) {
-        this(config, null, null);
+        this(
+                config != null ? config.rateLimitProperties() : createDefaultProperties(),
+                config != null ? config.getEffectiveEndpoints() : Collections.emptyList(),
+                config,
+                null,
+                null);
+    }
+
+    public RateLimiterServiceImpl(
+            RateLimiterConfig config,
+            ObjectProvider<ReactiveStringRedisTemplate> redisTemplateProvider,
+            ObjectProvider<RedisScript<List<Long>>> redisScriptProvider) {
+        this(
+                config != null ? config.rateLimitProperties() : createDefaultProperties(),
+                config != null ? config.getEffectiveEndpoints() : Collections.emptyList(),
+                config,
+                redisTemplateProvider,
+                redisScriptProvider);
+    }
+
+    public RateLimiterServiceImpl(RateLimitProperties properties) {
+        this(properties, Collections.emptyList(), null, null, null);
+    }
+
+    private static RateLimitProperties createDefaultProperties() {
+        RateLimitProperties defaults = new RateLimitProperties();
+        defaults.setEnabled(true);
+        defaults.setFailOpen(true);
+        defaults.setTimeoutMs(500);
+        return defaults;
     }
 
     @Override
     public Mono<RateLimitResult> evaluateRateLimit(ServerWebExchange exchange) {
-        if (!config.isEnabled()) {
+        if (!properties.isEnabled()) {
             return Mono.just(
                     RateLimitResult.builder()
                             .allowed(true)
@@ -111,13 +171,13 @@ public class RateLimiterServiceImpl implements RateLimiterService {
             tierLabel = tier.getValue();
 
             if (tier == RateLimitTier.PREMIUM) {
-                rule = config.getPremium();
+                rule = properties.getPremium();
                 key = "rl:tier:prem:u:" + userId;
             } else if (tier == RateLimitTier.FREE) {
-                rule = config.getFree();
+                rule = properties.getFree();
                 key = "rl:tier:free:u:" + userId;
             } else {
-                rule = config.getAnonymous();
+                rule = properties.getAnonymous();
                 key = "rl:tier:anon:ip:" + clientIp;
             }
         }
@@ -142,7 +202,7 @@ public class RateLimiterServiceImpl implements RateLimiterService {
                     .execute(redisScript, keys, args)
                     .next()
                     .map(list -> parseRedisResult(list, rule, tierLabel, key, nowEpochSeconds))
-                    .timeout(Duration.ofMillis(config.getTimeoutMs()))
+                    .timeout(Duration.ofMillis(properties.getTimeoutMs()))
                     .onErrorResume(
                             ex -> {
                                 log.warn(
@@ -193,15 +253,16 @@ public class RateLimiterServiceImpl implements RateLimiterService {
 
         RateLimitTier tier = resolveTier(exchange);
         if (tier == RateLimitTier.PREMIUM) {
-            return config.getPremium();
+            return properties.getPremium();
         } else if (tier == RateLimitTier.ANONYMOUS) {
-            return config.getAnonymous();
+            return properties.getAnonymous();
         }
-        return config.getFree();
+        return properties.getFree();
     }
 
     private EndpointRateLimitRule findMatchingEndpointRule(String path, String method) {
-        List<EndpointRateLimitRule> rules = config.getEffectiveEndpoints();
+        List<EndpointRateLimitRule> rules =
+                config != null ? config.getEffectiveEndpoints() : endpointRules;
         for (EndpointRateLimitRule rule : rules) {
             if (rule.getPathPattern() != null && pathMatcher.match(rule.getPathPattern(), path)) {
                 if (rule.getMethod() == null
@@ -262,7 +323,7 @@ public class RateLimiterServiceImpl implements RateLimiterService {
 
     private Mono<RateLimitResult> handleRedisFallback(
             RateLimitRule rule, String tierLabel, String key, long nowEpochSeconds) {
-        if (config.isFailOpen()) {
+        if (properties.isFailOpen()) {
             return Mono.just(
                     RateLimitResult.builder()
                             .allowed(true)

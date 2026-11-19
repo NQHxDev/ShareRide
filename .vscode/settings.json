@@ -52,5 +52,5 @@
         "editor.insertSpaces": true,
         "editor.detectIndentation": false
     },
-    "cSpell.words": ["shareride", "Speckit", "Valkey"]
+    "cSpell.words": ["mvnw", "shareride", "Speckit", "Valkey"]
 }

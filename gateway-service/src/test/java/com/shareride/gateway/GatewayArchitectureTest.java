@@ -7,6 +7,7 @@ import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Service;
@@ -80,6 +81,12 @@ public class GatewayArchitectureTest {
             classes()
                     .that()
                     .resideInAPackage("..config..")
+                    .and()
+                    .areNotAnnotatedWith(ConfigurationProperties.class)
+                    .and()
+                    .haveSimpleNameNotEndingWith("Properties")
+                    .and()
+                    .haveSimpleNameNotEndingWith("Group")
                     .should()
                     .haveSimpleNameEndingWith("Config")
                     .andShould()

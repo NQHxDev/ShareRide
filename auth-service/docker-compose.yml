@@ -1,17 +1,21 @@
+name: shareride
+
 services:
   postgres-auth:
     image: postgres:17-alpine
     container_name: shareride-postgres-auth
+    env_file:
+      - .env
     environment:
-      POSTGRES_DB: shareride_auth
-      POSTGRES_USER: shareride_auth_usr
-      POSTGRES_PASSWORD: auth_secret_password
+      POSTGRES_DB: ${DB_NAME:-shareride_auth}
+      POSTGRES_USER: ${DB_USER:-shareride_auth_usr}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-auth_secret_password}
     ports:
       - '${DB_PORT:-5432}:5432'
     volumes:
       - pg_auth_data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U shareride_auth_usr -d shareride_auth']
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-shareride_auth_usr} -d ${DB_NAME:-shareride_auth}']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -24,4 +28,4 @@ volumes:
 
 networks:
   shareride-network:
-    name: shareride-network
+    external: true

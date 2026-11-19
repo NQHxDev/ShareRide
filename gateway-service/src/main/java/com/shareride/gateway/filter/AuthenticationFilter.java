@@ -65,6 +65,8 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
                     "/swagger-ui/**",
                     "/swagger-ui.html",
                     "/webjars/**",
+                    "/docs",
+                    "/docs/**",
                     "/api/**/v3/api-docs/**",
                     "/api/**/v3/api-docs");
 
