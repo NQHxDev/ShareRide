@@ -3,7 +3,7 @@ package com.shareride.auth.grpc.mapper;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.shareride.auth.domain.AccountStatus;
-import com.shareride.auth.dto.AccountResponse;
+import com.shareride.auth.dto.AccountResponseDTO;
 import com.shareride.auth.dto.AuthResponse;
 import com.shareride.auth.dto.RegisterRequestDTO;
 import com.shareride.auth.dto.SessionResponse;
@@ -86,8 +86,8 @@ class AuthProtoMapperTest {
         UUID accountId = UuidUtils.v7();
         Instant createdAt = Instant.now();
 
-        AccountResponse accountResponse =
-                AccountResponse.builder()
+        AccountResponseDTO accountResponse =
+                AccountResponseDTO.builder()
                         .accountId(accountId)
                         .email("test@example.com")
                         .status(AccountStatus.PENDING_VERIFICATION)
@@ -111,8 +111,8 @@ class AuthProtoMapperTest {
     void testToRegisterResponseProtoWithNulls() {
         UUID accountId = UuidUtils.v7();
 
-        AccountResponse accountResponse =
-                AccountResponse.builder()
+        AccountResponseDTO accountResponse =
+                AccountResponseDTO.builder()
                         .accountId(accountId)
                         .email(null)
                         .status(null)
@@ -163,8 +163,8 @@ class AuthProtoMapperTest {
         UUID sessionId = UuidUtils.v7();
         Instant expiresIn = Instant.now().plusSeconds(3600);
 
-        AccountResponse account =
-                AccountResponse.builder()
+        AccountResponseDTO account =
+                AccountResponseDTO.builder()
                         .accountId(accountId)
                         .email("test@example.com")
                         .status(AccountStatus.ACTIVE)
@@ -503,8 +503,8 @@ class AuthProtoMapperTest {
         Instant createdAt = Instant.now();
         Instant updatedAt = Instant.now();
 
-        AccountResponse accountResponse =
-                AccountResponse.builder()
+        AccountResponseDTO accountResponse =
+                AccountResponseDTO.builder()
                         .accountId(accountId)
                         .email("test@example.com")
                         .status(AccountStatus.ACTIVE)

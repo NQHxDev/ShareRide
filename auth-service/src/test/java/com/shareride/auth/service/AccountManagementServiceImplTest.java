@@ -14,7 +14,7 @@ import com.shareride.auth.domain.Permission;
 import com.shareride.auth.domain.PermissionCode;
 import com.shareride.auth.domain.Role;
 import com.shareride.auth.domain.RoleCode;
-import com.shareride.auth.dto.AccountResponse;
+import com.shareride.auth.dto.AccountResponseDTO;
 import com.shareride.auth.repository.AccountRepository;
 import com.shareride.auth.service.impl.AccountManagementServiceImpl;
 import com.shareride.common.context.UserContext;
@@ -123,7 +123,7 @@ class AccountManagementServiceImplTest {
         when(rolePermissionCacheService.getPermissionsByRoleCodes(Set.of(RoleCode.ROLE_RIDER)))
                 .thenReturn(Set.of("ride:create"));
 
-        AccountResponse response = accountManagementService.getAccountById(accountId);
+        AccountResponseDTO response = accountManagementService.getAccountById(accountId);
 
         assertNotNull(response);
         assertEquals(accountId, response.getAccountId());
@@ -234,7 +234,7 @@ class AccountManagementServiceImplTest {
                 Account.builder().email("noroles@shareride.com").roles(null).build();
         accountWithoutRoles.setId(UuidUtils.v7());
 
-        AccountResponse resp = fallbackService.toAccountResponse(accountWithoutRoles);
+        AccountResponseDTO resp = fallbackService.toAccountResponse(accountWithoutRoles);
         assertNotNull(resp);
         assertTrue(resp.getRoles().isEmpty());
         assertTrue(resp.getPermissions().isEmpty());
@@ -246,7 +246,7 @@ class AccountManagementServiceImplTest {
                 Account.builder().email("direct@shareride.com").roles(Set.of(role)).build();
         accountWithRoles.setId(UuidUtils.v7());
 
-        AccountResponse resp2 = fallbackService.toAccountResponse(accountWithRoles);
+        AccountResponseDTO resp2 = fallbackService.toAccountResponse(accountWithRoles);
         assertTrue(resp2.getRoles().contains("ROLE_DRIVER"));
         assertTrue(resp2.getPermissions().contains("ride:accept"));
     }

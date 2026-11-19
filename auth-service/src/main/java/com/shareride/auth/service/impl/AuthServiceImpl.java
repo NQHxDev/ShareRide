@@ -6,7 +6,7 @@ import com.shareride.auth.constant.AuthSecurityAuditConstants;
 import com.shareride.auth.domain.Account;
 import com.shareride.auth.domain.AccountStatus;
 import com.shareride.auth.domain.Session;
-import com.shareride.auth.dto.AccountResponse;
+import com.shareride.auth.dto.AccountResponseDTO;
 import com.shareride.auth.dto.AuthResponse;
 import com.shareride.auth.dto.LoginRequest;
 import com.shareride.auth.dto.RegisterRequestDTO;
@@ -60,7 +60,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public AccountResponse register(RegisterRequestDTO request) {
+    public AccountResponseDTO register(RegisterRequestDTO request) {
         return registrationService.register(request);
     }
 
@@ -237,7 +237,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional(readOnly = true)
-    public AccountResponse getAccountById(UUID accountId) {
+    public AccountResponseDTO getAccountById(UUID accountId) {
         return accountManagementService.getAccountById(accountId);
     }
 

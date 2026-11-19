@@ -8,7 +8,7 @@ import com.shareride.auth.domain.Account;
 import com.shareride.auth.domain.AccountStatus;
 import com.shareride.auth.domain.AccountVerification;
 import com.shareride.auth.domain.VerificationStatus;
-import com.shareride.auth.dto.AccountResponse;
+import com.shareride.auth.dto.AccountResponseDTO;
 import com.shareride.auth.dto.ResendVerificationRequest;
 import com.shareride.auth.dto.ResendVerificationResponse;
 import com.shareride.auth.dto.VerifyEmailRequest;
@@ -55,7 +55,7 @@ public class AccountVerificationServiceImpl implements AccountVerificationServic
 
     @Override
     @Transactional
-    public AccountResponse verifyEmail(final VerifyEmailRequest request) {
+    public AccountResponseDTO verifyEmail(final VerifyEmailRequest request) {
         log.info("Verifying email for account: {}", request.getEmail());
 
         final Account account =

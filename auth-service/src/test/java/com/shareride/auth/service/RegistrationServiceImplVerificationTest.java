@@ -17,7 +17,7 @@ import com.shareride.auth.domain.AccountVerification;
 import com.shareride.auth.domain.Role;
 import com.shareride.auth.domain.RoleCode;
 import com.shareride.auth.domain.VerificationStatus;
-import com.shareride.auth.dto.AccountResponse;
+import com.shareride.auth.dto.AccountResponseDTO;
 import com.shareride.auth.dto.RegisterRequestDTO;
 import com.shareride.auth.publisher.AuthEventPublisher;
 import com.shareride.auth.repository.AccountRepository;
@@ -101,9 +101,9 @@ class RegistrationServiceImplVerificationTest {
         when(roleRepository.findByRoleCode(RoleCode.ROLE_RIDER)).thenReturn(Optional.of(riderRole));
         when(accountRepository.save(any(Account.class))).thenReturn(savedAccount);
         when(accountManagementService.toAccountResponse(any(Account.class)))
-                .thenReturn(new AccountResponse());
+                .thenReturn(new AccountResponseDTO());
 
-        final AccountResponse response = registrationService.register(request);
+        final AccountResponseDTO response = registrationService.register(request);
 
         final ArgumentCaptor<Account> accountCaptor = ArgumentCaptor.forClass(Account.class);
         verify(accountRepository, times(1)).save(accountCaptor.capture());
@@ -135,7 +135,7 @@ class RegistrationServiceImplVerificationTest {
         when(roleRepository.findByRoleCode(RoleCode.ROLE_RIDER)).thenReturn(Optional.of(riderRole));
         when(accountRepository.save(any(Account.class))).thenReturn(savedAccount);
         when(accountManagementService.toAccountResponse(any(Account.class)))
-                .thenReturn(new AccountResponse());
+                .thenReturn(new AccountResponseDTO());
 
         registrationService.register(request);
 
@@ -174,7 +174,7 @@ class RegistrationServiceImplVerificationTest {
         when(roleRepository.findByRoleCode(RoleCode.ROLE_RIDER)).thenReturn(Optional.of(riderRole));
         when(accountRepository.save(any(Account.class))).thenReturn(savedAccount);
         when(accountManagementService.toAccountResponse(any(Account.class)))
-                .thenReturn(new AccountResponse());
+                .thenReturn(new AccountResponseDTO());
 
         registrationService.register(request);
 

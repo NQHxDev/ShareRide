@@ -12,7 +12,7 @@ import com.shareride.auth.domain.Account;
 import com.shareride.auth.domain.AccountStatus;
 import com.shareride.auth.domain.Session;
 import com.shareride.auth.domain.SessionStatus;
-import com.shareride.auth.dto.AccountResponse;
+import com.shareride.auth.dto.AccountResponseDTO;
 import com.shareride.auth.dto.LoginRequest;
 import com.shareride.auth.dto.RegisterRequestDTO;
 import com.shareride.auth.repository.AccountRepository;
@@ -83,8 +83,8 @@ class AuthServiceImplTest {
                         .confirmPassword("SuperSecretPass123!")
                         .build();
 
-        AccountResponse expectedResponse =
-                AccountResponse.builder()
+        AccountResponseDTO expectedResponse =
+                AccountResponseDTO.builder()
                         .accountId(UuidUtils.v7())
                         .email("rider@shareride.com")
                         .phoneNumber(null)
@@ -94,7 +94,7 @@ class AuthServiceImplTest {
 
         when(registrationService.register(request)).thenReturn(expectedResponse);
 
-        AccountResponse response = authService.register(request);
+        AccountResponseDTO response = authService.register(request);
 
         assertNotNull(response);
         assertEquals("rider@shareride.com", response.getEmail());
@@ -128,8 +128,8 @@ class AuthServiceImplTest {
                         .build();
         session.setId(sessionId);
 
-        AccountResponse accountResponse =
-                AccountResponse.builder()
+        AccountResponseDTO accountResponse =
+                AccountResponseDTO.builder()
                         .accountId(accountId)
                         .email("active.user@shareride.com")
                         .build();
@@ -271,12 +271,15 @@ class AuthServiceImplTest {
     @DisplayName("getAccountById: delegates to AccountManagementService")
     void testGetAccountByIdDelegates() {
         UUID accountId = UuidUtils.v7();
-        AccountResponse expected =
-                AccountResponse.builder().accountId(accountId).email("self@shareride.com").build();
+        AccountResponseDTO expected =
+                AccountResponseDTO.builder()
+                        .accountId(accountId)
+                        .email("self@shareride.com")
+                        .build();
 
         when(accountManagementService.getAccountById(accountId)).thenReturn(expected);
 
-        AccountResponse actual = authService.getAccountById(accountId);
+        AccountResponseDTO actual = authService.getAccountById(accountId);
         assertNotNull(actual);
         assertEquals(accountId, actual.getAccountId());
         verify(accountManagementService).getAccountById(accountId);
@@ -369,7 +372,8 @@ class AuthServiceImplTest {
                 Account.builder().email("rider@shareride.com").status(AccountStatus.ACTIVE).build();
         account.setId(accountId);
 
-        AccountResponse accountResponse = AccountResponse.builder().accountId(accountId).build();
+        AccountResponseDTO accountResponse =
+                AccountResponseDTO.builder().accountId(accountId).build();
 
         when(sessionManagementService.refreshSession(token, "127.0.0.1")).thenReturn(session);
         when(accountManagementService.getActiveAccount(accountId)).thenReturn(account);

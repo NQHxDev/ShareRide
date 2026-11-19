@@ -47,5 +47,5 @@ public class AuthResponse {
     private UUID sessionId;
 
     @Schema(description = "Chi tiết hồ sơ và quyền hạn tài khoản")
-    private AccountResponse account;
+    private AccountResponseDTO account;
 }

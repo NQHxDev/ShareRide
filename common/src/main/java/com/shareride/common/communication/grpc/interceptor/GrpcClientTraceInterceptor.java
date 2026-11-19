@@ -38,7 +38,7 @@ public class GrpcClientTraceInterceptor implements ClientInterceptor {
 
             @Override
             public void start(Listener<RespT> responseListener, Metadata headers) {
-                UserContext context = UserContextHolder.getContext();
+                UserContext context = UserContextHolder.getRawContext();
 
                 if (context != null) {
                     // Inject user identity

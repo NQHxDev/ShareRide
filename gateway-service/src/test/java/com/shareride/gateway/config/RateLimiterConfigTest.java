@@ -135,4 +135,33 @@ class RateLimiterConfigTest {
         String key = userKeyResolver.resolve(exchange).block();
         assertThat(key).isEqualTo("ip:198.51.100.1");
     }
+
+    @Test
+    @DisplayName("Should load effective endpoints from configured groups")
+    void shouldLoadEffectiveEndpointsFromGroups() {
+        RateLimitGroup group = new RateLimitGroup();
+        group.setName("custom-group");
+        group.setMethod("POST");
+        group.setPathPatterns(List.of("/api/v1/custom/**"));
+        group.setReplenishRate(5);
+        group.setBurstCapacity(10);
+        group.setRequestedTokens(1);
+
+        config.rateLimitProperties().setGroups(List.of(group));
+
+        List<EndpointRateLimitRule> endpoints = config.getEffectiveEndpoints();
+        assertThat(endpoints).hasSize(1);
+        EndpointRateLimitRule rule = endpoints.get(0);
+        assertThat(rule.getPathPattern()).isEqualTo("/api/v1/custom/**");
+        assertThat(rule.getMethod()).isEqualTo("POST");
+        assertThat(rule.getReplenishRate()).isEqualTo(5);
+        assertThat(rule.getBurstCapacity()).isEqualTo(10);
+    }
+
+    @Test
+    @DisplayName("Should set timeoutMs property")
+    void shouldSetTimeoutMs() {
+        config.setTimeoutMs(1200);
+        assertThat(config.getTimeoutMs()).isEqualTo(1200);
+    }
 }

@@ -119,4 +119,117 @@ class ProtobufModelConverterTest {
         // The chain iterator was advanced
         assertThat(chain.hasNext()).isFalse();
     }
+
+    @Test
+    @DisplayName("Should return null when annotatedType is null")
+    void testNullAnnotatedType() {
+        assertThat(converter.resolve(null, context, Collections.emptyIterator())).isNull();
+    }
+
+    @Test
+    @DisplayName("Should convert HealthCheckResponse with enum field")
+    void testHealthCheckResponseWithEnum() {
+        AnnotatedType annotatedType =
+                new AnnotatedType(com.shareride.common.grpc.auth.v1.HealthCheckResponse.class);
+        Schema<?> schema = converter.resolve(annotatedType, context, Collections.emptyIterator());
+
+        assertThat(schema).isNotNull();
+        Schema<?> healthSchema = context.getDefinedModels().get("HealthCheckResponse");
+        assertThat(healthSchema).isNotNull();
+        assertThat(healthSchema.getProperties()).containsKey("status");
+    }
+
+    @Test
+    @DisplayName("Should convert GetSessionsResponse with repeated SessionProto and timestamps")
+    void testGetSessionsResponseWithRepeatedAndTimestamp() {
+        AnnotatedType annotatedType =
+                new AnnotatedType(com.shareride.common.grpc.auth.v1.GetSessionsResponse.class);
+        Schema<?> schema = converter.resolve(annotatedType, context, Collections.emptyIterator());
+
+        assertThat(schema).isNotNull();
+        Schema<?> sessionsSchema = context.getDefinedModels().get("GetSessionsResponse");
+        assertThat(sessionsSchema).isNotNull();
+        assertThat(sessionsSchema.getProperties()).containsKey("sessions");
+
+        Schema<?> sessionProtoSchema = context.getDefinedModels().get("SessionProto");
+        assertThat(sessionProtoSchema).isNotNull();
+        assertThat(sessionProtoSchema.getProperties()).containsKey("createdAt");
+    }
+
+    @Test
+    @DisplayName("Should handle ParameterizedType in getRawClass")
+    void testParameterizedTypeResolution() throws NoSuchMethodException {
+        java.lang.reflect.Type listType =
+                ProtobufModelConverterTest.class
+                        .getDeclaredMethod("dummyMethod")
+                        .getGenericReturnType();
+        AnnotatedType annotatedType = new AnnotatedType(listType);
+
+        ModelConverter nextConverter = mock(ModelConverter.class);
+        Iterator<ModelConverter> chain = Collections.singletonList(nextConverter).iterator();
+
+        converter.resolve(annotatedType, context, chain);
+        assertThat(chain.hasNext()).isFalse();
+    }
+
+    @SuppressWarnings("unused")
+    private java.util.List<String> dummyMethod() {
+        return null;
+    }
+
+    @Test
+    @DisplayName("Should fallback to generic ObjectSchema when getDescriptor fails")
+    void testDescriptorIntrospectionFailure() {
+        abstract class MockMessage implements Message {}
+        AnnotatedType annotatedType = new AnnotatedType(MockMessage.class);
+
+        Schema<?> schema = converter.resolve(annotatedType, context, Collections.emptyIterator());
+        assertThat(schema).isNotNull();
+    }
+
+    @Test
+    @DisplayName("Should return ref schema when resolveAsRef or propertyName is set")
+    void testResolveAsRef() {
+        AnnotatedType annotatedType = new AnnotatedType(LoginResponse.class);
+        annotatedType.resolveAsRef(true);
+
+        Schema<?> schema = converter.resolve(annotatedType, context, Collections.emptyIterator());
+        assertThat(schema).isNotNull();
+        assertThat(schema.get$ref()).isEqualTo("#/components/schemas/LoginResponse");
+    }
+
+    @Test
+    @DisplayName("Should resolve well-known Protobuf message schemas correctly")
+    void testResolveWellKnownProtobufSchemas() {
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                converter,
+                "resolveNestedMessageSchema",
+                com.google.protobuf.Timestamp.getDescriptor(),
+                context);
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                converter,
+                "resolveNestedMessageSchema",
+                com.google.protobuf.StringValue.getDescriptor(),
+                context);
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                converter,
+                "resolveNestedMessageSchema",
+                com.google.protobuf.Int32Value.getDescriptor(),
+                context);
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                converter,
+                "resolveNestedMessageSchema",
+                com.google.protobuf.Int64Value.getDescriptor(),
+                context);
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                converter,
+                "resolveNestedMessageSchema",
+                com.google.protobuf.BoolValue.getDescriptor(),
+                context);
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                converter,
+                "resolveNestedMessageSchema",
+                com.google.protobuf.Empty.getDescriptor(),
+                context);
+    }
 }

@@ -302,4 +302,46 @@ class GrpcTraceInterceptorTest {
         UserContext afterCall = UserContextHolder.getContext();
         assertThat(afterCall).isNotNull();
     }
+
+    @Test
+    void testClientInterceptorFallbackContextWhenUserContextNull() {
+        UserContextHolder.clear();
+        com.shareride.common.context.CorrelationIdContext.setCorrelationId("corr-fallback-123");
+        com.shareride.common.filter.TraceIdContext.setTraceId("trace-fallback-456");
+        com.shareride.common.filter.TraceIdContext.setSpanId("span-fallback-789");
+        org.slf4j.MDC.put("userId", "user-mdc-1");
+
+        try {
+            when(mockChannel.newCall(any(), any())).thenReturn(mockClientCall);
+
+            ClientCall<Object, Object> call =
+                    clientInterceptor.interceptCall(
+                            methodDescriptor, CallOptions.DEFAULT, mockChannel);
+
+            @SuppressWarnings("unchecked")
+            ClientCall.Listener<Object> mockListener =
+                    org.mockito.Mockito.mock(ClientCall.Listener.class);
+            Metadata metadata = new Metadata();
+
+            call.start(mockListener, metadata);
+
+            ArgumentCaptor<Metadata> metadataCaptor = ArgumentCaptor.forClass(Metadata.class);
+            verify(mockClientCall).start(any(), metadataCaptor.capture());
+
+            Metadata captured = metadataCaptor.getValue();
+            assertThat(captured.get(GrpcMetadataConstants.CORRELATION_ID_KEY))
+                    .isEqualTo("corr-fallback-123");
+            assertThat(captured.get(GrpcMetadataConstants.TRACE_ID_KEY))
+                    .isEqualTo("trace-fallback-456");
+            assertThat(captured.get(GrpcMetadataConstants.SPAN_ID_KEY))
+                    .isEqualTo("span-fallback-789");
+            assertThat(captured.get(GrpcMetadataConstants.TRACEPARENT_KEY))
+                    .isEqualTo("00-trace-fallback-456-span-fallback-789-01");
+            assertThat(captured.get(GrpcMetadataConstants.USER_ID_KEY)).isEqualTo("user-mdc-1");
+        } finally {
+            com.shareride.common.context.CorrelationIdContext.clear();
+            com.shareride.common.filter.TraceIdContext.clear();
+            org.slf4j.MDC.remove("userId");
+        }
+    }
 }

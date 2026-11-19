@@ -12,7 +12,7 @@ import com.shareride.auth.domain.AccountVerification;
 import com.shareride.auth.domain.Role;
 import com.shareride.auth.domain.RoleCode;
 import com.shareride.auth.domain.VerificationStatus;
-import com.shareride.auth.dto.AccountResponse;
+import com.shareride.auth.dto.AccountResponseDTO;
 import com.shareride.auth.dto.RegisterRequestDTO;
 import com.shareride.auth.event.AccountRegisteredEvent;
 import com.shareride.auth.publisher.AuthEventPublisher;
@@ -125,7 +125,7 @@ public class RegistrationServiceImpl implements RegistrationService {
 
     @Override
     @Transactional
-    public AccountResponse register(RegisterRequestDTO request) {
+    public AccountResponseDTO register(RegisterRequestDTO request) {
         // Validate password confirmation
         if (!request.getPassword().equals(request.getConfirmPassword())) {
             throw new IllegalArgumentException("Password and confirm password do not match");
@@ -142,7 +142,7 @@ public class RegistrationServiceImpl implements RegistrationService {
         return doRegister(request, normalizedEmail);
     }
 
-    private AccountResponse doRegister(RegisterRequestDTO request, String normalizedEmail) {
+    private AccountResponseDTO doRegister(RegisterRequestDTO request, String normalizedEmail) {
         // FR-013: Check if email already exists with PENDING_VERIFICATION status
         boolean mightExist = emailBloomFilterService.mightExist(normalizedEmail);
         if (mightExist) {

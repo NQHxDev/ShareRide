@@ -149,4 +149,21 @@ class TemplateGrpcClientTest {
         assertThat(response.getStatus()).isEqualTo("SERVING");
         assertThat(response.getUptimeSeconds()).isEqualTo(100);
     }
+
+    @Test
+    @DisplayName("Should propagate exception when downstream service is unavailable")
+    void testDownstreamServiceUnavailable() {
+        server.shutdownNow();
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> templateGrpcClient.getTemplate(UuidUtils.v7AsString(), "en"))
+                .isInstanceOf(Exception.class);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> templateGrpcClient.verifyTemplate(UuidUtils.v7AsString(), "checksum"))
+                .isInstanceOf(Exception.class);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> templateGrpcClient.healthCheck())
+                .isInstanceOf(Exception.class);
+    }
 }

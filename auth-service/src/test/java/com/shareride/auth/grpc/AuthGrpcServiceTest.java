@@ -3,11 +3,12 @@ package com.shareride.auth.grpc;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.shareride.auth.domain.AccountStatus;
-import com.shareride.auth.dto.AccountResponse;
+import com.shareride.auth.dto.AccountResponseDTO;
 import com.shareride.auth.dto.AuthResponse;
 import com.shareride.auth.dto.SessionResponse;
 import com.shareride.auth.grpc.mapper.AuthProtoMapper;
@@ -27,9 +28,11 @@ import com.shareride.common.grpc.auth.v1.LoginRequest;
 import com.shareride.common.grpc.auth.v1.LoginResponse;
 import com.shareride.common.grpc.auth.v1.LogoutRequest;
 import com.shareride.common.grpc.auth.v1.LogoutResponse;
+import com.shareride.common.grpc.auth.v1.RefreshTokenRequest;
 import com.shareride.common.grpc.auth.v1.RefreshTokenResponse;
 import com.shareride.common.grpc.auth.v1.RegisterRequest;
 import com.shareride.common.grpc.auth.v1.RegisterResponse;
+import com.shareride.common.grpc.auth.v1.ResendVerificationRequest;
 import com.shareride.common.grpc.auth.v1.ResendVerificationResponse;
 import com.shareride.common.grpc.auth.v1.RevokeSessionRequest;
 import com.shareride.common.grpc.auth.v1.RevokeSessionResponse;
@@ -104,8 +107,8 @@ class AuthGrpcServiceTest {
                         .build();
 
         String accountId = UuidUtils.v7AsString();
-        AccountResponse mockResponse =
-                AccountResponse.builder()
+        AccountResponseDTO mockResponse =
+                AccountResponseDTO.builder()
                         .accountId(UUID.fromString(accountId))
                         .email("test@example.com")
                         .status(AccountStatus.PENDING_VERIFICATION)
@@ -147,7 +150,7 @@ class AuthGrpcServiceTest {
                         .expiresIn(Instant.now().plusSeconds(3600))
                         .sessionId(UuidUtils.v7())
                         .account(
-                                AccountResponse.builder()
+                                AccountResponseDTO.builder()
                                         .accountId(UuidUtils.v7())
                                         .email("test@example.com")
                                         .status(AccountStatus.ACTIVE)
@@ -173,8 +176,8 @@ class AuthGrpcServiceTest {
         String accountId = UuidUtils.v7AsString();
         GetAccountRequest request = GetAccountRequest.newBuilder().setAccountId(accountId).build();
 
-        AccountResponse mockAccount =
-                AccountResponse.builder()
+        AccountResponseDTO mockAccount =
+                AccountResponseDTO.builder()
                         .accountId(UUID.fromString(accountId))
                         .email("test@example.com")
                         .status(AccountStatus.ACTIVE)
@@ -253,7 +256,8 @@ class AuthGrpcServiceTest {
         VerifyEmailRequest request =
                 VerifyEmailRequest.newBuilder().setToken("valid-verification-token").build();
 
-        AccountResponse mockAccount = AccountResponse.builder().accountId(UuidUtils.v7()).build();
+        AccountResponseDTO mockAccount =
+                AccountResponseDTO.builder().accountId(UuidUtils.v7()).build();
         when(accountVerificationService.verifyEmail(any())).thenReturn(mockAccount);
 
         authGrpcService.verifyEmail(request, verifyEmailResponseObserver);
@@ -296,5 +300,130 @@ class AuthGrpcServiceTest {
 
         verify(revokeSessionResponseObserver).onNext(any(RevokeSessionResponse.class));
         verify(revokeSessionResponseObserver).onCompleted();
+    }
+
+    @Test
+    void register_shouldCallOnError_whenExceptionThrown() {
+        RegisterRequest request =
+                RegisterRequest.newBuilder().setEmail("error@example.com").build();
+        when(authService.register(any())).thenThrow(new RuntimeException("Registration error"));
+
+        authGrpcService.register(request, registerResponseObserver);
+
+        verify(registerResponseObserver).onError(any(RuntimeException.class));
+    }
+
+    @Test
+    void login_shouldCallOnError_whenExceptionThrown() {
+        LoginRequest request = LoginRequest.newBuilder().setEmail("error@example.com").build();
+        when(authService.login(any(), anyString(), anyString()))
+                .thenThrow(new RuntimeException("Login error"));
+
+        authGrpcService.login(request, loginResponseObserver);
+
+        verify(loginResponseObserver).onError(any(RuntimeException.class));
+    }
+
+    @Test
+    void refreshToken_shouldCallOnError_whenExceptionThrown() {
+        RefreshTokenRequest request =
+                RefreshTokenRequest.newBuilder().setRefreshToken("invalid.token").build();
+        when(authService.refreshToken(anyString(), anyString(), anyString()))
+                .thenThrow(new RuntimeException("Token refresh error"));
+
+        authGrpcService.refreshToken(request, refreshTokenResponseObserver);
+
+        verify(refreshTokenResponseObserver).onError(any(RuntimeException.class));
+    }
+
+    @Test
+    void logout_shouldCallOnError_whenExceptionThrown() {
+        LogoutRequest request =
+                LogoutRequest.newBuilder()
+                        .setAccessToken("token")
+                        .setRefreshToken("refresh")
+                        .build();
+        doThrow(new RuntimeException("Logout error"))
+                .when(authService)
+                .logout(anyString(), anyString());
+
+        authGrpcService.logout(request, logoutResponseObserver);
+
+        verify(logoutResponseObserver).onError(any(RuntimeException.class));
+    }
+
+    @Test
+    void verifyEmail_shouldReturnErrorResponse_whenExceptionThrown() {
+        VerifyEmailRequest request = VerifyEmailRequest.newBuilder().setToken("bad-token").build();
+        when(accountVerificationService.verifyEmail(any()))
+                .thenThrow(new RuntimeException("Verification error"));
+
+        authGrpcService.verifyEmail(request, verifyEmailResponseObserver);
+
+        verify(verifyEmailResponseObserver).onNext(any(VerifyEmailResponse.class));
+        verify(verifyEmailResponseObserver).onCompleted();
+    }
+
+    @Test
+    void resendVerification_shouldReturnErrorResponse_whenExceptionThrown() {
+        ResendVerificationRequest request =
+                ResendVerificationRequest.newBuilder().setEmail("error@example.com").build();
+        when(accountVerificationService.resendVerification(any()))
+                .thenThrow(new RuntimeException("Email delivery failed"));
+
+        authGrpcService.resendVerification(request, resendVerificationResponseObserver);
+
+        verify(resendVerificationResponseObserver).onNext(any(ResendVerificationResponse.class));
+        verify(resendVerificationResponseObserver).onCompleted();
+    }
+
+    @Test
+    void getJwks_shouldCallOnError_whenExceptionThrown() {
+        GetJwksRequest request = GetJwksRequest.newBuilder().build();
+        when(authService.getJwks()).thenThrow(new RuntimeException("JWKS error"));
+
+        authGrpcService.getJwks(request, getJwksResponseObserver);
+
+        verify(getJwksResponseObserver).onError(any(RuntimeException.class));
+    }
+
+    @Test
+    void getAccount_shouldCallOnError_whenExceptionThrown() {
+        GetAccountRequest request =
+                GetAccountRequest.newBuilder().setAccountId(UuidUtils.v7AsString()).build();
+        when(accountManagementService.getAccountById(any(UUID.class)))
+                .thenThrow(new RuntimeException("Account not found"));
+
+        authGrpcService.getAccount(request, getAccountResponseObserver);
+
+        verify(getAccountResponseObserver).onError(any(RuntimeException.class));
+    }
+
+    @Test
+    void getSessions_shouldCallOnError_whenExceptionThrown() {
+        GetSessionsRequest request =
+                GetSessionsRequest.newBuilder().setAccountId(UuidUtils.v7AsString()).build();
+        when(sessionManagementService.getActiveSessions(any(UUID.class)))
+                .thenThrow(new RuntimeException("Session error"));
+
+        authGrpcService.getSessions(request, getSessionsResponseObserver);
+
+        verify(getSessionsResponseObserver).onError(any(RuntimeException.class));
+    }
+
+    @Test
+    void revokeSession_shouldCallOnError_whenExceptionThrown() {
+        RevokeSessionRequest request =
+                RevokeSessionRequest.newBuilder()
+                        .setAccountId(UuidUtils.v7AsString())
+                        .setSessionId(UuidUtils.v7AsString())
+                        .build();
+        doThrow(new RuntimeException("Revoke error"))
+                .when(sessionManagementService)
+                .revokeSession(any(UUID.class), any(UUID.class));
+
+        authGrpcService.revokeSession(request, revokeSessionResponseObserver);
+
+        verify(revokeSessionResponseObserver).onError(any(RuntimeException.class));
     }
 }

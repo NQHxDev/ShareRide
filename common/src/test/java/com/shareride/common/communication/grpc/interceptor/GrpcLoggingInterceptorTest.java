@@ -1,6 +1,7 @@
 package com.shareride.common.communication.grpc.interceptor;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -10,10 +11,14 @@ import io.grpc.ClientCall;
 import io.grpc.Metadata;
 import io.grpc.ServerCall;
 import io.grpc.ServerCallHandler;
+import io.grpc.Status;
 import java.io.InputStream;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -29,6 +34,9 @@ class GrpcLoggingInterceptorTest {
     @Mock private ServerCallHandler<Object, Object> mockServerCallHandler;
 
     @Mock private ServerCall.Listener<Object> mockServerCallListener;
+
+    @Captor private ArgumentCaptor<ClientCall.Listener<Object>> listenerCaptor;
+    @Captor private ArgumentCaptor<ServerCall<Object, Object>> callCaptor;
 
     private io.grpc.MethodDescriptor<Object, Object> methodDescriptor;
 
@@ -126,5 +134,49 @@ class GrpcLoggingInterceptorTest {
         listener.onCancel();
 
         verify(mockServerCallHandler).startCall(any(), any());
+    }
+
+    @Test
+    void testClientLoggingInterceptorOnCloseOkAndError() {
+        when(mockChannel.newCall(any(), any())).thenReturn(mockClientCall);
+
+        ClientCall<Object, Object> interceptedCall =
+                clientLoggingInterceptor.interceptCall(
+                        methodDescriptor, CallOptions.DEFAULT, mockChannel);
+
+        interceptedCall.start(new ClientCall.Listener<Object>() {}, new Metadata());
+        verify(mockClientCall).start(listenerCaptor.capture(), any(Metadata.class));
+
+        ClientCall.Listener<Object> forwardingListener = listenerCaptor.getValue();
+        forwardingListener.onClose(Status.OK, new Metadata());
+        forwardingListener.onClose(
+                Status.INTERNAL.withDescription("Internal error"), new Metadata());
+    }
+
+    @Test
+    void testServerLoggingInterceptorCloseOkAndErrorAndOnCompleteException() {
+        Metadata metadata = new Metadata();
+
+        when(mockServerCall.getMethodDescriptor()).thenReturn(methodDescriptor);
+
+        when(mockServerCallHandler.startCall(callCaptor.capture(), any()))
+                .thenReturn(mockServerCallListener);
+
+        ServerCall.Listener<Object> listener =
+                serverLoggingInterceptor.interceptCall(
+                        mockServerCall, metadata, mockServerCallHandler);
+
+        ServerCall<Object, Object> monitoringCall = callCaptor.getValue();
+        monitoringCall.close(Status.OK, new Metadata());
+        monitoringCall.close(Status.UNAVAILABLE.withDescription("Service down"), new Metadata());
+
+        // onComplete throwing exception
+        doThrow(new RuntimeException("Completion failed"))
+                .when(mockServerCallListener)
+                .onComplete();
+
+        Assertions.assertThatThrownBy(() -> listener.onComplete())
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Completion failed");
     }
 }

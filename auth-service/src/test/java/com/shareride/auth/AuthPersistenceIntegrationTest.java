@@ -13,7 +13,7 @@ import com.shareride.auth.domain.AccountStatus;
 import com.shareride.auth.domain.Role;
 import com.shareride.auth.domain.Session;
 import com.shareride.auth.domain.SessionStatus;
-import com.shareride.auth.dto.AccountResponse;
+import com.shareride.auth.dto.AccountResponseDTO;
 import com.shareride.auth.dto.AuthResponse;
 import com.shareride.auth.dto.LoginRequest;
 import com.shareride.auth.dto.RefreshTokenData;
@@ -186,7 +186,7 @@ class AuthPersistenceIntegrationTest extends AbstractIntegrationTest {
                         .confirmPassword("SecurePass123")
                         .build();
 
-        AccountResponse response = authService.register(request);
+        AccountResponseDTO response = authService.register(request);
 
         assertNotNull(response.getAccountId());
         assertEquals("new.driver@shareride.com", response.getEmail());
@@ -383,7 +383,7 @@ class AuthPersistenceIntegrationTest extends AbstractIntegrationTest {
                         .password("CorrectPassword123")
                         .confirmPassword("CorrectPassword123")
                         .build();
-        AccountResponse account = authService.register(registerRequest);
+        AccountResponseDTO account = authService.register(registerRequest);
 
         // Activate account for test (bypass email verification)
         Account accountEntity =

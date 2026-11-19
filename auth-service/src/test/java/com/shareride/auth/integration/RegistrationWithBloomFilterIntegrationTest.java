@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.shareride.auth.dto.AccountResponse;
+import com.shareride.auth.dto.AccountResponseDTO;
 import com.shareride.auth.dto.RegisterRequestDTO;
 import com.shareride.auth.repository.AccountRepository;
 import com.shareride.auth.service.EmailBloomFilterService;
@@ -51,7 +51,7 @@ class RegistrationWithBloomFilterIntegrationTest extends AbstractIntegrationTest
 
         double missCountBefore = meterRegistry.counter("auth.bloom.miss.total").count();
 
-        AccountResponse response = registrationService.register(request);
+        AccountResponseDTO response = registrationService.register(request);
 
         assertNotNull(response);
         assertEquals("newuser@example.com", response.getEmail());

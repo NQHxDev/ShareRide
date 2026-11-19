@@ -137,4 +137,27 @@ class GatewayErrorWebExceptionHandlerTest {
         assertThat(body).contains("\"code\":\"GATEWAY_TIMEOUT\"");
         assertThat(body).contains("Gateway Timeout");
     }
+
+    @Test
+    @DisplayName("Should map unhandled RuntimeException to 500 INTERNAL_SERVER_ERROR")
+    void shouldMapUnhandledExceptionTo500InternalServerError() {
+        MockServerHttpRequest request =
+                MockServerHttpRequest.get("/api/v1/crash")
+                        .header(GatewayConstants.CORRELATION_ID_HEADER, "corr-500")
+                        .build();
+        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+
+        RuntimeException ex =
+                new RuntimeException("Unexpected error", new IllegalStateException("Deep cause"));
+
+        exceptionHandler.handle(exchange, ex).block();
+
+        assertThat(exchange.getResponse().getStatusCode())
+                .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+        verify(gatewayMetricsService)
+                .recordGatewayError("unmatched", "/api/v1/crash", 500, "INTERNAL_SERVER_ERROR");
+
+        String body = exchange.getResponse().getBodyAsString().block();
+        assertThat(body).contains("\"code\":\"INTERNAL_SERVER_ERROR\"");
+    }
 }

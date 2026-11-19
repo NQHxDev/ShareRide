@@ -12,7 +12,7 @@ import com.shareride.auth.domain.Account;
 import com.shareride.auth.domain.AccountStatus;
 import com.shareride.auth.domain.AccountVerification;
 import com.shareride.auth.domain.VerificationStatus;
-import com.shareride.auth.dto.AccountResponse;
+import com.shareride.auth.dto.AccountResponseDTO;
 import com.shareride.auth.dto.VerifyEmailRequest;
 import com.shareride.auth.publisher.AuthEventPublisher;
 import com.shareride.auth.repository.AccountRepository;
@@ -96,8 +96,8 @@ class AccountVerificationServiceImplTest {
                 .thenAnswer(inv -> inv.getArgument(0));
         when(accountRepository.save(any(Account.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        final AccountResponse expectedResponse =
-                AccountResponse.builder()
+        final AccountResponseDTO expectedResponse =
+                AccountResponseDTO.builder()
                         .accountId(account.getId())
                         .email(email)
                         .status(AccountStatus.ACTIVE)
@@ -108,7 +108,7 @@ class AccountVerificationServiceImplTest {
         final VerifyEmailRequest request =
                 VerifyEmailRequest.builder().email(email).code(lowercaseInput).build();
 
-        final AccountResponse response = accountVerificationService.verifyEmail(request);
+        final AccountResponseDTO response = accountVerificationService.verifyEmail(request);
 
         assertNotNull(response);
         assertEquals(AccountStatus.ACTIVE, response.getStatus());

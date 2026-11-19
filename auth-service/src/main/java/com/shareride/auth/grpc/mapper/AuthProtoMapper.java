@@ -1,6 +1,6 @@
 package com.shareride.auth.grpc.mapper;
 
-import com.shareride.auth.dto.AccountResponse;
+import com.shareride.auth.dto.AccountResponseDTO;
 import com.shareride.auth.dto.AuthResponse;
 import com.shareride.auth.dto.RegisterRequestDTO;
 import com.shareride.auth.dto.SessionResponse;
@@ -44,7 +44,7 @@ public class AuthProtoMapper {
                 .build();
     }
 
-    public RegisterResponse toRegisterResponseProto(AccountResponse accountResponse) {
+    public RegisterResponse toRegisterResponseProto(AccountResponseDTO accountResponse) {
         RegisterResponse.Builder builder =
                 RegisterResponse.newBuilder()
                         .setAccountId(accountResponse.getAccountId().toString())
@@ -220,7 +220,7 @@ public class AuthProtoMapper {
         return UUID.fromString(protoRequest.getAccountId());
     }
 
-    public GetAccountResponse toGetAccountResponseProto(AccountResponse accountResponse) {
+    public GetAccountResponse toGetAccountResponseProto(AccountResponseDTO accountResponse) {
         return GetAccountResponse.newBuilder().setAccount(toAccountProto(accountResponse)).build();
     }
 
@@ -264,7 +264,7 @@ public class AuthProtoMapper {
                 .build();
     }
 
-    private AccountProto toAccountProto(AccountResponse accountResponse) {
+    private AccountProto toAccountProto(AccountResponseDTO accountResponse) {
         AccountProto.Builder builder =
                 AccountProto.newBuilder()
                         .setAccountId(accountResponse.getAccountId().toString())

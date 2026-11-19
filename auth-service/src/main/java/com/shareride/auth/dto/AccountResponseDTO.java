@@ -16,7 +16,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Schema(description = "Thông tin chi tiết tài khoản xác thực và quyền hạn RBAC")
-public class AccountResponse {
+public class AccountResponseDTO {
 
     @Schema(
             description = "UUID định danh duy nhất của tài khoản (UUIDv7)",

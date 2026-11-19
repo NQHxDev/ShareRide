@@ -1,6 +1,6 @@
 package com.shareride.auth.service;
 
-import com.shareride.auth.dto.AccountResponse;
+import com.shareride.auth.dto.AccountResponseDTO;
 import com.shareride.auth.dto.ResendVerificationRequest;
 import com.shareride.auth.dto.ResendVerificationResponse;
 import com.shareride.auth.dto.VerifyEmailRequest;
@@ -22,7 +22,7 @@ public interface AccountVerificationService {
      * @throws com.shareride.common.exception.BadRequestException nếu mã hết hạn, sai, hoặc vượt quá
      *     số lần thử
      */
-    AccountResponse verifyEmail(VerifyEmailRequest request);
+    AccountResponseDTO verifyEmail(VerifyEmailRequest request);
 
     /**
      * Gửi lại mã xác thực cho tài khoản chưa xác thực. Kiểm tra cooldown 60s và giới hạn 5 lần/giờ.

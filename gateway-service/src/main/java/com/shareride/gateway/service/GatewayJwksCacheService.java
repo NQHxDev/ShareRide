@@ -73,7 +73,7 @@ public class GatewayJwksCacheService {
      */
     public Mono<Void> invalidateCache() {
         log.info("Invalidating JWKS cache");
-        return reactiveStringRedisTemplate.delete(JWKS_CACHE_KEY).then();
+        return reactiveStringRedisTemplate.delete(Mono.just(JWKS_CACHE_KEY)).then();
     }
 
     /**
@@ -97,7 +97,14 @@ public class GatewayJwksCacheService {
                                                         log.info(
                                                                 "JWKS cached successfully with {}"
                                                                         + " keys",
-                                                                response.getKeysCount()));
+                                                                response.getKeysCount()))
+                                        .onErrorResume(
+                                                ex -> {
+                                                    log.error(
+                                                            "Failed to cache JWKS: {}",
+                                                            ex.getMessage());
+                                                    return Mono.just(response);
+                                                });
                             } catch (Exception e) {
                                 log.error("Failed to cache JWKS: {}", e.getMessage());
                                 return Mono.just(response);

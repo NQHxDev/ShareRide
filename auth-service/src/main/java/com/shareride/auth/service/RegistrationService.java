@@ -1,6 +1,6 @@
 package com.shareride.auth.service;
 
-import com.shareride.auth.dto.AccountResponse;
+import com.shareride.auth.dto.AccountResponseDTO;
 import com.shareride.auth.dto.RegisterRequestDTO;
 
 /**
@@ -15,5 +15,5 @@ public interface RegistrationService {
      * @param request dữ liệu đăng ký chứa email, password, phoneNumber, roleCode...
      * @return chi tiết tài khoản vừa tạo
      */
-    AccountResponse register(RegisterRequestDTO request);
+    AccountResponseDTO register(RegisterRequestDTO request);
 }

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -11,7 +12,7 @@ import com.shareride.auth.domain.Account;
 import com.shareride.auth.domain.AccountStatus;
 import com.shareride.auth.domain.Role;
 import com.shareride.auth.domain.RoleCode;
-import com.shareride.auth.dto.AccountResponse;
+import com.shareride.auth.dto.AccountResponseDTO;
 import com.shareride.auth.dto.RegisterRequestDTO;
 import com.shareride.auth.publisher.AuthEventPublisher;
 import com.shareride.auth.repository.AccountRepository;
@@ -19,20 +20,24 @@ import com.shareride.auth.repository.AccountVerificationRepository;
 import com.shareride.auth.repository.RoleRepository;
 import com.shareride.auth.service.impl.RegistrationServiceImpl;
 import com.shareride.auth.util.PasswordUtils;
+import com.shareride.common.cache.DistributedLockService;
 import com.shareride.common.context.UserContextHolder;
 import com.shareride.common.exception.ConflictException;
 import com.shareride.common.logging.audit.AuditLogService;
 import com.shareride.common.outbox.OutboxService;
 import com.shareride.common.util.UuidUtils;
+import java.time.Duration;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Supplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
@@ -63,8 +68,7 @@ class RegistrationServiceImplTest {
                         roleRepository,
                         outboxService,
                         new StaticListableBeanFactory()
-                                .getBeanProvider(
-                                        com.shareride.common.cache.DistributedLockService.class),
+                                .getBeanProvider(DistributedLockService.class),
                         auditLogService,
                         accountManagementService,
                         emailBloomFilterService,
@@ -103,8 +107,8 @@ class RegistrationServiceImplTest {
                             return a;
                         });
 
-        AccountResponse expectedResponse =
-                AccountResponse.builder()
+        AccountResponseDTO expectedResponse =
+                AccountResponseDTO.builder()
                         .accountId(generatedId)
                         .email("rider@shareride.com")
                         .phoneNumber(null)
@@ -113,7 +117,7 @@ class RegistrationServiceImplTest {
                         .build();
         when(accountManagementService.toAccountResponse(any())).thenReturn(expectedResponse);
 
-        AccountResponse response = registrationService.register(request);
+        AccountResponseDTO response = registrationService.register(request);
 
         assertNotNull(response);
         Account savedAccount = accountCaptor.getValue();
@@ -167,17 +171,14 @@ class RegistrationServiceImplTest {
     @Test
     @DisplayName("Register: Uses DistributedLockService when available")
     void testRegisterWithDistributedLockAndNullFullName() {
-        com.shareride.common.cache.DistributedLockService lockService =
-                org.mockito.Mockito.mock(com.shareride.common.cache.DistributedLockService.class);
-        RolePermissionCacheService cacheService =
-                org.mockito.Mockito.mock(RolePermissionCacheService.class);
+        DistributedLockService lockService = mock(DistributedLockService.class);
+        RolePermissionCacheService cacheService = mock(RolePermissionCacheService.class);
 
         when(lockService.executeWithLock(
                         any(String.class),
-                        any(java.time.Duration.class),
-                        org.mockito.ArgumentMatchers
-                                .<java.util.function.Supplier<AccountResponse>>any()))
-                .thenAnswer(inv -> ((java.util.function.Supplier<?>) inv.getArgument(2)).get());
+                        any(Duration.class),
+                        ArgumentMatchers.<Supplier<AccountResponseDTO>>any()))
+                .thenAnswer(inv -> ((Supplier<?>) inv.getArgument(2)).get());
 
         Role riderRole = Role.builder().roleCode(RoleCode.ROLE_RIDER).build();
         when(cacheService.getRoleByCode(RoleCode.ROLE_RIDER)).thenReturn(Optional.of(riderRole));
@@ -192,8 +193,7 @@ class RegistrationServiceImplTest {
                         roleRepository,
                         beanFactory.getBeanProvider(RolePermissionCacheService.class),
                         outboxService,
-                        beanFactory.getBeanProvider(
-                                com.shareride.common.cache.DistributedLockService.class),
+                        beanFactory.getBeanProvider(DistributedLockService.class),
                         auditLogService,
                         accountManagementService,
                         emailBloomFilterService,
@@ -219,17 +219,16 @@ class RegistrationServiceImplTest {
                             return a;
                         });
 
-        AccountResponse expectedResponse = AccountResponse.builder().build();
+        AccountResponseDTO expectedResponse = AccountResponseDTO.builder().build();
         when(accountManagementService.toAccountResponse(any())).thenReturn(expectedResponse);
 
-        AccountResponse response = lockedService.register(request);
+        AccountResponseDTO response = lockedService.register(request);
         assertNotNull(response);
         verify(lockService)
                 .executeWithLock(
                         any(String.class),
-                        any(java.time.Duration.class),
-                        org.mockito.ArgumentMatchers
-                                .<java.util.function.Supplier<AccountResponse>>any());
+                        any(Duration.class),
+                        ArgumentMatchers.<Supplier<AccountResponseDTO>>any());
     }
 
     @Test

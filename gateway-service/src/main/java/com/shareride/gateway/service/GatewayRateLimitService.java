@@ -102,9 +102,11 @@ public class GatewayRateLimitService {
 
                             return Mono.empty();
                         })
-                .onErrorResume(RateLimitExceededException.class, ex -> Mono.error(ex))
                 .onErrorResume(
                         throwable -> {
+                            if (throwable instanceof RateLimitExceededException) {
+                                return Mono.error(throwable);
+                            }
                             log.error(
                                     "Rate limit check failed for {}: {}",
                                     endpoint,

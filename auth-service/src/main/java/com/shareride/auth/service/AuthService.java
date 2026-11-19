@@ -1,6 +1,6 @@
 package com.shareride.auth.service;
 
-import com.shareride.auth.dto.AccountResponse;
+import com.shareride.auth.dto.AccountResponseDTO;
 import com.shareride.auth.dto.AuthResponse;
 import com.shareride.auth.dto.LoginRequest;
 import com.shareride.auth.dto.RegisterRequestDTO;
@@ -21,7 +21,7 @@ public interface AuthService {
      * @param request dữ liệu đăng ký chứa email, password, phoneNumber, roleCode...
      * @return chi tiết tài khoản vừa tạo
      */
-    AccountResponse register(RegisterRequestDTO request);
+    AccountResponseDTO register(RegisterRequestDTO request);
 
     /**
      * Xác thực thông tin đăng nhập và tạo phiên làm việc mới trên thiết bị.
@@ -73,7 +73,7 @@ public interface AuthService {
      * @param accountId ID của tài khoản
      * @return chi tiết tài khoản và vai trò RBAC
      */
-    AccountResponse getAccountById(UUID accountId);
+    AccountResponseDTO getAccountById(UUID accountId);
 
     /**
      * Xóa mềm tài khoản và hủy toàn bộ phiên làm việc của tài khoản.

@@ -1,6 +1,6 @@
 package com.shareride.auth.grpc;
 
-import com.shareride.auth.dto.AccountResponse;
+import com.shareride.auth.dto.AccountResponseDTO;
 import com.shareride.auth.dto.AuthResponse;
 import com.shareride.auth.dto.RegisterRequestDTO;
 import com.shareride.auth.dto.SessionResponse;
@@ -69,7 +69,7 @@ public class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
 
         try {
             RegisterRequestDTO registerRequest = mapper.toRegisterRequest(request);
-            AccountResponse response = authService.register(registerRequest);
+            AccountResponseDTO response = authService.register(registerRequest);
             RegisterResponse grpcResponse = mapper.toRegisterResponseProto(response);
 
             responseObserver.onNext(grpcResponse);
@@ -162,7 +162,8 @@ public class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
         try {
             com.shareride.auth.dto.VerifyEmailRequest verifyRequest =
                     mapper.toVerifyEmailRequest(request);
-            AccountResponse accountResponse = accountVerificationService.verifyEmail(verifyRequest);
+            AccountResponseDTO accountResponse =
+                    accountVerificationService.verifyEmail(verifyRequest);
 
             com.shareride.common.grpc.auth.v1.VerifyEmailResponse grpcResponse =
                     mapper.toVerifyEmailResponseProto(
@@ -245,7 +246,7 @@ public class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
 
         try {
             UUID accountId = mapper.extractAccountId(request);
-            AccountResponse account = accountManagementService.getAccountById(accountId);
+            AccountResponseDTO account = accountManagementService.getAccountById(accountId);
             GetAccountResponse grpcResponse = mapper.toGetAccountResponseProto(account);
 
             responseObserver.onNext(grpcResponse);

@@ -301,4 +301,55 @@ class RateLimiterServiceTest {
         assertThat(result.allowed()).isTrue();
         assertThat(result.limit()).isEqualTo(-1);
     }
+
+    @Test
+    @DisplayName("Should evaluate in-memory rate limiting for FREE and PREMIUM user tiers")
+    void shouldEvaluateInMemoryForFreeAndPremiumTiers() {
+        MockServerHttpRequest freeRequest =
+                MockServerHttpRequest.get("/api/v1/general")
+                        .header(GatewayConstants.USER_ID_HEADER, "user-free-1")
+                        .header(GatewayConstants.USER_ROLES_HEADER, "ROLE_USER")
+                        .build();
+        RateLimitResult freeResult =
+                rateLimiterService
+                        .evaluateRateLimit(MockServerWebExchange.from(freeRequest))
+                        .block();
+        assertThat(freeResult).isNotNull();
+        assertThat(freeResult.tier()).isEqualTo("free");
+
+        MockServerHttpRequest premRequest =
+                MockServerHttpRequest.get("/api/v1/general")
+                        .header(GatewayConstants.USER_ID_HEADER, "user-prem-1")
+                        .header(GatewayConstants.USER_TIER_HEADER, GatewayConstants.TIER_PREMIUM)
+                        .build();
+        RateLimitResult premResult =
+                rateLimiterService
+                        .evaluateRateLimit(MockServerWebExchange.from(premRequest))
+                        .block();
+        assertThat(premResult).isNotNull();
+        assertThat(premResult.tier()).isEqualTo("premium");
+    }
+
+    @Test
+    @DisplayName("Should resolve anonymous rule when unauthenticated on generic path")
+    void shouldResolveAnonymousRule() {
+        MockServerHttpRequest request = MockServerHttpRequest.get("/api/v1/unknown").build();
+        RateLimitRule rule = rateLimiterService.resolveRule(MockServerWebExchange.from(request));
+        assertThat(rule.getBurstCapacity()).isEqualTo(config.getAnonymous().getBurstCapacity());
+    }
+
+    @Test
+    @DisplayName("Should instantiate service with alternative constructor overloads")
+    void shouldInstantiateWithAlternativeConstructors() {
+        RateLimiterServiceImpl svc1 = new RateLimiterServiceImpl((RateLimiterConfig) null);
+        assertThat(svc1).isNotNull();
+
+        com.shareride.gateway.config.RateLimitProperties props =
+                new com.shareride.gateway.config.RateLimitProperties();
+        RateLimiterServiceImpl svc2 = new RateLimiterServiceImpl(props);
+        assertThat(svc2).isNotNull();
+
+        RateLimiterServiceImpl svc3 = new RateLimiterServiceImpl(props, List.of(), null, null);
+        assertThat(svc3).isNotNull();
+    }
 }
