@@ -3,39 +3,116 @@ package com.shareride.gateway.config;
 import com.shareride.gateway.constant.GatewayConstants;
 import com.shareride.gateway.ratelimit.EndpointRateLimitRule;
 import com.shareride.gateway.ratelimit.RateLimitRule;
+import java.lang.reflect.Field;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
-import lombok.Getter;
-import lombok.Setter;
-import org.springframework.boot.context.properties.ConfigurationProperties;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.data.redis.core.script.RedisScript;
+import org.springframework.util.ReflectionUtils;
 import reactor.core.publisher.Mono;
 
 /**
  * Enterprise Rate Limiting configuration for ShareRide API Gateway.
  *
+ * <p>Creates beans for distributed rate limiting using Redis/Valkey token bucket algorithm with
+ * pattern-based endpoint grouping for clean, externalized configuration.
+ *
  * <p>Supports:
  *
  * <ul>
  *   <li>Tiered rate limiting (anonymous, free, and premium users)
- *   <li>Endpoint-specific limits (strict sensitive endpoints vs discovery)
+ *   <li>Pattern-based endpoint groups (no hardcoded endpoint lists)
  *   <li>Burst vs sustained limit configuration (token bucket replenish rate and capacity)
  *   <li>Standardized rate limit headers (X-RateLimit-Limit, X-RateLimit-Remaining,
  *       X-RateLimit-Reset)
  *   <li>Distributed KeyResolvers for Redis/Valkey Token Bucket Rate Limiting
  * </ul>
+ *
+ * <p>Configuration is loaded from {@link RateLimitProperties}.
+ *
+ * @see RateLimitProperties
+ * @see RateLimitGroup
  */
-@Getter
-@Setter
+@Slf4j
 @Configuration(proxyBeanMethods = false)
-@ConfigurationProperties(prefix = "shareride.gateway.rate-limiting")
+@EnableConfigurationProperties(RateLimitProperties.class)
+@RequiredArgsConstructor
 public class RateLimiterConfig {
 
+    private final RateLimitProperties rateLimitProperties;
+    private List<EndpointRateLimitRule> customEndpoints;
+
+    public RateLimiterConfig() {
+        this.rateLimitProperties = new RateLimitProperties();
+    }
+
+    public boolean isEnabled() {
+        return rateLimitProperties.isEnabled();
+    }
+
+    public boolean isFailOpen() {
+        return rateLimitProperties.isFailOpen();
+    }
+
+    public void setFailOpen(boolean failOpen) {
+        rateLimitProperties.setFailOpen(failOpen);
+    }
+
+    public void setEnabled(boolean enabled) {
+        rateLimitProperties.setEnabled(enabled);
+    }
+
+    public void setTimeoutMs(long timeoutMs) {
+        rateLimitProperties.setTimeoutMs(timeoutMs);
+    }
+
+    public long getTimeoutMs() {
+        return rateLimitProperties.getTimeoutMs();
+    }
+
+    public RateLimitRule getAnonymous() {
+        return rateLimitProperties.getAnonymous();
+    }
+
+    public RateLimitRule getFree() {
+        return rateLimitProperties.getFree();
+    }
+
+    public RateLimitRule getPremium() {
+        return rateLimitProperties.getPremium();
+    }
+
+    public void setEndpoints(List<EndpointRateLimitRule> endpoints) {
+        this.customEndpoints = endpoints;
+    }
+
+    public List<EndpointRateLimitRule> getEffectiveEndpoints() {
+        if (customEndpoints != null) {
+            return customEndpoints;
+        }
+        return endpointRateLimitRules();
+    }
+
+    /**
+     * Lua script for atomic token bucket rate limiting in Redis/Valkey.
+     *
+     * <p>Implements the token bucket algorithm with:
+     *
+     * <ul>
+     *   <li>Automatic token replenishment based on elapsed time
+     *   <li>Burst capacity handling
+     *   <li>Rate limit header values (remaining tokens, reset timestamp)
+     *   <li>Retry-After calculation for rejected requests
+     * </ul>
+     */
     private static final String TOKEN_BUCKET_LUA_SCRIPT =
             """
             redis.replicate_commands()
@@ -80,42 +157,66 @@ public class RateLimiterConfig {
             return { allowed and 1 or 0, math.floor(new_tokens), reset_timestamp, retry_after }
             """;
 
-    /** Whether rate limiting is globally active. Defaults to {@code true}. */
-    private boolean enabled = true;
-
     /**
-     * Whether to fail-open when Redis/Valkey is temporarily unreachable or times out. Defaults to
-     * {@code true} for enterprise resilience.
+     * Provides access to rate limit properties for filters and other components.
+     *
+     * @return the injected rate limit properties
      */
-    private boolean failOpen = true;
-
-    /** Timeout in milliseconds for Redis token bucket operations. Defaults to 500ms. */
-    private long timeoutMs = 500;
-
-    /** Sustained and burst limits for unauthenticated anonymous IP clients. */
-    private RateLimitRule anonymous = new RateLimitRule(10, 20, 1);
-
-    /** Sustained and burst limits for standard free authenticated users. */
-    private RateLimitRule free = new RateLimitRule(30, 60, 1);
-
-    /** Sustained and burst limits for premium / privileged authenticated users. */
-    private RateLimitRule premium = new RateLimitRule(100, 200, 1);
-
-    /** Endpoint-specific rate limiting rules. */
-    private List<EndpointRateLimitRule> endpoints = new ArrayList<>();
-
-    /**
-     * Resolves the effective list of endpoint rules, falling back to enterprise defaults if none
-     * are explicitly declared via properties.
-     */
-    public List<EndpointRateLimitRule> getEffectiveEndpoints() {
-        if (endpoints != null && !endpoints.isEmpty()) {
-            return endpoints;
-        }
-        return createDefaultEndpoints();
+    public RateLimitProperties rateLimitProperties() {
+        return rateLimitProperties;
     }
 
-    private List<EndpointRateLimitRule> createDefaultEndpoints() {
+    /**
+     * Converts pattern-based rate limit groups to individual endpoint rules.
+     *
+     * <p>Each group's path patterns are expanded into separate {@link EndpointRateLimitRule}
+     * instances with shared rate limit configuration. Falls back to default enterprise rules if no
+     * groups are configured.
+     *
+     * @return list of endpoint-specific rate limit rules
+     */
+    @Bean
+    public List<EndpointRateLimitRule> endpointRateLimitRules() {
+        List<RateLimitGroup> groups = rateLimitProperties.getGroups();
+
+        if (groups == null || groups.isEmpty()) {
+            log.info(
+                    "No rate limit groups configured; using default enterprise endpoint rules for"
+                            + " auth and discovery endpoints");
+            return createDefaultEndpointRules();
+        }
+
+        List<EndpointRateLimitRule> rules = new ArrayList<>();
+        for (RateLimitGroup group : groups) {
+            log.info(
+                    "Loading rate limit group '{}' with {} path pattern(s): replenishRate={}, "
+                            + "burstCapacity={}",
+                    group.getName(),
+                    group.getPathPatterns().size(),
+                    group.getReplenishRate(),
+                    group.getBurstCapacity());
+
+            for (String pathPattern : group.getPathPatterns()) {
+                EndpointRateLimitRule rule =
+                        EndpointRateLimitRule.builder()
+                                .pathPattern(pathPattern)
+                                .method(group.getMethod())
+                                .replenishRate(group.getReplenishRate())
+                                .burstCapacity(group.getBurstCapacity())
+                                .requestedTokens(group.getRequestedTokens())
+                                .build();
+                rules.add(rule);
+            }
+        }
+
+        log.info(
+                "Loaded {} endpoint rate limit rules from {} group(s)",
+                rules.size(),
+                groups.size());
+        return rules;
+    }
+
+    private List<EndpointRateLimitRule> createDefaultEndpointRules() {
         return List.of(
                 EndpointRateLimitRule.builder()
                         .pathPattern("/api/v1/auth/login")
@@ -152,12 +253,25 @@ public class RateLimiterConfig {
                         .build());
     }
 
-    /** Distributed Redis Lua Script for atomic token bucket rate limiting. */
+    /**
+     * Distributed Redis Lua Script bean for atomic token bucket rate limiting.
+     *
+     * <p>Sets result type to {@code List.class} via reflection on {@link DefaultRedisScript} to
+     * allow Spring Data Redis to deserialize the multi-bulk response into a {@code List<Long>}
+     * while strictly adhering to Constitution Principle X (zero {@code @SuppressWarnings}).
+     *
+     * @return configured Redis script for rate limiting
+     */
     @Bean
     public RedisScript<List<Long>> rateLimiterRedisScript() {
-        @SuppressWarnings("unchecked")
-        Class<List<Long>> resultType = (Class<List<Long>>) (Class<?>) List.class;
-        return RedisScript.of(TOKEN_BUCKET_LUA_SCRIPT, resultType);
+        DefaultRedisScript<List<Long>> redisScript =
+                new DefaultRedisScript<>(TOKEN_BUCKET_LUA_SCRIPT);
+        Field resultTypeField = ReflectionUtils.findField(DefaultRedisScript.class, "resultType");
+        if (resultTypeField != null) {
+            ReflectionUtils.makeAccessible(resultTypeField);
+            ReflectionUtils.setField(resultTypeField, redisScript, List.class);
+        }
+        return redisScript;
     }
 
     /**

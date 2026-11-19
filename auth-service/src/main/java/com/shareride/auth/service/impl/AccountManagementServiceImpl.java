@@ -5,7 +5,7 @@ import com.shareride.auth.constant.AuthOutboxConstants;
 import com.shareride.auth.domain.Account;
 import com.shareride.auth.domain.AccountStatus;
 import com.shareride.auth.domain.RoleCode;
-import com.shareride.auth.dto.AccountResponse;
+import com.shareride.auth.dto.AccountResponseDTO;
 import com.shareride.auth.repository.AccountRepository;
 import com.shareride.auth.service.AccountManagementService;
 import com.shareride.auth.service.RolePermissionCacheService;
@@ -62,7 +62,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
 
     @Override
     @Transactional(readOnly = true)
-    public AccountResponse getAccountById(UUID accountId) {
+    public AccountResponseDTO getAccountById(UUID accountId) {
         UserContextHolder.requireSelfOrAdmin(accountId);
         Account account =
                 accountRepository
@@ -115,7 +115,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
     }
 
     @Override
-    public AccountResponse toAccountResponse(Account account) {
+    public AccountResponseDTO toAccountResponse(Account account) {
         Set<String> roleCodes =
                 account.getRoles() != null
                         ? account.getRoles().stream()
@@ -158,7 +158,7 @@ public class AccountManagementServiceImpl implements AccountManagementService {
                             : Set.of();
         }
 
-        return AccountResponse.builder()
+        return AccountResponseDTO.builder()
                 .accountId(account.getId())
                 .email(account.getEmail())
                 .phoneNumber(account.getPhoneNumber())

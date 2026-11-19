@@ -17,6 +17,8 @@ import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactor
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.JedisPoolConfig;
 
 /**
  * Implementation of EmailBloomFilterService using RedisBloom (jrebloom) client. Provides fast
@@ -52,6 +54,7 @@ public class EmailBloomFilterServiceImpl implements EmailBloomFilterService {
         String host = connectionFactory.getHostName();
         int port = connectionFactory.getPort();
         int database = connectionFactory.getDatabase();
+        String password = connectionFactory.getPassword();
 
         log.info(
                 "Initializing Bloom filter client: host={}, port={}, database={}",
@@ -59,7 +62,22 @@ public class EmailBloomFilterServiceImpl implements EmailBloomFilterService {
                 port,
                 database);
 
-        this.bloomClient = new Client(host, port);
+        // Create JedisPool with authentication for Valkey
+        JedisPoolConfig poolConfig = new JedisPoolConfig();
+        poolConfig.setMaxTotal(8);
+        poolConfig.setMaxIdle(8);
+        poolConfig.setMinIdle(2);
+
+        JedisPool jedisPool;
+        if (password != null && !password.isEmpty()) {
+            jedisPool = new JedisPool(poolConfig, host, port, 2000, password, database);
+            log.info("Bloom filter client initialized with authentication");
+        } else {
+            jedisPool = new JedisPool(poolConfig, host, port, 2000, null, database);
+            log.warn("Bloom filter client initialized WITHOUT authentication");
+        }
+
+        this.bloomClient = new Client(jedisPool);
 
         if (!isInitialized()) {
             log.info("Bloom filter not found, initializing...");

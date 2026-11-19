@@ -1,14 +1,28 @@
+name: shareride
+
 services:
   valkey-shared:
-    image: valkey/valkey-extension:latest
+    image: valkey/valkey-bundle:latest
     container_name: shareride-valkey-shared
-    command: valkey-server --appendonly yes --requirepass shared_valkey_secret
+    env_file:
+      - .env
+    environment:
+      VALKEY_PASSWORD: ${VALKEY_PASSWORD:-shared_valkey_secret}
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        valkey-server \
+          --appendonly yes \
+          --requirepass "$$VALKEY_PASSWORD" \
+          --loadmodule /usr/lib/valkey/libvalkey_bloom.so \
+          --loadmodule /usr/lib/valkey/libjson.so \
+          --loadmodule /usr/lib/valkey/libsearch.so
     ports:
       - '6379:6379'
     volumes:
       - valkey_shared_data:/data
     healthcheck:
-      test: ['CMD', 'valkey-cli', '-a', 'shared_valkey_secret', 'ping']
+      test: ['CMD', 'valkey-cli', '-a', '${VALKEY_PASSWORD:-shared_valkey_secret}', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -18,9 +32,11 @@ services:
   rabbitmq:
     image: rabbitmq:4-alpine
     container_name: shareride-rabbitmq
+    env_file:
+      - .env
     environment:
-      RABBITMQ_DEFAULT_USER: shareride_mq
-      RABBITMQ_DEFAULT_PASS: mq_secret_password
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-shareride_mq}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-mq_secret_password}
     ports:
       - '5672:5672' # AMQP protocol port
     volumes:

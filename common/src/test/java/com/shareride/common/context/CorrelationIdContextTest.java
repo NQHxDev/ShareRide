@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.shareride.common.filter.TraceIdContext;
 import com.shareride.common.logging.MdcConstants;
+import com.shareride.common.util.UuidUtils;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -60,7 +61,7 @@ class CorrelationIdContextTest {
     @Test
     @DisplayName("setCorrelationId should bind to thread-local and synchronize with SLF4J MDC")
     void testSetAndGetCorrelationIdSyncMdc() {
-        String cid = "business-flow-" + UUID.randomUUID();
+        String cid = "business-flow-" + UuidUtils.v7AsString();
         CorrelationIdContext.setCorrelationId(cid);
 
         assertTrue(CorrelationIdContext.hasCorrelationId());

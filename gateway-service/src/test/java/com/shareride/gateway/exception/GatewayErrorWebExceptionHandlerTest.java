@@ -88,4 +88,76 @@ class GatewayErrorWebExceptionHandlerTest {
         assertThat(body).contains("\"success\":false");
         assertThat(body).contains("\"code\":\"TOO_MANY_REQUESTS\"");
     }
+
+    @Test
+    @DisplayName("Should map ConnectException to 503 SERVICE_UNAVAILABLE with clean BaseResponse")
+    void shouldMapConnectExceptionTo503ServiceUnavailable() {
+        MockServerHttpRequest request =
+                MockServerHttpRequest.get("/api/v1/auth/v3/api-docs")
+                        .header(GatewayConstants.CORRELATION_ID_HEADER, "corr-connect")
+                        .build();
+        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+
+        java.net.ConnectException ex =
+                new java.net.ConnectException("Connection refused: localhost/127.0.0.1:8081");
+
+        exceptionHandler.handle(exchange, ex).block();
+
+        assertThat(exchange.getResponse().getStatusCode())
+                .isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+        verify(gatewayMetricsService)
+                .recordGatewayError(
+                        "unmatched", "/api/v1/auth/v3/api-docs", 503, "SERVICE_UNAVAILABLE");
+
+        String body = exchange.getResponse().getBodyAsString().block();
+        assertThat(body).contains("\"code\":\"SERVICE_UNAVAILABLE\"");
+        assertThat(body).contains("Downstream service is temporarily unavailable");
+    }
+
+    @Test
+    @DisplayName("Should map TimeoutException to 504 GATEWAY_TIMEOUT with clean BaseResponse")
+    void shouldMapTimeoutExceptionTo504GatewayTimeout() {
+        MockServerHttpRequest request =
+                MockServerHttpRequest.get("/api/v1/templates/v3/api-docs")
+                        .header(GatewayConstants.CORRELATION_ID_HEADER, "corr-timeout")
+                        .build();
+        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+
+        java.util.concurrent.TimeoutException ex =
+                new java.util.concurrent.TimeoutException("Connection timed out after 3000ms");
+
+        exceptionHandler.handle(exchange, ex).block();
+
+        assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.GATEWAY_TIMEOUT);
+        verify(gatewayMetricsService)
+                .recordGatewayError(
+                        "unmatched", "/api/v1/templates/v3/api-docs", 504, "GATEWAY_TIMEOUT");
+
+        String body = exchange.getResponse().getBodyAsString().block();
+        assertThat(body).contains("\"code\":\"GATEWAY_TIMEOUT\"");
+        assertThat(body).contains("Gateway Timeout");
+    }
+
+    @Test
+    @DisplayName("Should map unhandled RuntimeException to 500 INTERNAL_SERVER_ERROR")
+    void shouldMapUnhandledExceptionTo500InternalServerError() {
+        MockServerHttpRequest request =
+                MockServerHttpRequest.get("/api/v1/crash")
+                        .header(GatewayConstants.CORRELATION_ID_HEADER, "corr-500")
+                        .build();
+        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+
+        RuntimeException ex =
+                new RuntimeException("Unexpected error", new IllegalStateException("Deep cause"));
+
+        exceptionHandler.handle(exchange, ex).block();
+
+        assertThat(exchange.getResponse().getStatusCode())
+                .isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+        verify(gatewayMetricsService)
+                .recordGatewayError("unmatched", "/api/v1/crash", 500, "INTERNAL_SERVER_ERROR");
+
+        String body = exchange.getResponse().getBodyAsString().block();
+        assertThat(body).contains("\"code\":\"INTERNAL_SERVER_ERROR\"");
+    }
 }

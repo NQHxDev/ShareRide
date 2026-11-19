@@ -1,13 +1,13 @@
 #!/bin/bash
 
-# ==============================================================================
+# ------------------------------------------------------------------------------
 # ShareRide Pre-Commit Hook
 # Fast quality verification before code is committed:
 #   1. Format check & auto-fix (Spotless / Google Java Format)
 #   2. Code style, standards & lint checks (Checkstyle)
 # Note: Tests are intentionally NOT run during commit to keep it fast (< 2-3s).
 #       Full build and comprehensive test suite run on 'git push'.
-# ==============================================================================
+# ------------------------------------------------------------------------------
 
 set -e
 

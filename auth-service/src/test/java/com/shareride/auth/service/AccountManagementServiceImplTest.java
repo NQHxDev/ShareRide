@@ -14,7 +14,7 @@ import com.shareride.auth.domain.Permission;
 import com.shareride.auth.domain.PermissionCode;
 import com.shareride.auth.domain.Role;
 import com.shareride.auth.domain.RoleCode;
-import com.shareride.auth.dto.AccountResponse;
+import com.shareride.auth.dto.AccountResponseDTO;
 import com.shareride.auth.repository.AccountRepository;
 import com.shareride.auth.service.impl.AccountManagementServiceImpl;
 import com.shareride.common.context.UserContext;
@@ -23,6 +23,7 @@ import com.shareride.common.exception.ForbiddenException;
 import com.shareride.common.exception.ResourceNotFoundException;
 import com.shareride.common.exception.UnauthorizedException;
 import com.shareride.common.outbox.OutboxService;
+import com.shareride.common.util.UuidUtils;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -66,7 +67,7 @@ class AccountManagementServiceImplTest {
     @Test
     @DisplayName("getAccountById: Throws UnauthorizedException when unauthenticated")
     void testGetAccountByIdUnauthenticated() {
-        UUID accountId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
         assertThrows(
                 UnauthorizedException.class,
                 () -> accountManagementService.getAccountById(accountId));
@@ -76,8 +77,8 @@ class AccountManagementServiceImplTest {
     @DisplayName(
             "getAccountById: Throws ForbiddenException when viewing another account without ADMIN")
     void testGetAccountByIdForbidden() {
-        UUID targetId = UUID.randomUUID();
-        UUID currentUserId = UUID.randomUUID();
+        UUID targetId = UuidUtils.v7();
+        UUID currentUserId = UuidUtils.v7();
 
         UserContextHolder.setContext(
                 UserContext.builder()
@@ -92,7 +93,7 @@ class AccountManagementServiceImplTest {
     @Test
     @DisplayName("getAccountById: Succeeds when viewing own account")
     void testGetAccountByIdOwnAccount() {
-        UUID accountId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
         Role role =
                 Role.builder()
                         .roleCode(RoleCode.ROLE_RIDER)
@@ -122,7 +123,7 @@ class AccountManagementServiceImplTest {
         when(rolePermissionCacheService.getPermissionsByRoleCodes(Set.of(RoleCode.ROLE_RIDER)))
                 .thenReturn(Set.of("ride:create"));
 
-        AccountResponse response = accountManagementService.getAccountById(accountId);
+        AccountResponseDTO response = accountManagementService.getAccountById(accountId);
 
         assertNotNull(response);
         assertEquals(accountId, response.getAccountId());
@@ -134,7 +135,7 @@ class AccountManagementServiceImplTest {
     @Test
     @DisplayName("getAccountById: Throws ResourceNotFoundException when account not found")
     void testGetAccountByIdNotFound() {
-        UUID accountId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
         UserContextHolder.setContext(
                 UserContext.builder()
                         .userId(accountId.toString())
@@ -152,7 +153,7 @@ class AccountManagementServiceImplTest {
     @Test
     @DisplayName("getActiveAccount: Returns active account")
     void testGetActiveAccountSuccess() {
-        UUID accountId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
         Account account =
                 Account.builder()
                         .email("active@shareride.com")
@@ -170,7 +171,7 @@ class AccountManagementServiceImplTest {
     @Test
     @DisplayName("getActiveAccount: Throws UnauthorizedException when account disabled")
     void testGetActiveAccountDisabled() {
-        UUID accountId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
         Account account =
                 Account.builder()
                         .email("blocked@shareride.com")
@@ -190,7 +191,7 @@ class AccountManagementServiceImplTest {
             "softDeleteAccount: Marks account deleted, revokes all sessions, and emits outbox"
                     + " event")
     void testSoftDeleteAccount() {
-        UUID accountId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
         Account account =
                 Account.builder()
                         .email("delete.me@shareride.com")
@@ -212,7 +213,7 @@ class AccountManagementServiceImplTest {
     @Test
     @DisplayName("softDeleteAccount: Throws ResourceNotFoundException when account does not exist")
     void testSoftDeleteAccountNotFound() {
-        UUID accountId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
         when(accountRepository.findById(accountId)).thenReturn(Optional.empty());
 
         assertThrows(
@@ -231,9 +232,9 @@ class AccountManagementServiceImplTest {
 
         Account accountWithoutRoles =
                 Account.builder().email("noroles@shareride.com").roles(null).build();
-        accountWithoutRoles.setId(UUID.randomUUID());
+        accountWithoutRoles.setId(UuidUtils.v7());
 
-        AccountResponse resp = fallbackService.toAccountResponse(accountWithoutRoles);
+        AccountResponseDTO resp = fallbackService.toAccountResponse(accountWithoutRoles);
         assertNotNull(resp);
         assertTrue(resp.getRoles().isEmpty());
         assertTrue(resp.getPermissions().isEmpty());
@@ -243,9 +244,9 @@ class AccountManagementServiceImplTest {
         Role role = Role.builder().roleCode(RoleCode.ROLE_DRIVER).permissions(Set.of(perm)).build();
         Account accountWithRoles =
                 Account.builder().email("direct@shareride.com").roles(Set.of(role)).build();
-        accountWithRoles.setId(UUID.randomUUID());
+        accountWithRoles.setId(UuidUtils.v7());
 
-        AccountResponse resp2 = fallbackService.toAccountResponse(accountWithRoles);
+        AccountResponseDTO resp2 = fallbackService.toAccountResponse(accountWithRoles);
         assertTrue(resp2.getRoles().contains("ROLE_DRIVER"));
         assertTrue(resp2.getPermissions().contains("ride:accept"));
     }
@@ -254,7 +255,7 @@ class AccountManagementServiceImplTest {
     @DisplayName(
             "getActiveAccount: Fallback to findById when findActiveByIdWithRoles returns empty")
     void testGetActiveAccountFallbackFindById() {
-        UUID accountId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
         Account account =
                 Account.builder()
                         .email("fallback@shareride.com")

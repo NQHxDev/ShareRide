@@ -1,6 +1,8 @@
 package com.shareride.auth.integration;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.shareride.auth.domain.Account;
 import com.shareride.auth.domain.AccountStatus;
@@ -40,7 +42,6 @@ class BloomFilterRebuildIntegrationTest extends AbstractIntegrationTest {
             Account account =
                     Account.builder()
                             .email("rebuild" + i + "@example.com")
-                            .phoneNumber("+8490" + String.format("%07d", i))
                             .passwordHash(PasswordUtils.hashPassword("Pass123!"))
                             .status(AccountStatus.ACTIVE)
                             .roles(Set.of())
@@ -74,7 +75,6 @@ class BloomFilterRebuildIntegrationTest extends AbstractIntegrationTest {
             Account account =
                     Account.builder()
                             .email("perf" + i + "@example.com")
-                            .phoneNumber("+8491" + String.format("%07d", i))
                             .passwordHash(PasswordUtils.hashPassword("Pass123!"))
                             .status(AccountStatus.ACTIVE)
                             .roles(Set.of())
@@ -121,7 +121,6 @@ class BloomFilterRebuildIntegrationTest extends AbstractIntegrationTest {
         Account account =
                 Account.builder()
                         .email("new@example.com")
-                        .phoneNumber("+84922222222")
                         .passwordHash(PasswordUtils.hashPassword("Pass123!"))
                         .status(AccountStatus.ACTIVE)
                         .roles(Set.of())
@@ -145,7 +144,6 @@ class BloomFilterRebuildIntegrationTest extends AbstractIntegrationTest {
         Account account1 =
                 Account.builder()
                         .email("test+filter@example.com")
-                        .phoneNumber("+84933333333")
                         .passwordHash(PasswordUtils.hashPassword("Pass123!"))
                         .status(AccountStatus.ACTIVE)
                         .roles(Set.of())
@@ -154,7 +152,6 @@ class BloomFilterRebuildIntegrationTest extends AbstractIntegrationTest {
         Account account2 =
                 Account.builder()
                         .email("user.name@example.co.uk")
-                        .phoneNumber("+84944444444")
                         .passwordHash(PasswordUtils.hashPassword("Pass123!"))
                         .status(AccountStatus.ACTIVE)
                         .roles(Set.of())
@@ -178,7 +175,6 @@ class BloomFilterRebuildIntegrationTest extends AbstractIntegrationTest {
             Account account =
                     Account.builder()
                             .email("idempotent" + i + "@example.com")
-                            .phoneNumber("+8495" + String.format("%07d", i))
                             .passwordHash(PasswordUtils.hashPassword("Pass123!"))
                             .status(AccountStatus.ACTIVE)
                             .roles(Set.of())

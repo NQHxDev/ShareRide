@@ -12,14 +12,13 @@ import org.testcontainers.utility.DockerImageName;
 
 /**
  * Base class for Integration Tests using Testcontainers. Provides on-demand, isolated PostgreSQL
- * and Valkey containers. Uses Singleton Container pattern without @Container lifecycle hooks so
- * containers remain active across all integration test classes, preventing connection drop and
- * timeout issues. Annotated with disabledWithoutDocker = true so local runs without Docker
- * gracefully pass.
+ * and Valkey containers. Uses Singleton Container pattern with explicit lifecycle management.
+ * Containers remain active across all integration test classes via static initialization and are
+ * closed via JVM shutdown hook. Annotated with disabledWithoutDocker = true so local runs without
+ * Docker gracefully pass.
  */
 @SpringBootTest
 @Testcontainers(disabledWithoutDocker = true)
-@SuppressWarnings("resource")
 public abstract class AbstractIntegrationTest {
 
     @ServiceConnection
@@ -39,6 +38,14 @@ public abstract class AbstractIntegrationTest {
         if (DockerClientFactory.instance().isDockerAvailable()) {
             postgres.start();
             valkey.start();
+
+            Runtime.getRuntime()
+                    .addShutdownHook(
+                            new Thread(
+                                    () -> {
+                                        postgres.stop();
+                                        valkey.stop();
+                                    }));
         }
     }
 

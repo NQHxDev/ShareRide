@@ -1,17 +1,21 @@
+name: shareride
+
 services:
   postgres-notification:
     image: postgres:17-alpine
     container_name: shareride-postgres-notification
+    env_file:
+      - .env
     environment:
-      POSTGRES_DB: shareride_notification
-      POSTGRES_USER: shareride_notification_usr
-      POSTGRES_PASSWORD: notification_secret_password
+      POSTGRES_DB: ${DB_NAME:-shareride_notification}
+      POSTGRES_USER: ${DB_USER:-shareride_notification_usr}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-notification_secret_password}
     ports:
       - '${DB_PORT:-5433}:5432'
     volumes:
       - pg_notification_data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U shareride_notification_usr -d shareride_notification']
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-shareride_notification_usr} -d ${DB_NAME:-shareride_notification}']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -24,4 +28,4 @@ volumes:
 
 networks:
   shareride-network:
-    name: shareride-network
+    external: true

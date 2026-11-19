@@ -1,31 +1,35 @@
 package com.shareride.common.communication.grpc.client;
 
-import java.util.HashMap;
-import java.util.Map;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-/** Configuration properties for outgoing gRPC client channels. */
-@Getter
-@Setter
-@ConfigurationProperties(prefix = "shareride.grpc")
+/**
+ * Configuration properties for gRPC client connections. Binds to {@code shareride.grpc.client.*}
+ * configuration namespace.
+ */
+@Data
+@ConfigurationProperties(prefix = "shareride.grpc.client")
 public class GrpcClientProperties {
 
-    private Map<String, ChannelConfig> channels = new HashMap<>();
-    private ChannelConfig defaults = new ChannelConfig();
+    private long defaultDeadlineMs = 5000;
 
-    @Getter
-    @Setter
-    public static class ChannelConfig {
-        private String address = "localhost:9090";
-        private boolean plaintext = true;
-        private long timeoutMs = 3000L;
-        private long keepAliveTimeSeconds = 60L;
-        private int maxInboundMessageSize = 10 * 1024 * 1024; // 10MB
-    }
+    private int keepAliveTimeSeconds = 60;
 
-    public ChannelConfig getChannelConfig(String serviceName) {
-        return channels.getOrDefault(serviceName, defaults);
-    }
+    private int keepAliveTimeoutSeconds = 20;
+
+    private boolean keepAliveWithoutCalls = false;
+
+    private int maxInboundMessageSize = 10485760;
+
+    private int idleTimeoutSeconds = 300;
+
+    private int maxRetryAttempts = 3;
+
+    private boolean enableRetry = true;
+
+    private long initialBackoffMs = 1000;
+
+    private long maxBackoffMs = 10000;
+
+    private double backoffMultiplier = 1.5;
 }

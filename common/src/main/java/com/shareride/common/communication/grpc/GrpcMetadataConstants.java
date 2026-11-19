@@ -20,11 +20,23 @@ public final class GrpcMetadataConstants {
     public static final Metadata.Key<String> USER_ID_KEY =
             Metadata.Key.of("x-user-id", Metadata.ASCII_STRING_MARSHALLER);
 
+    public static final Metadata.Key<String> EMAIL_KEY =
+            Metadata.Key.of("x-email", Metadata.ASCII_STRING_MARSHALLER);
+
+    public static final Metadata.Key<String> ROLES_KEY =
+            Metadata.Key.of("x-roles", Metadata.ASCII_STRING_MARSHALLER);
+
+    public static final Metadata.Key<String> PERMISSIONS_KEY =
+            Metadata.Key.of("x-permissions", Metadata.ASCII_STRING_MARSHALLER);
+
     public static final Metadata.Key<String> TENANT_ID_KEY =
             Metadata.Key.of("x-tenant-id", Metadata.ASCII_STRING_MARSHALLER);
 
     public static final Metadata.Key<String> CORRELATION_ID_KEY =
             Metadata.Key.of("x-correlation-id", Metadata.ASCII_STRING_MARSHALLER);
+
+    public static final Metadata.Key<String> SESSION_ID_KEY =
+            Metadata.Key.of("x-session-id", Metadata.ASCII_STRING_MARSHALLER);
 
     public static final Metadata.Key<String> PRIORITY_KEY =
             Metadata.Key.of("x-priority", Metadata.ASCII_STRING_MARSHALLER);

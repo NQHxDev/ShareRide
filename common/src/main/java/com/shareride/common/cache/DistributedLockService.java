@@ -1,10 +1,10 @@
 package com.shareride.common.cache;
 
 import com.shareride.common.metrics.ShareRideMetrics;
+import com.shareride.common.util.UuidUtils;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -545,7 +545,7 @@ public class DistributedLockService implements DisposableBean {
      * watchdog heartbeat renewal when {@link LockOptions#isAutoRenew()} is enabled.
      */
     public LockHandle acquireLockHandle(String lockKey, LockOptions options) {
-        String lockToken = UUID.randomUUID().toString();
+        String lockToken = UuidUtils.v7AsString();
         boolean acquired =
                 options.isFair()
                         ? tryAcquireFairLock(

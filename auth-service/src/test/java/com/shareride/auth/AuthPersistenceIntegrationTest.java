@@ -13,11 +13,11 @@ import com.shareride.auth.domain.AccountStatus;
 import com.shareride.auth.domain.Role;
 import com.shareride.auth.domain.Session;
 import com.shareride.auth.domain.SessionStatus;
-import com.shareride.auth.dto.AccountResponse;
+import com.shareride.auth.dto.AccountResponseDTO;
 import com.shareride.auth.dto.AuthResponse;
 import com.shareride.auth.dto.LoginRequest;
 import com.shareride.auth.dto.RefreshTokenData;
-import com.shareride.auth.dto.RegisterRequest;
+import com.shareride.auth.dto.RegisterRequestDTO;
 import com.shareride.auth.repository.AccountRepository;
 import com.shareride.auth.repository.RoleRepository;
 import com.shareride.auth.repository.SessionRepository;
@@ -100,7 +100,6 @@ class AuthPersistenceIntegrationTest extends AbstractIntegrationTest {
                 Account.builder()
                         .email("driver.alice@shareride.com")
                         .passwordHash("hashed-pw-123")
-                        .phoneNumber("+84988111222")
                         .status(AccountStatus.ACTIVE)
                         .roles(roles)
                         .build();
@@ -127,7 +126,6 @@ class AuthPersistenceIntegrationTest extends AbstractIntegrationTest {
                 Account.builder()
                         .email("rider.bob@shareride.com")
                         .passwordHash("hashed-pw-456")
-                        .phoneNumber("+84988333444")
                         .status(AccountStatus.ACTIVE)
                         .build();
 
@@ -155,7 +153,6 @@ class AuthPersistenceIntegrationTest extends AbstractIntegrationTest {
                 Account.builder()
                         .email("rider.charlie@shareride.com")
                         .passwordHash("hashed-pw-789")
-                        .phoneNumber("+84988555666")
                         .status(AccountStatus.ACTIVE)
                         .build();
 
@@ -182,16 +179,14 @@ class AuthPersistenceIntegrationTest extends AbstractIntegrationTest {
             "Transactional Outbox: Registering account must save Account and OutboxMessage"
                     + " atomically")
     void testTransactionalOutboxAtomicity() {
-        RegisterRequest request =
-                RegisterRequest.builder()
+        RegisterRequestDTO request =
+                RegisterRequestDTO.builder()
                         .email("new.driver@shareride.com")
                         .password("SecurePass123")
-                        .phoneNumber("+84988777888")
-                        .fullName("New Driver")
-                        .roleCode("ROLE_DRIVER")
+                        .confirmPassword("SecurePass123")
                         .build();
 
-        AccountResponse response = authService.register(request);
+        AccountResponseDTO response = authService.register(request);
 
         assertNotNull(response.getAccountId());
         assertEquals("new.driver@shareride.com", response.getEmail());
@@ -212,7 +207,9 @@ class AuthPersistenceIntegrationTest extends AbstractIntegrationTest {
                                                         m.getAggregateType())
                                                 && response.getAccountId()
                                                         .toString()
-                                                        .equals(m.getAggregateId()))
+                                                        .equals(m.getAggregateId())
+                                                && AuthOutboxConstants.EventType.ACCOUNT_REGISTERED
+                                                        .equals(m.getEventType()))
                         .findFirst()
                         .orElseThrow();
 
@@ -226,14 +223,18 @@ class AuthPersistenceIntegrationTest extends AbstractIntegrationTest {
             "Authentication & Sessions: Login creates session in DB, signs EdDSA JWT, and stores"
                     + " refresh token in Valkey")
     void testLoginWorkflow() {
-        RegisterRequest registerRequest =
-                RegisterRequest.builder()
+        RegisterRequestDTO registerRequest =
+                RegisterRequestDTO.builder()
                         .email("login.user@shareride.com")
                         .password("CorrectPassword123")
-                        .phoneNumber("+84988999000")
-                        .roleCode("ROLE_RIDER")
+                        .confirmPassword("CorrectPassword123")
                         .build();
         authService.register(registerRequest);
+
+        // Activate account for test (bypass email verification)
+        Account account = accountRepository.findByEmail("login.user@shareride.com").orElseThrow();
+        account.setStatus(AccountStatus.ACTIVE);
+        accountRepository.save(account);
 
         // Login success with device metadata
         LoginRequest loginRequest =
@@ -287,13 +288,18 @@ class AuthPersistenceIntegrationTest extends AbstractIntegrationTest {
     @Test
     @DisplayName("Token Rotation: Refresh token succeeds and rotates in Valkey")
     void testTokenRotation() {
-        RegisterRequest registerRequest =
-                RegisterRequest.builder()
+        RegisterRequestDTO registerRequest =
+                RegisterRequestDTO.builder()
                         .email("refresh.user@shareride.com")
                         .password("CorrectPassword123")
-                        .phoneNumber("+84988999111")
+                        .confirmPassword("CorrectPassword123")
                         .build();
         authService.register(registerRequest);
+
+        // Activate account for test (bypass email verification)
+        Account account = accountRepository.findByEmail("refresh.user@shareride.com").orElseThrow();
+        account.setStatus(AccountStatus.ACTIVE);
+        accountRepository.save(account);
 
         LoginRequest loginRequest =
                 LoginRequest.builder()
@@ -328,14 +334,18 @@ class AuthPersistenceIntegrationTest extends AbstractIntegrationTest {
     @Test
     @DisplayName("Logout: Revokes JWT access token in Valkey and deletes refresh token")
     void testLogoutRevokesAccessTokenAndRefreshToken() {
-        RegisterRequest registerRequest =
-                RegisterRequest.builder()
+        RegisterRequestDTO registerRequest =
+                RegisterRequestDTO.builder()
                         .email("logout.user@shareride.com")
                         .password("CorrectPassword123")
-                        .phoneNumber("+84988999333")
-                        .roleCode("ROLE_RIDER")
+                        .confirmPassword("CorrectPassword123")
                         .build();
         authService.register(registerRequest);
+
+        // Activate account for test (bypass email verification)
+        Account account = accountRepository.findByEmail("logout.user@shareride.com").orElseThrow();
+        account.setStatus(AccountStatus.ACTIVE);
+        accountRepository.save(account);
 
         LoginRequest loginRequest =
                 LoginRequest.builder()
@@ -367,13 +377,19 @@ class AuthPersistenceIntegrationTest extends AbstractIntegrationTest {
     @DisplayName(
             "Revoke Session: Revoking session marks DB session REVOKED and removes from Valkey")
     void testRevokeSession() {
-        RegisterRequest registerRequest =
-                RegisterRequest.builder()
+        RegisterRequestDTO registerRequest =
+                RegisterRequestDTO.builder()
                         .email("revoke.user@shareride.com")
                         .password("CorrectPassword123")
-                        .phoneNumber("+84988999222")
+                        .confirmPassword("CorrectPassword123")
                         .build();
-        AccountResponse account = authService.register(registerRequest);
+        AccountResponseDTO account = authService.register(registerRequest);
+
+        // Activate account for test (bypass email verification)
+        Account accountEntity =
+                accountRepository.findByEmail("revoke.user@shareride.com").orElseThrow();
+        accountEntity.setStatus(AccountStatus.ACTIVE);
+        accountRepository.save(accountEntity);
 
         LoginRequest loginRequest =
                 LoginRequest.builder()
@@ -404,19 +420,19 @@ class AuthPersistenceIntegrationTest extends AbstractIntegrationTest {
     @Test
     @DisplayName("Validation: Should reject duplicate email registration")
     void testDuplicateEmailRegistration() {
-        RegisterRequest request =
-                RegisterRequest.builder()
+        RegisterRequestDTO request =
+                RegisterRequestDTO.builder()
                         .email("duplicate@shareride.com")
                         .password("Password123")
-                        .phoneNumber("+84988111999")
+                        .confirmPassword("Password123")
                         .build();
         authService.register(request);
 
-        RegisterRequest duplicateRequest =
-                RegisterRequest.builder()
+        RegisterRequestDTO duplicateRequest =
+                RegisterRequestDTO.builder()
                         .email("duplicate@shareride.com")
                         .password("Password123")
-                        .phoneNumber("+84988222999")
+                        .confirmPassword("Password123")
                         .build();
 
         assertThrows(ConflictException.class, () -> authService.register(duplicateRequest));

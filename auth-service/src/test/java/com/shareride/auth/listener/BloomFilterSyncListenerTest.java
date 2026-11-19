@@ -2,7 +2,9 @@ package com.shareride.auth.listener;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import com.shareride.auth.event.AccountRegisteredEvent;
 import com.shareride.auth.service.EmailBloomFilterService;

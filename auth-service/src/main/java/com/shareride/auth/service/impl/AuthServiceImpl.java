@@ -6,11 +6,12 @@ import com.shareride.auth.constant.AuthSecurityAuditConstants;
 import com.shareride.auth.domain.Account;
 import com.shareride.auth.domain.AccountStatus;
 import com.shareride.auth.domain.Session;
-import com.shareride.auth.dto.AccountResponse;
+import com.shareride.auth.dto.AccountResponseDTO;
 import com.shareride.auth.dto.AuthResponse;
 import com.shareride.auth.dto.LoginRequest;
-import com.shareride.auth.dto.RegisterRequest;
+import com.shareride.auth.dto.RegisterRequestDTO;
 import com.shareride.auth.dto.SessionResponse;
+import com.shareride.auth.exception.AccountPendingVerificationException;
 import com.shareride.auth.repository.AccountRepository;
 import com.shareride.auth.service.AccountManagementService;
 import com.shareride.auth.service.AuthService;
@@ -32,6 +33,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -54,10 +56,11 @@ public class AuthServiceImpl implements AuthService {
     private final SessionManagementService sessionManagementService;
     private final AccountManagementService accountManagementService;
     private final LoginRateLimiterService loginRateLimiterService;
+    private final org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
 
     @Override
     @Transactional
-    public AccountResponse register(RegisterRequest request) {
+    public AccountResponseDTO register(RegisterRequestDTO request) {
         return registrationService.register(request);
     }
 
@@ -90,7 +93,7 @@ public class AuthServiceImpl implements AuthService {
             throw new UnauthorizedException(AuthMessage.INVALID_EMAIL_OR_PASSWORD);
         }
 
-        // 3. Kiểm tra trạng thái tài khoản
+        // 3. Kiểm tra tài khoản bị khóa TRƯỚC khi xác thực mật khẩu
         if (account.getStatus() == AccountStatus.LOCKED) {
             auditLog(
                     AuthSecurityAuditConstants.EventType.LOGIN_FAILURE,
@@ -98,10 +101,6 @@ public class AuthServiceImpl implements AuthService {
                     AuthConstants.AuditResource.LOGIN,
                     AuthSecurityAuditConstants.Status.ACCOUNT_LOCKED);
             throw new ForbiddenException(AuthMessage.accountInactive(account.getStatus()));
-        }
-
-        if (account.getStatus() != AccountStatus.ACTIVE) {
-            throw new UnauthorizedException(AuthMessage.accountInactive(account.getStatus()));
         }
 
         // 4. Xác thực mật khẩu với Argon2id
@@ -133,7 +132,28 @@ public class AuthServiceImpl implements AuthService {
             throw new UnauthorizedException(AuthMessage.INVALID_EMAIL_OR_PASSWORD);
         }
 
-        // 5. Đăng nhập thành công -> Xóa bộ đếm lần thử sai của IP và tài khoản
+        // 5. Kiểm tra tài khoản chưa xác thực email (PENDING_VERIFICATION) sau khi xác thực mật
+        // khẩu (FR-011)
+        if (account.getStatus() == AccountStatus.PENDING_VERIFICATION) {
+            int remainingCooldownSeconds = getRemainingCooldownSeconds(account.getId());
+            auditLog(
+                    AuthSecurityAuditConstants.EventType.LOGIN_FAILURE,
+                    account.getId().toString(),
+                    AuthConstants.AuditResource.LOGIN,
+                    "ACCOUNT_PENDING_VERIFICATION");
+            log.info(
+                    "Login attempt for unverified account [{}], remaining cooldown: {} seconds",
+                    account.getId(),
+                    remainingCooldownSeconds);
+            throw new AccountPendingVerificationException(
+                    normalizedEmail, remainingCooldownSeconds);
+        }
+
+        if (account.getStatus() != AccountStatus.ACTIVE) {
+            throw new UnauthorizedException(AuthMessage.accountInactive(account.getStatus()));
+        }
+
+        // 6. Đăng nhập thành công -> Xóa bộ đếm lần thử sai của IP và tài khoản
         loginRateLimiterService.resetLoginAttempts(ipAddress, normalizedEmail);
 
         Session session =
@@ -217,7 +237,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional(readOnly = true)
-    public AccountResponse getAccountById(UUID accountId) {
+    public AccountResponseDTO getAccountById(UUID accountId) {
         return accountManagementService.getAccountById(accountId);
     }
 
@@ -253,5 +273,17 @@ public class AuthServiceImpl implements AuthService {
                         .resource(resource)
                         .status(status)
                         .build());
+    }
+
+    private int getRemainingCooldownSeconds(UUID accountId) {
+        String cooldownKey = AuthConstants.CacheKey.VERIFICATION_COOLDOWN_PREFIX + accountId;
+        String cooldownValue = redisTemplate.opsForValue().get(cooldownKey);
+
+        if (cooldownValue == null) {
+            return 0;
+        }
+
+        Long ttl = redisTemplate.getExpire(cooldownKey, TimeUnit.SECONDS);
+        return (ttl != null && ttl > 0) ? ttl.intValue() : 0;
     }
 }

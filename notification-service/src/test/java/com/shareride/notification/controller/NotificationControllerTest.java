@@ -3,6 +3,7 @@ package com.shareride.notification.controller;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
+import com.shareride.common.util.UuidUtils;
 import com.shareride.notification.domain.NotificationStatus;
 import com.shareride.notification.domain.NotificationType;
 import com.shareride.notification.dto.NotificationDispatchRequest;
@@ -49,7 +50,7 @@ class NotificationControllerTest {
 
     @Test
     void testSendNotification_shouldDelegateToService() {
-        UUID notificationId = UUID.randomUUID();
+        UUID notificationId = UuidUtils.v7();
         TestNotificationRequest request =
                 TestNotificationRequest.builder()
                         .recipientEmail("user@example.com")
@@ -61,7 +62,7 @@ class NotificationControllerTest {
         NotificationStatusResponse statusResponse =
                 NotificationStatusResponse.builder()
                         .id(notificationId)
-                        .eventId(UUID.randomUUID())
+                        .eventId(UuidUtils.v7())
                         .recipientEmail("user@example.com")
                         .status(NotificationStatus.SENT)
                         .providerMessageId("provider-msg-id")
@@ -83,7 +84,7 @@ class NotificationControllerTest {
 
     @Test
     void getNotificationStatus_shouldDelegateToService() {
-        UUID notificationId = UUID.randomUUID();
+        UUID notificationId = UuidUtils.v7();
         NotificationStatusResponse statusResponse =
                 NotificationStatusResponse.builder()
                         .id(notificationId)

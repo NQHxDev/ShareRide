@@ -18,6 +18,7 @@ import com.shareride.auth.domain.RoleCode;
 import com.shareride.auth.repository.PermissionRepository;
 import com.shareride.auth.repository.RoleRepository;
 import com.shareride.auth.service.impl.RolePermissionCacheServiceImpl;
+import com.shareride.common.util.UuidUtils;
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
@@ -66,7 +67,7 @@ class RolePermissionCacheServiceTest {
                         .roleName("Rider")
                         .permissions(new HashSet<>())
                         .build();
-        cachedRole.setId(UUID.randomUUID());
+        cachedRole.setId(UuidUtils.v7());
 
         when(valueOperations.get(cacheKey)).thenReturn(cachedRole);
 
@@ -91,14 +92,14 @@ class RolePermissionCacheServiceTest {
                         .permissionCode(PermissionCode.RIDE_ACCEPT)
                         .permissionName("Accept Ride")
                         .build();
-        perm.setId(UUID.randomUUID());
+        perm.setId(UuidUtils.v7());
 
         Set<Permission> perms = new HashSet<>();
         perms.add(perm);
 
         Role dbRole =
                 Role.builder().roleCode(roleCode).roleName("Driver").permissions(perms).build();
-        UUID roleId = UUID.randomUUID();
+        UUID roleId = UuidUtils.v7();
         dbRole.setId(roleId);
 
         when(valueOperations.get(roleKey)).thenReturn(null);
@@ -164,7 +165,7 @@ class RolePermissionCacheServiceTest {
 
         Permission dbPermission =
                 Permission.builder().permissionCode(code).permissionName("Create Ride").build();
-        dbPermission.setId(UUID.randomUUID());
+        dbPermission.setId(UuidUtils.v7());
 
         when(valueOperations.get(cacheKey)).thenReturn(null);
         when(permissionRepository.findByPermissionCode(code)).thenReturn(Optional.of(dbPermission));
@@ -185,14 +186,14 @@ class RolePermissionCacheServiceTest {
                         .roleName("Admin")
                         .permissions(new HashSet<>())
                         .build();
-        role.setId(UUID.randomUUID());
+        role.setId(UuidUtils.v7());
 
         Permission perm =
                 Permission.builder()
                         .permissionCode(PermissionCode.ACCOUNT_READ)
                         .permissionName("Read Account")
                         .build();
-        perm.setId(UUID.randomUUID());
+        perm.setId(UuidUtils.v7());
 
         when(roleRepository.findAllWithPermissions()).thenReturn(List.of(role));
         when(permissionRepository.findAll()).thenReturn(List.of(perm));
@@ -291,7 +292,7 @@ class RolePermissionCacheServiceTest {
                         .roleName("Rider")
                         .permissions(new HashSet<>())
                         .build();
-        hitRole.setId(UUID.randomUUID());
+        hitRole.setId(UuidUtils.v7());
 
         Role missRole =
                 Role.builder()
@@ -299,7 +300,7 @@ class RolePermissionCacheServiceTest {
                         .roleName("Driver")
                         .permissions(new HashSet<>())
                         .build();
-        missRole.setId(UUID.randomUUID());
+        missRole.setId(UuidUtils.v7());
 
         when(valueOperations.get(AuthConstants.CacheKey.ROLE_CODE_PREFIX + hitCode.name()))
                 .thenReturn(hitRole);
@@ -357,7 +358,7 @@ class RolePermissionCacheServiceTest {
 
         Permission p1 = Permission.builder().permissionCode(PermissionCode.ACCOUNT_READ).build();
         Role dbRole = Role.builder().roleCode(code).permissions(Set.of(p1)).build();
-        dbRole.setId(UUID.randomUUID());
+        dbRole.setId(UuidUtils.v7());
         when(roleRepository.findWithPermissionsByRoleCode(code)).thenReturn(Optional.of(dbRole));
 
         Set<String> permissions = cacheService.getPermissionsByRoleCode(code);
@@ -429,7 +430,7 @@ class RolePermissionCacheServiceTest {
         when(valueOperations.get(cacheKey)).thenReturn(null);
 
         Role r = Role.builder().roleCode(RoleCode.ROLE_RIDER).permissions(new HashSet<>()).build();
-        r.setId(UUID.randomUUID());
+        r.setId(UuidUtils.v7());
         when(roleRepository.findAllWithPermissions()).thenReturn(List.of(r));
 
         List<Role> roles = cacheService.getAllRoles();

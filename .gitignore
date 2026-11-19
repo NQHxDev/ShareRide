@@ -3,6 +3,8 @@
 
 # Log file
 *.log
+*.log.gz
+logs/
 
 # BlueJ files
 *.ctxt
@@ -34,6 +36,7 @@ Development.md
 specs/
 .specs/
 .specify/
+.claude/*.local.json
 
 # Environment & Cryptographic Secrets
 .env
@@ -44,3 +47,14 @@ config/jwt/
 
 # Graphify
 graphify-out/
+
+# Archify
+.archify/
+
+# Universal OS & Editor
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+.vscode/
+

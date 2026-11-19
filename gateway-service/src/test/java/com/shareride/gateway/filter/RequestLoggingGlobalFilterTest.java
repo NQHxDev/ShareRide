@@ -175,6 +175,21 @@ class RequestLoggingGlobalFilterTest {
     }
 
     @Test
+    @DisplayName("Should log warning on 502, 503, 504 status code responses")
+    void shouldLogWarnOn503Response() {
+        MockServerHttpRequest request =
+                MockServerHttpRequest.get("/api/v1/unavailable")
+                        .header(GatewayConstants.CORRELATION_ID_HEADER, "corr-503")
+                        .build();
+        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+        exchange.getResponse().setStatusCode(HttpStatus.SERVICE_UNAVAILABLE);
+
+        filter.filter(exchange, chain).block();
+
+        verify(chain).filter(exchange);
+    }
+
+    @Test
     @DisplayName("Should support dynamic debug log override header")
     void shouldSupportDynamicDebugOverride() {
         MockServerHttpRequest request =

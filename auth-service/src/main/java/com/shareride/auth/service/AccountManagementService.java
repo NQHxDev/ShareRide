@@ -1,7 +1,7 @@
 package com.shareride.auth.service;
 
 import com.shareride.auth.domain.Account;
-import com.shareride.auth.dto.AccountResponse;
+import com.shareride.auth.dto.AccountResponseDTO;
 import java.util.UUID;
 
 /**
@@ -16,7 +16,7 @@ public interface AccountManagementService {
      * @param accountId ID của tài khoản
      * @return chi tiết tài khoản và vai trò RBAC
      */
-    AccountResponse getAccountById(UUID accountId);
+    AccountResponseDTO getAccountById(UUID accountId);
 
     /**
      * Tra cứu tài khoản đang ở trạng thái ACTIVE kèm vai trò RBAC phục vụ xác thực/gia hạn token.
@@ -40,5 +40,5 @@ public interface AccountManagementService {
      * @param account thực thể tài khoản
      * @return DTO biểu diễn thông tin tài khoản
      */
-    AccountResponse toAccountResponse(Account account);
+    AccountResponseDTO toAccountResponse(Account account);
 }

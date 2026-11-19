@@ -2,7 +2,6 @@
     "files.associations": {
         "LICENSE": "plaintext"
     },
-    "java.configuration.updateBuildConfiguration": "automatic",
     "files.exclude": {
         "**/.omni": true,
         "**/target": true,
@@ -13,7 +12,23 @@
         "**/.m2": true,
         "**/.mvn": true
     },
+    "files.watcherExclude": {
+        "**/.git/objects/**": true,
+        "**/.git/subtree-cache/**": true,
+        "**/target/**": true,
+        "**/.m2/**": true
+    },
+    "java.diagnostic.filter": ["**/target/**", "**/generated-sources/**"],
+    "java.configuration.updateBuildConfiguration": "automatic",
     "java.compile.nullAnalysis.mode": "automatic",
+    "java.format.enabled": false,
+    "java.format.settings.google.style": "google",
+    "java.format.settings.google.version": "1.22.0",
+    "java.format.settings.google.extra": "--aosp",
+    "java.format.comments.enabled": false,
+    "java.completion.importOrder": ["#", ""],
+    "java.sources.organizeImports.starThreshold": 99,
+    "java.sources.organizeImports.staticStarThreshold": 99,
     "[java]": {
         "editor.defaultFormatter": "josevseb.google-java-format-for-vs-code",
         "editor.tabSize": 4,
@@ -25,14 +40,6 @@
             "source.organizeImports": "never"
         }
     },
-    "java.format.enabled": false,
-    "java.format.settings.google.style": "google",
-    "java.format.settings.google.version": "1.22.0",
-    "java.format.settings.google.extra": "--aosp",
-    "java.format.comments.enabled": false,
-    "java.completion.importOrder": ["#", ""],
-    "java.sources.organizeImports.starThreshold": 99,
-    "java.sources.organizeImports.staticStarThreshold": 99,
     "[yaml]": {
         "editor.tabSize": 2,
         "editor.indentSize": 2,
@@ -45,8 +52,5 @@
         "editor.insertSpaces": true,
         "editor.detectIndentation": false
     },
-    "cSpell.words": [
-        "Speckit",
-        "shareride"
-    ]
+    "cSpell.words": ["mvnw", "shareride", "Speckit", "Valkey"]
 }

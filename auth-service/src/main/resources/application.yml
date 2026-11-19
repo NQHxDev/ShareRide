@@ -44,21 +44,37 @@ spring:
     baseline-on-migrate: true
     locations: classpath:db/migration
 
-  # Valkey connection for auth service (database 0 - exclusive isolation)
-  data:
-    redis:
-      host: ${VALKEY_HOST:localhost}
-      port: ${VALKEY_PORT:6379}
-      password: ${VALKEY_PASSWORD:}
-      database: 0
-      lettuce:
-        pool:
-          max-active: 8
-          max-idle: 8
-          min-idle: 2
-        shutdown-timeout: 100ms
+  # RabbitMQ for asynchronous event publishing
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:shareride_mq}
+    password: ${RABBITMQ_PASSWORD:mq_secret_password}
 
 shareride:
+  cache:
+    enabled: true
+    shared:
+      host: ${CACHE_SHARED_HOST:localhost}
+      port: ${CACHE_SHARED_PORT:6379}
+      password: ${CACHE_SHARED_PASSWORD:shared_valkey_secret}
+      database: 0
+    local:
+      enabled: false
+
+  grpc:
+    server:
+      enabled: true
+      port: ${GRPC_PORT:9081}
+      max-inbound-message-size: 10485760
+      keep-alive-time-seconds: 60
+      keep-alive-timeout-seconds: 20
+      permit-keep-alive-time-seconds: 30
+      permit-keep-alive-without-calls: false
+      shutdown-grace-period-seconds: 5
+      max-connection-idle-seconds: 300
+      max-connection-age-seconds: 3600
+      max-connection-age-grace-seconds: 120
   openapi:
     title: 'ShareRide Auth Service API'
     description: 'Enterprise Authentication & Authorization Microservice. Features asymmetric EdDSA (Ed25519) JWT issuance, RFC 7517 JWKS public key discovery, token rotation, Valkey session tracking, and transactional outbox event publishing.'
@@ -75,15 +91,12 @@ shareride:
       clock-skew: 60s
       version: '1.0'
       private-key-jwk: ${JWT_PRIVATE_KEY_JWK:}
-  cache:
-    enabled: true
-    shared:
-      host: ${CACHE_SHARED_HOST:${VALKEY_HOST:${REDIS_SHARED_HOST:localhost}}}
-      port: ${CACHE_SHARED_PORT:${VALKEY_PORT:${REDIS_SHARED_PORT:6379}}}
-      password: ${CACHE_SHARED_PASSWORD:${VALKEY_PASSWORD:${REDIS_PASSWORD:shared_valkey_secret}}}
-      database: 0
-    local:
-      enabled: false
+    public-endpoints:
+      - /auth/v1/login
+      - /auth/v1/register
+      - /auth/v1/refresh
+      - /auth/v1/jwks.json
+      - /auth/v1/public/**
 
 # Bloom Filter Configuration for Email Existence Optimization
 app:
@@ -115,13 +128,3 @@ resilience4j:
         limitForPeriod: 20
         limitRefreshPeriod: 1s
         timeoutDuration: 0ms
-
-# Security Configuration
-shareride:
-  security:
-    public-endpoints:
-      - /auth/v1/login
-      - /auth/v1/register
-      - /auth/v1/refresh
-      - /auth/v1/jwks.json
-      - /auth/v1/public/**

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import com.shareride.common.util.UuidUtils;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -29,7 +30,7 @@ class BaseEntityTest {
     @DisplayName("PrePersist ensureId should retain predefined UUID")
     void testPredefinedId() {
         SampleEntity entity = new SampleEntity();
-        UUID customId = UUID.randomUUID();
+        UUID customId = UuidUtils.v7();
         entity.setId(customId);
 
         entity.ensureId();
@@ -45,14 +46,14 @@ class BaseEntityTest {
         // Null IDs should not be equal
         assertNotEquals(entity1, entity2);
 
-        UUID id = UUID.randomUUID();
-        entity1.setId(id);
-        entity2.setId(id);
+        UUID entityID = UuidUtils.v7();
+        entity1.setId(entityID);
+        entity2.setId(entityID);
 
         assertEquals(entity1, entity2);
         assertEquals(entity1.hashCode(), entity2.hashCode());
 
-        entity2.setId(UUID.randomUUID());
+        entity2.setId(UuidUtils.v7());
         assertNotEquals(entity1, entity2);
     }
 }

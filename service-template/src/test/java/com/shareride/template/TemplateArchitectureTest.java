@@ -29,6 +29,7 @@ public class TemplateArchitectureTest {
                     .should()
                     .dependOnClassesThat()
                     .resideInAPackage("..repository..")
+                    .allowEmptyShould(true)
                     .because(
                             "Controllers must interact with the Service layer, never directly with"
                                     + " Repositories");
@@ -42,6 +43,7 @@ public class TemplateArchitectureTest {
                     .haveSimpleNameEndingWith("Controller")
                     .andShould()
                     .beAnnotatedWith(RestController.class)
+                    .allowEmptyShould(true)
                     .because(
                             "All controllers must end with 'Controller' and be annotated with"
                                     + " @RestController");
@@ -99,4 +101,49 @@ public class TemplateArchitectureTest {
                     .because(
                             "All domain entities must extend BaseEntity or SoftDeletableEntity for"
                                     + " UUIDv7 and audit support");
+
+    @ArchTest
+    public static final ArchRule synchronous_inter_service_calls_must_use_grpc =
+            noClasses()
+                    .that()
+                    .resideInAPackage("com.shareride.template..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "org.springframework.web.client..",
+                            "org.springframework.web.reactive.function.client..",
+                            "java.net.http..")
+                    .because(
+                            "Constitution Principle IV: All internal synchronous inter-service"
+                                    + " communication MUST use gRPC, not RestTemplate, WebClient,"
+                                    + " RestClient, or HttpClient");
+
+    @ArchTest
+    public static final ArchRule downstream_services_must_not_expose_business_rest_controllers =
+            noClasses()
+                    .that()
+                    .areAnnotatedWith(RestController.class)
+                    .should()
+                    .resideInAPackage("..controller..")
+                    .allowEmptyShould(true)
+                    .because(
+                            "Constitution Principle IV: Downstream services must expose business"
+                                    + " operations via gRPC only. HTTP port is reserved exclusively"
+                                    + " for Spring Boot Actuator management endpoints");
+
+    @ArchTest
+    public static final ArchRule grpc_clients_must_use_channel_factory =
+            classes()
+                    .that()
+                    .resideInAPackage("..client..")
+                    .and()
+                    .haveSimpleNameEndingWith("GrpcClient")
+                    .should()
+                    .dependOnClassesThat()
+                    .haveSimpleName("GrpcChannelFactory")
+                    .allowEmptyShould(true)
+                    .because(
+                            "All gRPC client wrappers must obtain managed channels via"
+                                    + " GrpcChannelFactory for connection pooling and lifecycle"
+                                    + " management");
 }

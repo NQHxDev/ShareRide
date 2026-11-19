@@ -7,18 +7,102 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
+import org.springframework.core.env.Environment;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.reactive.server.WebTestClient;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+/**
+ * Basic integration test verifying that the Gateway application context loads successfully with all
+ * core beans properly configured.
+ *
+ * <p>This test starts the full Spring Boot application context including all auto-configurations,
+ * filters, and service beans. It validates that all dependencies are satisfied and there are no
+ * circular dependencies or configuration errors.
+ */
+@SpringBootTest(
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        classes = {
+            GatewayServiceApplication.class,
+            com.shareride.gateway.config.TestGrpcConfiguration.class
+        },
+        properties = {
+            "shareride.grpc.client.auth-service.host=localhost",
+            "shareride.grpc.client.auth-service.port=9090",
+            "shareride.grpc.client.template-service.host=localhost",
+            "shareride.grpc.client.template-service.port=9091",
+            // Disable Spring Cloud Gateway gRPC filter that requires external dependencies
+            "spring.cloud.gateway.filter.json-to-grpc.enabled=false"
+        })
 @ActiveProfiles("test")
 @DisplayName("Gateway Context Integration Test")
 class GatewayContextIntegrationTest {
 
     @Autowired private ApplicationContext applicationContext;
 
+    @Autowired private Environment environment;
+
     @Test
     @DisplayName("Application context loads successfully")
     void contextLoads() {
         assertThat(applicationContext).isNotNull();
+        assertThat(applicationContext.getBeanDefinitionCount()).isGreaterThan(0);
+    }
+
+    @Test
+    @DisplayName("Gateway service application is properly configured")
+    void gatewayApplicationIsConfigured() {
+        assertThat(applicationContext.getId()).contains("gateway");
+        assertThat(environment.getProperty("spring.application.name"))
+                .isEqualTo("gateway-service-test");
+    }
+
+    @Test
+    @DisplayName("Swagger UI welcome redirect works without NoSuchMethodError")
+    void swaggerUiRedirectsSuccessfully() {
+        WebTestClient webTestClient =
+                WebTestClient.bindToApplicationContext(applicationContext).build();
+        webTestClient
+                .get()
+                .uri("/swagger-ui.html")
+                .exchange()
+                .expectStatus()
+                .is3xxRedirection()
+                .expectHeader()
+                .value(
+                        "Location",
+                        location -> assertThat(location).contains("swagger-ui/index.html"));
+    }
+
+    @Test
+    @DisplayName("Docs endpoint redirects to /swagger-ui.html successfully")
+    void docsEndpointRedirectsSuccessfully() {
+        WebTestClient webTestClient =
+                WebTestClient.bindToApplicationContext(applicationContext).build();
+        webTestClient
+                .get()
+                .uri("/docs")
+                .exchange()
+                .expectStatus()
+                .isFound()
+                .expectHeader()
+                .location("/swagger-ui/index.html");
+    }
+
+    @Test
+    @DisplayName("OpenAPI documentation endpoint returns valid OpenAPI definition")
+    void openApiDefinitionReturnsSuccessfully() {
+        WebTestClient webTestClient =
+                WebTestClient.bindToApplicationContext(applicationContext).build();
+        webTestClient
+                .get()
+                .uri("/v3/api-docs")
+                .exchange()
+                .expectStatus()
+                .isOk()
+                .expectBody()
+                .jsonPath("$.openapi")
+                .isNotEmpty()
+                .jsonPath("$.info.title")
+                .isEqualTo("ShareRide API Gateway");
     }
 }

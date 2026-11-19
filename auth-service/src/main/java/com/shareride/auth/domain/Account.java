@@ -39,7 +39,7 @@ public class Account extends SoftDeletableEntity {
     @Column(name = "email", nullable = false, length = 128, unique = true)
     private String email;
 
-    @Column(name = "phone_number", nullable = false, length = 32, unique = true)
+    @Column(name = "phone_number", nullable = true, length = 32)
     private String phoneNumber;
 
     @Column(name = "password_hash", nullable = false, length = 255)

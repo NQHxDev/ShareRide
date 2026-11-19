@@ -1,10 +1,10 @@
 package com.shareride.common.logging.event;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.shareride.common.util.UuidUtils;
 import java.io.Serializable;
 import java.time.Instant;
 import java.util.Map;
-import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -54,7 +54,7 @@ public class BusinessEvent implements Serializable {
     }
 
     public static class BusinessEventBuilder {
-        protected String eventId = UUID.randomUUID().toString();
+        protected String eventId = UuidUtils.v7AsString();
         protected String type;
         protected String userId;
         protected String entityId;

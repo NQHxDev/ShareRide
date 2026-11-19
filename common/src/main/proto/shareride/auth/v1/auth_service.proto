@@ -1,0 +1,179 @@
+syntax = "proto3";
+
+package shareride.auth.v1;
+
+option java_multiple_files = true;
+option java_package = "com.shareride.common.grpc.auth.v1";
+option java_outer_classname = "AuthServiceProto";
+
+service AuthService {
+  rpc Register (RegisterRequest) returns (RegisterResponse);
+  rpc VerifyEmail (VerifyEmailRequest) returns (VerifyEmailResponse);
+  rpc ResendVerification (ResendVerificationRequest) returns (ResendVerificationResponse);
+  rpc GetAccount (GetAccountRequest) returns (GetAccountResponse);
+
+  rpc Login (LoginRequest) returns (LoginResponse);
+  rpc RefreshToken (RefreshTokenRequest) returns (RefreshTokenResponse);
+  rpc Logout (LogoutRequest) returns (LogoutResponse);
+  rpc GetJwks (GetJwksRequest) returns (GetJwksResponse);
+
+  rpc GetSessions (GetSessionsRequest) returns (GetSessionsResponse);
+  rpc RevokeSession (RevokeSessionRequest) returns (RevokeSessionResponse);
+
+  rpc HealthCheck (HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+message RegisterRequest {
+  string email = 1;
+  string password = 2;
+  string confirm_password = 3;
+}
+
+message RegisterResponse {
+  string account_id = 1;
+  string email = 2;
+  string role_code = 3;
+  string verification_status = 4;
+  string created_at = 5;
+}
+
+message VerifyEmailRequest {
+  string token = 1;
+}
+
+message VerifyEmailResponse {
+  bool success = 1;
+  string message = 2;
+  string account_id = 3;
+}
+
+message ResendVerificationRequest {
+  string email = 1;
+}
+
+message ResendVerificationResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+  string device_id = 3;
+  string device_name = 4;
+  string client_ip = 5;
+  string user_agent = 6;
+}
+
+message LoginResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+  string token_type = 3;
+  int64 expires_in = 4;
+  string session_id = 5;
+  AccountProto account = 6;
+}
+
+message RefreshTokenRequest {
+  string refresh_token = 1;
+  string client_ip = 2;
+  string user_agent = 3;
+}
+
+message RefreshTokenResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+  string token_type = 3;
+  int64 expires_in = 4;
+}
+
+message LogoutRequest {
+  string access_token = 1;
+  string refresh_token = 2;
+  string session_id = 3;
+}
+
+message LogoutResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message GetJwksRequest {}
+
+message JwkKeyProto {
+  string kty = 1;
+  string crv = 2;
+  string x = 3;
+  string kid = 4;
+  string use = 5;
+  string alg = 6;
+}
+
+message GetJwksResponse {
+  repeated JwkKeyProto keys = 1;
+}
+
+message GetAccountRequest {
+  string account_id = 1;
+}
+
+message AccountProto {
+  string account_id = 1;
+  string email = 2;
+  string phone_number = 3;
+  string role_code = 4;
+  string status = 5;
+  repeated string roles = 6;
+  repeated string permissions = 7;
+  string created_at = 8;
+  string updated_at = 9;
+}
+
+message GetAccountResponse {
+  AccountProto account = 1;
+}
+
+message GetSessionsRequest {
+  string account_id = 1;
+}
+
+message SessionProto {
+  string session_id = 1;
+  string device_id = 2;
+  string device_name = 3;
+  string client_ip = 4;
+  string user_agent = 5;
+  string created_at = 6;
+  string last_active_at = 7;
+  string expires_at = 8;
+  bool is_current = 9;
+}
+
+message GetSessionsResponse {
+  repeated SessionProto sessions = 1;
+}
+
+message RevokeSessionRequest {
+  string account_id = 1;
+  string session_id = 2;
+}
+
+message RevokeSessionResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message HealthCheckRequest {
+  string service_name = 1;
+}
+
+message HealthCheckResponse {
+  enum ServingStatus {
+    UNKNOWN = 0;
+    SERVING = 1;
+    NOT_SERVING = 2;
+  }
+  ServingStatus status = 1;
+  string message = 2;
+  int64 timestamp = 3;
+}

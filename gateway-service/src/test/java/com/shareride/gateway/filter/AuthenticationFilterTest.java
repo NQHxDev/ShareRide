@@ -19,6 +19,7 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.shareride.common.security.jwt.JwtClaimsConstant;
 import com.shareride.common.security.jwt.JwtTokenVerifier;
+import com.shareride.common.util.UuidUtils;
 import com.shareride.gateway.constant.GatewayConstants;
 import com.shareride.gateway.service.GatewayMetricsService;
 import java.time.Duration;
@@ -184,8 +185,8 @@ class AuthenticationFilterTest {
         AuthenticationFilter secureFilter =
                 new AuthenticationFilter(gatewayMetricsService, null, providerOf(verifier), null);
 
-        UUID accountId = UUID.randomUUID();
-        UUID sessionId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
+        UUID sessionId = UuidUtils.v7();
         Instant now = Instant.now();
 
         JWSHeader header =
@@ -196,7 +197,7 @@ class AuthenticationFilterTest {
 
         JWTClaimsSet claimsSet =
                 new JWTClaimsSet.Builder()
-                        .jwtID(UUID.randomUUID().toString())
+                        .jwtID(UuidUtils.v7().toString())
                         .subject(accountId.toString())
                         .issuer("shareride-auth")
                         .audience("shareride-platform")

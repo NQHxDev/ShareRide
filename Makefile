@@ -17,15 +17,6 @@ help: ## Hiển thị danh sách các lệnh make khả dụng
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
 	@echo ""
 
-.PHONY: new-service
-new-service: ## Khởi tạo microservice mới chuẩn khuôn mẫu (vd: make new-service NAME=ride-service PORT=8082)
-	@if [ -z "$(NAME)" ] || [ -z "$(PORT)" ]; then \
-		echo "$(RED)Lỗi: Vui lòng cung cấp NAME và PORT.$(NC)"; \
-		echo "$(YELLOW)Ví dụ: make new-service NAME=ride-service PORT=8082$(NC)"; \
-		exit 1; \
-	fi
-	@./scripts/scaffold-service.sh $(NAME) $(PORT) $(GRPC_PORT) $(DB_PORT)
-
 .PHONY: install-hooks
 install-hooks: ## Cài đặt git hooks
 	@echo "$(YELLOW)Installing git hooks...$(NC)"
@@ -57,7 +48,7 @@ check-style: ## Kiểm tra code style (Checkstyle)
 .PHONY: compile
 compile: ## Compile toàn bộ project (skip tests)
 	@echo "$(YELLOW)Compiling project...$(NC)"
-	@$(MVN) compile -DskipTests
+	@$(MVN) test-compile -DskipTests
 	@echo "$(GREEN)✓ Compilation successful!$(NC)"
 
 .PHONY: test
@@ -77,6 +68,12 @@ clean: ## Xoá các artifacts build (target/)
 	@echo "$(YELLOW)Cleaning build artifacts...$(NC)"
 	@$(MVN) clean
 	@echo "$(GREEN)✓ Clean complete!$(NC)"
+
+.PHONY: clean-logs
+clean-logs: ## Xoá toàn bộ các file log trong thư mục logs/
+	@echo "$(YELLOW)Cleaning logs directory...$(NC)"
+	@rm -rf logs/*.log logs/*.log.gz
+	@echo "$(GREEN)✓ Cleaned logs directory!$(NC)"
 
 .PHONY: ci-quality
 ci-quality: ## [CI Job 1] Kiểm tra Code Quality (Spotless & Checkstyle)
@@ -116,11 +113,11 @@ ci-package: ## [CI Job 3] Package JAR và kiểm tra Artifact Output
 	@echo "$(GREEN)✓ [CI Job 3/3] Package & Artifact verification passed ($$(ls -1 auth-service/target/auth-service-*.jar | head -n 1))!$(NC)"
 
 .PHONY: ci
-ci: ## Chạy TOÀN BỘ các case kiểm tra trong CI theo từng Job (mô phỏng GitHub Actions)
+ci: ## Chạy TOÀN BỘ các case kiểm tra trong CI theo từng Job
 	@echo ""
-	@echo "$(BOLD)$(YELLOW)==========================================================$(NC)"
+	@echo "$(BOLD)$(YELLOW)----------------------------------------------------------$(NC)"
 	@echo "$(BOLD)$(YELLOW)       ShareRide - Local CI Verification Pipeline         $(NC)"
-	@echo "$(BOLD)$(YELLOW)==========================================================$(NC)"
+	@echo "$(BOLD)$(YELLOW)----------------------------------------------------------$(NC)"
 	@echo ""
 	@$(MAKE) ci-quality
 	@echo ""
@@ -128,73 +125,15 @@ ci: ## Chạy TOÀN BỘ các case kiểm tra trong CI theo từng Job (mô ph�
 	@echo ""
 	@$(MAKE) ci-package
 	@echo ""
-	@echo "$(BOLD)$(GREEN)==========================================================$(NC)"
-	@echo "$(BOLD)$(GREEN) ✓ ALL CI JOBS PASSED 100%! Bạn có thể yên tâm push code!  $(NC)"
-	@echo "$(BOLD)$(GREEN)==========================================================$(NC)"
+	@echo "$(BOLD)$(GREEN)----------------------------------------------------------$(NC)"
+	@echo "$(BOLD)$(GREEN)            ✓ ALL CI JOBS PASSED 100%!                    $(NC)"
+	@echo "$(BOLD)$(GREEN)----------------------------------------------------------$(NC)"
 	@echo ""
-
-.PHONY: ci-fast
-ci-fast: ## Chạy toàn bộ kiểm tra CI trong 1 phiên Maven duy nhất (siêu tốc, ~30s)
-	@echo ""
-	@echo "$(BOLD)$(YELLOW)==========================================================$(NC)"
-	@echo "$(BOLD)$(YELLOW)     ShareRide - Fast CI Verification (Single Maven Run)  $(NC)"
-	@echo "$(BOLD)$(YELLOW)==========================================================$(NC)"
-	@echo ""
-	@$(MVN) clean verify spotless:check checkstyle:check jacoco:report --batch-mode || { \
-		echo ""; \
-		echo "$(RED)✗ CI verification failed!$(NC)"; \
-		echo "$(YELLOW)-> Gợi ý: Chạy 'make format' nếu lỗi format hoặc chạy 'make ci' để debug từng job.$(NC)"; \
-		exit 1; \
-	}
-	@if [ -z "$$(ls -1 auth-service/target/auth-service-*.jar 2>/dev/null)" ]; then \
-		echo ""; \
-		echo "$(RED)✗ Artifact verification failed: auth-service-*.jar not found!$(NC)"; \
-		exit 1; \
-	fi
-	@echo ""
-	@echo "$(BOLD)$(GREEN)==========================================================$(NC)"
-	@echo "$(BOLD)$(GREEN) ✓ ALL CI CHECKS PASSED 100%! Artifacts verified!          $(NC)"
-	@echo "$(BOLD)$(GREEN)==========================================================$(NC)"
-	@echo ""
-
-.PHONY: coverage-report
-coverage-report: ## Hiển thị đường dẫn các báo cáo JaCoCo HTML coverage
-	@echo "$(CYAN)Báo cáo JaCoCo HTML Coverage:$(NC)"
-	@echo "  - Common:       file://$(CURDIR)/common/target/site/jacoco/index.html"
-	@echo "  - Auth Service: file://$(CURDIR)/auth-service/target/site/jacoco/index.html"
 
 .PHONY: dev
 dev: ## Khởi chạy hệ thống môi trường phát triển với Process-Compose
+	@mkdir -p logs
 	@PC_PORT_NUM=9999 process-compose up
-
-.PHONY: verify
-verify: ci ## Chạy toàn bộ kiểm tra (alias cho make ci)
-
-.PHONY: pre-commit-check
-pre-commit-check: check-format check-style ## Kiểm tra nhanh tương đương pre-commit hook (Format & Lint, không test)
-	@echo "$(GREEN)✓ Pre-commit quality checks passed!$(NC)"
-
-.PHONY: pre-push-check
-pre-push-check: ci-fast ## Kiểm tra toàn diện tương đương pre-push hook (Clean, Build, Full Tests & Artifacts)
-	@echo "$(GREEN)✓ Pre-push checks passed!$(NC)"
-
-.PHONY: todo
-todo: ## Liệt kê danh sách task trong dự án (omni-todo list)
-	@omni-todo list
-
-.PHONY: todo-approved
-todo-approved: ## Liệt kê các task đã duyệt sẵn sàng thực hiện (omni-todo list --status=approved)
-	@omni-todo list --status=approved
-
-.PHONY: todo-show
-todo-show: ## Xem chi tiết task (vd: make todo-show ID=todo-99393)
-	@if [ -z "$(ID)" ]; then echo "$(RED)Lỗi: Vui lòng cung cấp ID (vd: make todo-show ID=todo-99393)$(NC)"; exit 1; fi
-	@omni-todo show $(ID)
-
-.PHONY: todo-approve
-todo-approve: ## Duyệt task từ pending sang approved (vd: make todo-approve ID=todo-99393)
-	@if [ -z "$(ID)" ]; then echo "$(RED)Lỗi: Vui lòng cung cấp ID (vd: make todo-approve ID=todo-99393)$(NC)"; exit 1; fi
-	@omni-todo approve --id=$(ID)
 
 .PHONY: graph-update
 graph-update: ## Cập nhật knowledge graph của codebase bằng Graphify

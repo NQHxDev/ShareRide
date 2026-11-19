@@ -1,0 +1,51 @@
+# Default Rate Limit Groups Configuration
+# This file provides sensible defaults for ShareRide API Gateway rate limiting.
+# Automatically imported via spring.config.import in application.yml
+#
+# To override in production, simply define your own groups in application.yml or environment-specific files.
+
+shareride:
+  gateway:
+    rate-limiting:
+      groups:
+        # Strict rate limiting for authentication endpoints (credential-based operations)
+        - name: "auth-strict"
+          path-patterns:
+            - "/api/v1/auth/login"
+            - "/api/v1/auth/register"
+          method: "POST"
+          replenish-rate: 5
+          burst-capacity: 10
+          requested-tokens: 1
+
+        # Moderate rate limiting for token management endpoints
+        - name: "auth-moderate"
+          path-patterns:
+            - "/api/v1/auth/refresh"
+            - "/api/v1/auth/logout"
+          method: "POST"
+          replenish-rate: 10
+          burst-capacity: 20
+          requested-tokens: 1
+
+        # Relaxed rate limiting for public discovery and metadata endpoints
+        - name: "public-discovery"
+          path-patterns:
+            - "/.well-known/**"
+            - "/api/v1/auth/jwks.json"
+            - "/actuator/health"
+            - "/actuator/info"
+            - "/v3/api-docs/**"
+            - "/api/**/v3/api-docs/**"
+            - "/swagger-ui/**"
+          replenish-rate: 50
+          burst-capacity: 100
+          requested-tokens: 1
+
+        # Default rate limiting for all other endpoints (catch-all)
+        - name: "default"
+          path-patterns:
+            - "/**"
+          replenish-rate: 30
+          burst-capacity: 60
+          requested-tokens: 1

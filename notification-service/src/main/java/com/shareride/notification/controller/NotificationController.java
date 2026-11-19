@@ -1,6 +1,7 @@
 package com.shareride.notification.controller;
 
 import com.shareride.common.response.BaseResponse;
+import com.shareride.common.util.UuidUtils;
 import com.shareride.common.versioning.ApiVersion;
 import com.shareride.notification.dto.NotificationDispatchRequest;
 import com.shareride.notification.dto.NotificationStatusResponse;
@@ -33,7 +34,7 @@ public class NotificationController {
         log.info("Received test notification request: {}", request);
 
         // Generate eventId if not provided (test endpoint behavior)
-        UUID eventId = UUID.randomUUID();
+        UUID eventId = UuidUtils.v7();
 
         NotificationDispatchRequest dispatchRequest =
                 NotificationDispatchRequest.builder()

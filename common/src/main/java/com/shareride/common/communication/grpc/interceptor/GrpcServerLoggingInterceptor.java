@@ -1,58 +1,77 @@
 package com.shareride.common.communication.grpc.interceptor;
 
 import io.grpc.ForwardingServerCall;
-import io.grpc.Grpc;
+import io.grpc.ForwardingServerCallListener;
 import io.grpc.Metadata;
 import io.grpc.ServerCall;
 import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 import io.grpc.Status;
-import java.net.SocketAddress;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 /**
- * Server-side gRPC interceptor logging incoming RPC requests, peer address, execution duration, and
- * status.
+ * gRPC server interceptor that logs structured information about incoming RPC calls including
+ * method name, status codes, and latency measurements for observability and debugging.
  */
+@Slf4j
 public class GrpcServerLoggingInterceptor implements ServerInterceptor {
-
-    private static final Logger log = LoggerFactory.getLogger(GrpcServerLoggingInterceptor.class);
 
     @Override
     public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
             ServerCall<ReqT, RespT> call, Metadata headers, ServerCallHandler<ReqT, RespT> next) {
 
-        final long start = System.currentTimeMillis();
-        final String methodName = call.getMethodDescriptor().getFullMethodName();
-        final SocketAddress remoteAddr = call.getAttributes().get(Grpc.TRANSPORT_ATTR_REMOTE_ADDR);
+        long startTimeNanos = System.nanoTime();
+        String methodName = call.getMethodDescriptor().getFullMethodName();
 
-        ServerCall<ReqT, RespT> forwardingCall =
-                new ForwardingServerCall.SimpleForwardingServerCall<>(call) {
+        log.debug("gRPC server call received: method={}", methodName);
+
+        ServerCall<ReqT, RespT> monitoringCall =
+                new ForwardingServerCall.SimpleForwardingServerCall<ReqT, RespT>(call) {
+
                     @Override
                     public void close(Status status, Metadata trailers) {
-                        long duration = System.currentTimeMillis() - start;
+                        long latencyMs = (System.nanoTime() - startTimeNanos) / 1_000_000;
+
                         if (status.isOk()) {
-                            log.info(
-                                    "[gRPC Server] {} status={} duration={}ms peer={}",
+                            log.debug(
+                                    "gRPC server call completed: method={}, status={},"
+                                            + " latencyMs={}",
                                     methodName,
                                     status.getCode(),
-                                    duration,
-                                    remoteAddr);
+                                    latencyMs);
                         } else {
                             log.warn(
-                                    "[gRPC Server] {} status={} duration={}ms description={}"
-                                            + " peer={}",
+                                    "gRPC server call failed: method={}, status={},"
+                                            + " description={}, latencyMs={}",
                                     methodName,
                                     status.getCode(),
-                                    duration,
                                     status.getDescription(),
-                                    remoteAddr);
+                                    latencyMs);
                         }
+
                         super.close(status, trailers);
                     }
                 };
 
-        return next.startCall(forwardingCall, headers);
+        ServerCall.Listener<ReqT> listener = next.startCall(monitoringCall, headers);
+
+        return new ForwardingServerCallListener.SimpleForwardingServerCallListener<ReqT>(listener) {
+
+            @Override
+            public void onComplete() {
+                try {
+                    super.onComplete();
+                } catch (Exception e) {
+                    log.error("Error during gRPC call completion: method={}", methodName, e);
+                    throw e;
+                }
+            }
+
+            @Override
+            public void onCancel() {
+                log.debug("gRPC server call cancelled: method={}", methodName);
+                super.onCancel();
+            }
+        };
     }
 }

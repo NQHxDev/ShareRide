@@ -10,13 +10,13 @@ import com.shareride.common.communication.rabbitmq.consumer.IdempotentMessageSer
 import com.shareride.common.communication.rabbitmq.event.ShareRideEvent;
 import com.shareride.common.communication.rabbitmq.publisher.RabbitMqEventPublisher;
 import com.shareride.common.outbox.OutboxService;
+import com.shareride.common.util.UuidUtils;
 import com.shareride.template.constant.TemplateConstants;
 import com.shareride.template.consumer.TemplateEventConsumer;
 import com.shareride.template.domain.TemplateItem;
 import com.shareride.template.domain.TemplateItemStatus;
 import com.shareride.template.publisher.TemplateEventPublisher;
 import java.util.Map;
-import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -44,7 +44,7 @@ class TemplateMessagingTest {
                         .code("PROMO_2026")
                         .status(TemplateItemStatus.ACTIVE)
                         .build();
-        item.setId(UUID.randomUUID());
+        item.setId(UuidUtils.v7());
 
         publisher.recordItemCreatedOutbox(item);
         verify(outboxService)

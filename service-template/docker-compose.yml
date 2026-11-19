@@ -1,7 +1,11 @@
+name: shareride
+
 services:
   postgres-template:
     image: postgres:17-alpine
     container_name: shareride-postgres-template
+    env_file:
+      - .env
     environment:
       POSTGRES_DB: shareride_template
       POSTGRES_USER: shareride_template_usr

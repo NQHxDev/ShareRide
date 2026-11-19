@@ -72,7 +72,6 @@ import org.testcontainers.utility.DockerImageName;
 
 @SpringBootTest
 @Testcontainers(disabledWithoutDocker = true)
-@SuppressWarnings("resource")
 public abstract class AbstractIntegrationTest {
 
     // Note: Do NOT use @Container here. Using Singleton Container Pattern ensures

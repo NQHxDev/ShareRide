@@ -45,15 +45,32 @@ class RateLimiterFilterTest {
                 new RateLimiterFilter(
                         rateLimiterService,
                         metricsService,
-                        mockProvider(auditLogService),
-                        mockProvider(new ObjectMapper()));
+                        createMockProvider(auditLogService),
+                        createMockProvider(new ObjectMapper()));
     }
 
-    @SuppressWarnings("unchecked")
-    private <T> ObjectProvider<T> mockProvider(T instance) {
-        ObjectProvider<T> provider = mock(ObjectProvider.class);
-        when(provider.getIfAvailable()).thenReturn(instance);
-        return provider;
+    private <T> ObjectProvider<T> createMockProvider(T instance) {
+        return new ObjectProvider<T>() {
+            @Override
+            public T getObject() {
+                return instance;
+            }
+
+            @Override
+            public T getObject(Object... args) {
+                return instance;
+            }
+
+            @Override
+            public T getIfAvailable() {
+                return instance;
+            }
+
+            @Override
+            public T getIfUnique() {
+                return instance;
+            }
+        };
     }
 
     @Test

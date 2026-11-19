@@ -14,6 +14,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shareride.common.outbox.OutboxMessage;
 import com.shareride.common.outbox.OutboxMessageRepository;
 import com.shareride.common.outbox.OutboxStatus;
+import com.shareride.common.util.UuidUtils;
 import com.shareride.notification.dto.NotificationDispatchEvent;
 import java.util.Map;
 import java.util.UUID;
@@ -43,7 +44,7 @@ class NotificationEventPublisherTest {
     @Test
     @DisplayName("publishViaOutbox should serialize event and save outbox message")
     void testPublishViaOutbox_success() throws Exception {
-        UUID eventId = UUID.randomUUID();
+        UUID eventId = UuidUtils.v7();
         NotificationDispatchEvent event =
                 NotificationDispatchEvent.builder()
                         .eventId(eventId)
@@ -76,7 +77,7 @@ class NotificationEventPublisherTest {
     void testPublishViaOutbox_jsonException() throws Exception {
         NotificationDispatchEvent event =
                 NotificationDispatchEvent.builder()
-                        .eventId(UUID.randomUUID())
+                        .eventId(UuidUtils.v7())
                         .recipientEmail("test@example.com")
                         .notificationType("ACCOUNT_VERIFICATION")
                         .build();
@@ -92,7 +93,7 @@ class NotificationEventPublisherTest {
     void testPublishDirect_success() {
         NotificationDispatchEvent event =
                 NotificationDispatchEvent.builder()
-                        .eventId(UUID.randomUUID())
+                        .eventId(UuidUtils.v7())
                         .recipientEmail("test@example.com")
                         .notificationType("PASSWORD_RESET")
                         .build();
@@ -109,7 +110,7 @@ class NotificationEventPublisherTest {
     void testPublishDirect_exception() {
         NotificationDispatchEvent event =
                 NotificationDispatchEvent.builder()
-                        .eventId(UUID.randomUUID())
+                        .eventId(UuidUtils.v7())
                         .recipientEmail("test@example.com")
                         .notificationType("PASSWORD_RESET")
                         .build();

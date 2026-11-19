@@ -1,7 +1,7 @@
 package com.shareride.gateway.filter;
 
-import com.github.f4b6a3.uuid.UuidCreator;
 import com.shareride.common.logging.MdcConstants;
+import com.shareride.common.util.UuidUtils;
 import com.shareride.gateway.constant.GatewayConstants;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
@@ -32,7 +32,7 @@ public class CorrelationIdGlobalFilter implements GlobalFilter, Ordered {
                 request.getHeaders().getFirst(GatewayConstants.CORRELATION_ID_HEADER);
 
         if (correlationId == null || correlationId.isBlank()) {
-            correlationId = UuidCreator.getTimeOrderedEpoch().toString();
+            correlationId = UuidUtils.v7AsString();
             try {
                 MDC.put(MdcConstants.CORRELATION_ID, correlationId);
                 log.debug(

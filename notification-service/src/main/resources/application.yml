@@ -45,20 +45,21 @@ spring:
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
-    username: ${RABBITMQ_USER:guest}
-    password: ${RABBITMQ_PASSWORD:guest}
+    username: ${RABBITMQ_USER:shareride_mq}
+    password: ${RABBITMQ_PASSWORD:mq_secret_password}
 
 shareride:
   openapi:
-    title: "ShareRide Notification Service API"
-    description: "Notification Service with Resend Email Delivery, Modular Templates, and i18n Support"
-    version: "v1.0"
-  
+    title: 'ShareRide Notification Service API'
+    description: 'Notification Service with Resend Email Delivery, Modular Templates, and i18n Support'
+    version: 'v1.0'
+
   cache:
     enabled: true
     shared:
-      host: ${CACHE_SHARED_HOST:${VALKEY_HOST:${REDIS_SHARED_HOST:localhost}}}
-      port: ${CACHE_SHARED_PORT:${VALKEY_PORT:${REDIS_SHARED_PORT:6379}}}
+      host: ${CACHE_SHARED_HOST:localhost}
+      port: ${CACHE_SHARED_PORT:6379}
+      password: ${CACHE_SHARED_PASSWORD:shared_valkey_secret}
       database: 2
     local:
       enabled: false
@@ -69,7 +70,7 @@ shareride:
     routing-key: notification.email.#
     dlx: shareride.notification.dlx
     dlq: shareride.notification.dlq
-  
+
   resend:
     api-key: ${RESEND_API_KEY:re_test_placeholder}
     from-email: ${RESEND_FROM_EMAIL:ShareRide <onboarding@resend.dev>}

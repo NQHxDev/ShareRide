@@ -103,6 +103,14 @@ public class GatewayErrorWebExceptionHandler implements ErrorWebExceptionHandler
             } else {
                 errorMessage = rse.getReason() != null ? rse.getReason() : errorMessage;
             }
+        } else if (isDownstreamUnavailable(ex)) {
+            status = HttpStatus.SERVICE_UNAVAILABLE;
+            responseCode = ResponseCode.SERVICE_UNAVAILABLE;
+            errorMessage = "Downstream service is temporarily unavailable. Please retry shortly.";
+        } else if (isTimeout(ex)) {
+            status = HttpStatus.GATEWAY_TIMEOUT;
+            responseCode = ResponseCode.GATEWAY_TIMEOUT;
+            errorMessage = "Gateway Timeout. Downstream service took too long to respond.";
         }
 
         Route route = exchange.getAttribute(ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR);
@@ -151,14 +159,27 @@ public class GatewayErrorWebExceptionHandler implements ErrorWebExceptionHandler
             MDC.put(MdcConstants.HTTP_URI, path);
             MDC.put(MdcConstants.SERVICE_NAME, "gateway-service");
             MDC.put(MdcConstants.CLIENT_IP, clientIp);
-            log.error(
-                    "Gateway exception occurred: path=[{}] status=[{}] message=[{}]"
-                            + " correlationId=[{}]",
-                    path,
-                    status.value(),
-                    ex.getMessage(),
-                    correlationId,
-                    ex);
+            if (status.is5xxServerError()
+                    && !status.equals(HttpStatus.SERVICE_UNAVAILABLE)
+                    && !status.equals(HttpStatus.GATEWAY_TIMEOUT)
+                    && !status.equals(HttpStatus.BAD_GATEWAY)) {
+                log.error(
+                        "Gateway exception occurred: path=[{}] status=[{}] message=[{}]"
+                                + " correlationId=[{}]",
+                        path,
+                        status.value(),
+                        ex.getMessage(),
+                        correlationId,
+                        ex);
+            } else {
+                log.warn(
+                        "Gateway request failed: path=[{}] status=[{}] message=[{}]"
+                                + " correlationId=[{}]",
+                        path,
+                        status.value(),
+                        ex.getMessage(),
+                        correlationId);
+            }
         } finally {
             MDC.remove(MdcConstants.CORRELATION_ID);
             MDC.remove(MdcConstants.HTTP_URI);
@@ -209,5 +230,40 @@ public class GatewayErrorWebExceptionHandler implements ErrorWebExceptionHandler
             return remoteAddress.getAddress().getHostAddress();
         }
         return GatewayConstants.UNKNOWN_IP;
+    }
+
+    private boolean isDownstreamUnavailable(Throwable ex) {
+        Throwable cause = ex;
+        while (cause != null) {
+            String className = cause.getClass().getName();
+            String message = cause.getMessage();
+            if (cause instanceof java.net.ConnectException
+                    || cause instanceof java.net.NoRouteToHostException
+                    || cause instanceof java.net.UnknownHostException
+                    || className.contains("ConnectException")
+                    || className.contains("ConnectTimeoutException")
+                    || className.contains("CallNotPermittedException")
+                    || (message != null
+                            && (message.contains("Connection refused")
+                                    || message.contains("Connection reset")))) {
+                return true;
+            }
+            cause = cause.getCause();
+        }
+        return false;
+    }
+
+    private boolean isTimeout(Throwable ex) {
+        Throwable cause = ex;
+        while (cause != null) {
+            String className = cause.getClass().getName();
+            if (cause instanceof java.util.concurrent.TimeoutException
+                    || className.contains("TimeoutException")
+                    || className.contains("ResponseTimeoutException")) {
+                return true;
+            }
+            cause = cause.getCause();
+        }
+        return false;
     }
 }

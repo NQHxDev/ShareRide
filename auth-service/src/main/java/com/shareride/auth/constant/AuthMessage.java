@@ -74,4 +74,38 @@ public final class AuthMessage {
     public static String accountInactive(Object status) {
         return ACCOUNT_STATUS_PREFIX + status;
     }
+
+    /** Thông báo khi email đã được đăng ký nhưng chưa xác thực. */
+    public static final String EMAIL_PENDING_VERIFICATION =
+            "Email này đã được đăng ký nhưng chưa xác thực. Vui lòng kiểm tra hộp thư và xác thực"
+                    + " tài khoản";
+
+    /** Thông báo khi tài khoản chưa xác thực email và cố gắng đăng nhập. */
+    public static final String ACCOUNT_PENDING_VERIFICATION =
+            "Tài khoản chưa được xác thực. Vui lòng kiểm tra email để xác thực tài khoản";
+
+    /** Thông báo khi mã xác thực không chính xác. */
+    public static final String INVALID_VERIFICATION_CODE =
+            "Mã xác thực không chính xác. Vui lòng kiểm tra lại";
+
+    /** Thông báo khi mã xác thực đã hết hạn. */
+    public static final String VERIFICATION_CODE_EXPIRED =
+            "Mã xác thực đã hết hạn. Vui lòng yêu cầu mã mới";
+
+    /** Thông báo khi tài khoản đã được xác thực. */
+    public static final String ACCOUNT_ALREADY_ACTIVE = "Tài khoản đã được xác thực";
+
+    /** Thông báo khi vượt quá giới hạn gửi lại mã xác thực trong một giờ. */
+    public static final String RESEND_HOURLY_LIMIT_EXCEEDED =
+            "Bạn đã vượt quá số lần gửi lại cho phép trong một giờ. Vui lòng thử lại sau";
+
+    /** Thông báo thành công khi gửi lại mã xác thực. */
+    public static final String VERIFICATION_CODE_RESENT =
+            "Verification code has been resent to your email";
+
+    /** Thông báo thành công khi xác thực email thành công. */
+    public static final String EMAIL_VERIFIED_SUCCESS = "Email đã được xác thực thành công";
+
+    /** Thông báo lỗi khi không tìm thấy tài khoản. */
+    public static final String ACCOUNT_NOT_FOUND = "Không tìm thấy tài khoản";
 }

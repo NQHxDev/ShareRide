@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -11,25 +12,32 @@ import com.shareride.auth.domain.Account;
 import com.shareride.auth.domain.AccountStatus;
 import com.shareride.auth.domain.Role;
 import com.shareride.auth.domain.RoleCode;
-import com.shareride.auth.dto.AccountResponse;
-import com.shareride.auth.dto.RegisterRequest;
+import com.shareride.auth.dto.AccountResponseDTO;
+import com.shareride.auth.dto.RegisterRequestDTO;
+import com.shareride.auth.publisher.AuthEventPublisher;
 import com.shareride.auth.repository.AccountRepository;
+import com.shareride.auth.repository.AccountVerificationRepository;
 import com.shareride.auth.repository.RoleRepository;
 import com.shareride.auth.service.impl.RegistrationServiceImpl;
 import com.shareride.auth.util.PasswordUtils;
+import com.shareride.common.cache.DistributedLockService;
 import com.shareride.common.context.UserContextHolder;
 import com.shareride.common.exception.ConflictException;
 import com.shareride.common.logging.audit.AuditLogService;
 import com.shareride.common.outbox.OutboxService;
+import com.shareride.common.util.UuidUtils;
+import java.time.Duration;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Supplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
@@ -45,6 +53,8 @@ class RegistrationServiceImplTest {
     @Mock private AccountManagementService accountManagementService;
     @Mock private EmailBloomFilterService emailBloomFilterService;
     @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock private AccountVerificationRepository accountVerificationRepository;
+    @Mock private AuthEventPublisher authEventPublisher;
 
     private RegistrationService registrationService;
 
@@ -58,12 +68,13 @@ class RegistrationServiceImplTest {
                         roleRepository,
                         outboxService,
                         new StaticListableBeanFactory()
-                                .getBeanProvider(
-                                        com.shareride.common.cache.DistributedLockService.class),
+                                .getBeanProvider(DistributedLockService.class),
                         auditLogService,
                         accountManagementService,
                         emailBloomFilterService,
-                        eventPublisher);
+                        eventPublisher,
+                        accountVerificationRepository,
+                        authEventPublisher);
     }
 
     @AfterEach
@@ -74,22 +85,19 @@ class RegistrationServiceImplTest {
     @Test
     @DisplayName("Register: Password must be hashed using Argon2id format ($argon2id$v=19$...)")
     void testRegisterWithArgon2id() {
-        RegisterRequest request =
-                RegisterRequest.builder()
+        RegisterRequestDTO request =
+                RegisterRequestDTO.builder()
                         .email("rider@shareride.com")
                         .password("SuperSecretPass123!")
-                        .phoneNumber("+84988111222")
-                        .roleCode("ROLE_RIDER")
-                        .fullName("Nguyen Van A")
+                        .confirmPassword("SuperSecretPass123!")
                         .build();
 
         Role riderRole = Role.builder().roleCode(RoleCode.ROLE_RIDER).roleName("Rider").build();
         when(emailBloomFilterService.mightExist(any())).thenReturn(true);
-        when(accountRepository.existsByEmail("rider@shareride.com")).thenReturn(false);
-        when(accountRepository.existsByPhoneNumber("+84988111222")).thenReturn(false);
+        when(accountRepository.findByEmail("rider@shareride.com")).thenReturn(Optional.empty());
         when(roleRepository.findByRoleCode(RoleCode.ROLE_RIDER)).thenReturn(Optional.of(riderRole));
 
-        UUID generatedId = UUID.randomUUID();
+        UUID generatedId = UuidUtils.v7();
         ArgumentCaptor<Account> accountCaptor = ArgumentCaptor.forClass(Account.class);
         when(accountRepository.save(accountCaptor.capture()))
                 .thenAnswer(
@@ -99,17 +107,17 @@ class RegistrationServiceImplTest {
                             return a;
                         });
 
-        AccountResponse expectedResponse =
-                AccountResponse.builder()
+        AccountResponseDTO expectedResponse =
+                AccountResponseDTO.builder()
                         .accountId(generatedId)
                         .email("rider@shareride.com")
-                        .phoneNumber("+84988111222")
+                        .phoneNumber(null)
                         .status(AccountStatus.ACTIVE)
                         .roles(Set.of("ROLE_RIDER"))
                         .build();
         when(accountManagementService.toAccountResponse(any())).thenReturn(expectedResponse);
 
-        AccountResponse response = registrationService.register(request);
+        AccountResponseDTO response = registrationService.register(request);
 
         assertNotNull(response);
         Account savedAccount = accountCaptor.getValue();
@@ -127,53 +135,53 @@ class RegistrationServiceImplTest {
     @Test
     @DisplayName("Register: Fails when email already exists")
     void testRegisterEmailAlreadyExists() {
-        RegisterRequest request =
-                RegisterRequest.builder()
+        RegisterRequestDTO request =
+                RegisterRequestDTO.builder()
                         .email("existing@shareride.com")
                         .password("Pass123456")
-                        .phoneNumber("+84988111222")
+                        .confirmPassword("Pass123456")
                         .build();
 
         when(emailBloomFilterService.mightExist(any())).thenReturn(true);
-        when(accountRepository.existsByEmail("existing@shareride.com")).thenReturn(true);
+        Account existingAccount =
+                Account.builder()
+                        .email("existing@shareride.com")
+                        .status(AccountStatus.ACTIVE)
+                        .build();
+        existingAccount.setId(UuidUtils.v7());
+        when(accountRepository.findByEmail("existing@shareride.com"))
+                .thenReturn(Optional.of(existingAccount));
 
         assertThrows(ConflictException.class, () -> registrationService.register(request));
     }
 
     @Test
-    @DisplayName("Register: Fails when phone number already exists")
+    @DisplayName("Register: Fails when passwords do not match")
     void testRegisterPhoneAlreadyExists() {
-        RegisterRequest request =
-                RegisterRequest.builder()
+        RegisterRequestDTO request =
+                RegisterRequestDTO.builder()
                         .email("unique@shareride.com")
                         .password("Pass123456")
-                        .phoneNumber("+84988111222")
+                        .confirmPassword("DifferentPassword")
                         .build();
 
-        when(emailBloomFilterService.mightExist(any())).thenReturn(true);
-        when(accountRepository.existsByEmail("unique@shareride.com")).thenReturn(false);
-        when(accountRepository.existsByPhoneNumber("+84988111222")).thenReturn(true);
-
-        assertThrows(ConflictException.class, () -> registrationService.register(request));
+        assertThrows(IllegalArgumentException.class, () -> registrationService.register(request));
     }
 
     @Test
-    @DisplayName("Register: Uses DistributedLockService when available and handles null fullName")
+    @DisplayName("Register: Uses DistributedLockService when available")
     void testRegisterWithDistributedLockAndNullFullName() {
-        com.shareride.common.cache.DistributedLockService lockService =
-                org.mockito.Mockito.mock(com.shareride.common.cache.DistributedLockService.class);
-        RolePermissionCacheService cacheService =
-                org.mockito.Mockito.mock(RolePermissionCacheService.class);
+        DistributedLockService lockService = mock(DistributedLockService.class);
+        RolePermissionCacheService cacheService = mock(RolePermissionCacheService.class);
 
         when(lockService.executeWithLock(
                         any(String.class),
-                        any(java.time.Duration.class),
-                        org.mockito.ArgumentMatchers
-                                .<java.util.function.Supplier<AccountResponse>>any()))
-                .thenAnswer(inv -> ((java.util.function.Supplier<?>) inv.getArgument(2)).get());
+                        any(Duration.class),
+                        ArgumentMatchers.<Supplier<AccountResponseDTO>>any()))
+                .thenAnswer(inv -> ((Supplier<?>) inv.getArgument(2)).get());
 
-        Role driverRole = Role.builder().roleCode(RoleCode.ROLE_DRIVER).build();
-        when(cacheService.getRoleByCode(RoleCode.ROLE_DRIVER)).thenReturn(Optional.of(driverRole));
+        Role riderRole = Role.builder().roleCode(RoleCode.ROLE_RIDER).build();
+        when(cacheService.getRoleByCode(RoleCode.ROLE_RIDER)).thenReturn(Optional.of(riderRole));
 
         StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
         beanFactory.addBean("distributedLockService", lockService);
@@ -185,44 +193,42 @@ class RegistrationServiceImplTest {
                         roleRepository,
                         beanFactory.getBeanProvider(RolePermissionCacheService.class),
                         outboxService,
-                        beanFactory.getBeanProvider(
-                                com.shareride.common.cache.DistributedLockService.class),
+                        beanFactory.getBeanProvider(DistributedLockService.class),
                         auditLogService,
                         accountManagementService,
                         emailBloomFilterService,
-                        eventPublisher);
+                        eventPublisher,
+                        accountVerificationRepository,
+                        authEventPublisher);
 
-        RegisterRequest request =
-                RegisterRequest.builder()
+        RegisterRequestDTO request =
+                RegisterRequestDTO.builder()
                         .email("driver.locked@shareride.com")
                         .password("SecurePass123")
-                        .phoneNumber("+84988999888")
-                        .roleCode("ROLE_DRIVER")
-                        .fullName(null)
+                        .confirmPassword("SecurePass123")
                         .build();
 
         when(emailBloomFilterService.mightExist(any())).thenReturn(true);
-        when(accountRepository.existsByEmail("driver.locked@shareride.com")).thenReturn(false);
-        when(accountRepository.existsByPhoneNumber("+84988999888")).thenReturn(false);
+        when(accountRepository.findByEmail("driver.locked@shareride.com"))
+                .thenReturn(Optional.empty());
         when(accountRepository.save(any()))
                 .thenAnswer(
                         inv -> {
                             Account a = inv.getArgument(0);
-                            a.setId(UUID.randomUUID());
+                            a.setId(UuidUtils.v7());
                             return a;
                         });
 
-        AccountResponse expectedResponse = AccountResponse.builder().build();
+        AccountResponseDTO expectedResponse = AccountResponseDTO.builder().build();
         when(accountManagementService.toAccountResponse(any())).thenReturn(expectedResponse);
 
-        AccountResponse response = lockedService.register(request);
+        AccountResponseDTO response = lockedService.register(request);
         assertNotNull(response);
         verify(lockService)
                 .executeWithLock(
                         any(String.class),
-                        any(java.time.Duration.class),
-                        org.mockito.ArgumentMatchers
-                                .<java.util.function.Supplier<AccountResponse>>any());
+                        any(Duration.class),
+                        ArgumentMatchers.<Supplier<AccountResponseDTO>>any());
     }
 
     @Test
@@ -237,7 +243,9 @@ class RegistrationServiceImplTest {
                         auditLogService,
                         accountManagementService,
                         emailBloomFilterService,
-                        eventPublisher);
+                        eventPublisher,
+                        accountVerificationRepository,
+                        authEventPublisher);
         assertNotNull(simpleService);
     }
 }

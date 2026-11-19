@@ -94,9 +94,6 @@ updates:
       - 'java'
       - 'maven'
 
-    # Increase versioning strategy
-    versioning-strategy: increase
-
   # GitHub Actions workflows
   - package-ecosystem: 'github-actions'
     directory: '/'
@@ -138,3 +135,17 @@ updates:
       - 'dependencies'
       - 'docker'
       - 'gateway-service'
+
+  # Notification Service Docker
+  - package-ecosystem: 'docker'
+    directory: '/notification-service'
+    schedule:
+      interval: 'weekly'
+      day: 'tuesday'
+      time: '02:00'
+      timezone: 'Asia/Ho_Chi_Minh'
+    open-pull-requests-limit: 3
+    labels:
+      - 'dependencies'
+      - 'docker'
+      - 'notification-service'

@@ -45,7 +45,7 @@
             <artifactId>micrometer-registry-prometheus</artifactId>
         </dependency>
 
-        <!-- ShareRide Common (Exclude Servlet Web, JPA, Flyway, RMQ, gRPC to avoid blocking / classpath conflicts) -->
+        <!-- ShareRide Common (Exclude Servlet Web, JPA, Flyway, RMQ to avoid blocking / classpath conflicts, but keep gRPC) -->
         <dependency>
             <groupId>com.shareride</groupId>
             <artifactId>common</artifactId>
@@ -75,22 +75,28 @@
                 <artifactId>spring-boot-starter-amqp</artifactId>
                 </exclusion>
                 <exclusion>
-                <groupId>io.grpc</groupId>
-                <artifactId>grpc-netty-shaded</artifactId>
-                </exclusion>
-                <exclusion>
-                <groupId>io.grpc</groupId>
-                <artifactId>grpc-protobuf</artifactId>
-                </exclusion>
-                <exclusion>
-                <groupId>io.grpc</groupId>
-                <artifactId>grpc-stub</artifactId>
-                </exclusion>
-                <exclusion>
                     <groupId>org.springdoc</groupId>
                     <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+
+        <!-- Reactor Project for Reactive Scheduling -->
+        <dependency>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-core</artifactId>
+        </dependency>
+
+        <!-- Protobuf Java Util for JsonFormat (JWKS discovery cache serialization) -->
+        <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java-util</artifactId>
+        </dependency>
+
+        <!-- Spring WebFlux for @RestController endpoints -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webflux</artifactId>
         </dependency>
 
         <!-- SpringDoc OpenAPI 3.0 & Swagger UI Reactive WebFlux Documentation Aggregation -->
@@ -118,8 +124,24 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>com.tngtech.archunit</groupId>
             <artifactId>archunit-junit5</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Testcontainers for Integration Testing -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
    </dependencies>

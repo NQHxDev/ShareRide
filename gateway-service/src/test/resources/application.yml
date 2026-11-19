@@ -9,21 +9,32 @@ spring:
     exclude:
       - com.shareride.common.persistence.PersistenceAutoConfiguration
       - com.shareride.common.outbox.OutboxAutoConfiguration
-      - com.shareride.common.communication.CommunicationAutoConfiguration
       - com.shareride.common.probe.ProbeAutoConfiguration
       - com.shareride.common.versioning.ApiVersioningAutoConfiguration
       - com.shareride.common.resilience.config.ResilienceAutoConfiguration
       - com.shareride.common.cache.ShareRideCacheAutoConfiguration
-
   cloud:
     gateway:
       server:
         webflux:
+          filter:
+            json-to-grpc:
+              enabled: false
           routes:
             - id: test-route
               uri: http://localhost:8081
               predicates:
                 - Path=/api/v1/test/**
+
+shareride:
+  grpc:
+    client:
+      auth-service:
+        host: localhost
+        port: 9090
+      template-service:
+        host: localhost
+        port: 9091
 
 management:
   endpoints:

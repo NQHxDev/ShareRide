@@ -18,6 +18,7 @@ import static org.mockito.Mockito.when;
 import com.shareride.common.filter.TraceIdContext;
 import com.shareride.common.logging.MdcConstants;
 import com.shareride.common.metrics.ShareRideMetrics;
+import com.shareride.common.util.UuidUtils;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
@@ -319,7 +320,7 @@ class OutboxRelayServiceTest {
     @Test
     @DisplayName("Requeue dead letters should update database status back to PENDING")
     void testRequeueDeadLetters() {
-        UUID messageId = UUID.randomUUID();
+        UUID messageId = UuidUtils.v7();
         when(outboxMessageRepository.resetStatusById(messageId, OutboxStatus.PENDING))
                 .thenReturn(1);
 

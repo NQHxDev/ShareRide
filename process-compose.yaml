@@ -1,34 +1,47 @@
 version: '0.5'
 
+log_location: ./logs/process-compose.log
+
 environment:
   - 'PC_PORT_NUM=9999'
+  - 'SPRING_PROFILES_ACTIVE=dev'
 
 processes:
-  # Ancillary infrastructure (Shared Valkey & RabbitMQ)
+  # Shared Infrastructure
   infra:
     command: 'docker compose up'
     working_dir: '.'
     namespace: 'infra'
     disabled: false
+    log_location: ./logs/infra.log
     availability:
       restart: 'no'
-
-  # Auth Service Database
-  auth-db:
-    command: 'docker compose up'
-    working_dir: './auth-service'
-    namespace: 'infra'
-    disabled: false
-    availability:
-      restart: 'no'
+    shutdown:
+      command: 'docker compose down'
+    readiness_probe:
+      exec:
+        command: 'docker compose exec -T valkey-shared valkey-cli -a "${VALKEY_PASSWORD:-shared_valkey_secret}" ping'
+      initial_delay_seconds: 2
+      period_seconds: 2
+      timeout_seconds: 2
+      success_threshold: 1
+      failure_threshold: 15
 
   # Core Service
   gateway-service:
     command: './mvnw spring-boot:run -pl gateway-service'
     working_dir: '.'
     namespace: 'core'
+    env_file: './gateway-service/.env'
+    log_location: ./logs/gateway-service.log
     availability:
       restart: 'no'
+    shutdown:
+      signal: 15  # SIGTERM
+      timeout_seconds: 30
+    depends_on:
+      infra:
+        condition: process_healthy
     readiness_probe:
       http_get:
         host: 'localhost'
@@ -39,21 +52,30 @@ processes:
       timeout_seconds: 2
       success_threshold: 1
       failure_threshold: 10
-    environment:
-      - 'SERVER_PORT=8080'
-      - 'CACHE_SHARED_HOST=localhost'
-      - 'CACHE_SHARED_PORT=6379'
-      - 'AUTH_SERVICE_URI=http://localhost:8081'
-      - 'SPRING_PROFILES_ACTIVE=dev'
 
-  # Service Business
+  # Business Service
   auth-service:
-    command: './mvnw spring-boot:run -pl auth-service'
+    command: >-
+      bash -c '
+        DC="docker compose --env-file auth-service/.env -f auth-service/docker-compose.yml"
+        trap "$DC down" EXIT INT TERM
+        $DC up -d
+        until $DC exec -T postgres-auth pg_isready 2>/dev/null; do sleep 0.5; done
+        ./mvnw spring-boot:run -pl auth-service
+      '
     working_dir: '.'
     namespace: 'services'
     disabled: true
+    env_file: './auth-service/.env'
+    log_location: ./logs/auth-service.log
     availability:
       restart: 'no'
+    shutdown:
+      signal: 15  # SIGTERM
+      timeout_seconds: 30
+    depends_on:
+      infra:
+        condition: process_healthy
     readiness_probe:
       http_get:
         host: 'localhost'
@@ -64,34 +86,29 @@ processes:
       timeout_seconds: 2
       success_threshold: 1
       failure_threshold: 10
-    environment:
-      - 'SERVER_PORT=8081'
-      - 'DB_HOST=localhost'
-      - 'DB_PORT=5432'
-      - 'DB_NAME=shareride_auth'
-      - 'DB_USER=shareride_auth_usr'
-      - 'DB_PASSWORD=auth_secret_password'
-      - 'CACHE_SHARED_HOST=localhost'
-      - 'CACHE_SHARED_PORT=6379'
-      - 'SPRING_PROFILES_ACTIVE=dev'
 
-  # Notification Service Database
-  notification-db:
-    command: 'docker compose up'
-    working_dir: './notification-service'
-    namespace: 'infra'
-    disabled: false
-    availability:
-      restart: 'no'
-
-  # Notification Service
   notification-service:
-    command: './mvnw spring-boot:run -pl notification-service'
+    command: >-
+      bash -c '
+        DC="docker compose --env-file notification-service/.env -f notification-service/docker-compose.yml"
+        trap "$DC down" EXIT INT TERM
+        $DC up -d
+        until $DC exec -T postgres-notification pg_isready 2>/dev/null; do sleep 0.5; done
+        ./mvnw spring-boot:run -pl notification-service
+      '
     working_dir: '.'
     namespace: 'services'
     disabled: true
+    env_file: './notification-service/.env'
+    log_location: ./logs/notification-service.log
     availability:
       restart: 'no'
+    shutdown:
+      signal: 15  # SIGTERM
+      timeout_seconds: 30
+    depends_on:
+      infra:
+        condition: process_healthy
     readiness_probe:
       http_get:
         host: 'localhost'
@@ -102,15 +119,3 @@ processes:
       timeout_seconds: 2
       success_threshold: 1
       failure_threshold: 10
-    environment:
-      - 'SERVER_PORT=8083'
-      - 'DB_HOST=localhost'
-      - 'DB_PORT=5433'
-      - 'DB_NAME=shareride_notification'
-      - 'DB_USER=shareride_notification_usr'
-      - 'DB_PASSWORD=notification_secret_password'
-      - 'CACHE_SHARED_HOST=localhost'
-      - 'CACHE_SHARED_PORT=6379'
-      - 'RABBITMQ_HOST=localhost'
-      - 'RABBITMQ_PORT=5672'
-      - 'SPRING_PROFILES_ACTIVE=dev'

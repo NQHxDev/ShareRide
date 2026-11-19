@@ -36,6 +36,7 @@ class ArchitectureTest {
                 .should()
                 .dependOnClassesThat()
                 .resideInAPackage("..repository..")
+                .allowEmptyShould(true)
                 .because(
                         "Controllers must not bypass service layer - violates Constitution"
                                 + " Principle II (Enterprise Service Layer Pattern)")
@@ -52,6 +53,7 @@ class ArchitectureTest {
                 .haveSimpleNameEndingWith("Controller")
                 .should()
                 .beAnnotatedWith(org.springframework.web.bind.annotation.RestController.class)
+                .allowEmptyShould(true)
                 .because("All controllers must use @RestController annotation")
                 .check(classes);
     }

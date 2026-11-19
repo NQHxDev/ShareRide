@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shareride.common.filter.TraceIdContext;
+import com.shareride.common.util.UuidUtils;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -126,7 +127,7 @@ class OutboxServiceTest {
         assertEquals(5, actual.getProcessed());
         assertFalse(actual.hasFailures());
 
-        UUID messageId = UUID.randomUUID();
+        UUID messageId = UuidUtils.v7();
         when(outboxRelayService.requeueDeadLetter(messageId)).thenReturn(1);
         int requeued = outboxService.requeueDeadLetter(messageId);
         assertEquals(1, requeued);

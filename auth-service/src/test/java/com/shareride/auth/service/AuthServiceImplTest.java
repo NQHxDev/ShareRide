@@ -12,9 +12,9 @@ import com.shareride.auth.domain.Account;
 import com.shareride.auth.domain.AccountStatus;
 import com.shareride.auth.domain.Session;
 import com.shareride.auth.domain.SessionStatus;
-import com.shareride.auth.dto.AccountResponse;
+import com.shareride.auth.dto.AccountResponseDTO;
 import com.shareride.auth.dto.LoginRequest;
-import com.shareride.auth.dto.RegisterRequest;
+import com.shareride.auth.dto.RegisterRequestDTO;
 import com.shareride.auth.repository.AccountRepository;
 import com.shareride.auth.service.impl.AuthServiceImpl;
 import com.shareride.auth.util.PasswordUtils;
@@ -23,6 +23,7 @@ import com.shareride.common.exception.ForbiddenException;
 import com.shareride.common.exception.RateLimitExceededException;
 import com.shareride.common.exception.UnauthorizedException;
 import com.shareride.common.logging.audit.AuditLogService;
+import com.shareride.common.util.UuidUtils;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;
@@ -46,6 +47,7 @@ class AuthServiceImplTest {
     @Mock private SessionManagementService sessionManagementService;
     @Mock private AccountManagementService accountManagementService;
     @Mock private LoginRateLimiterService loginRateLimiterService;
+    @Mock private org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
 
     private AuthService authService;
 
@@ -62,7 +64,8 @@ class AuthServiceImplTest {
                         registrationService,
                         sessionManagementService,
                         accountManagementService,
-                        loginRateLimiterService);
+                        loginRateLimiterService,
+                        redisTemplate);
     }
 
     @AfterEach
@@ -73,26 +76,25 @@ class AuthServiceImplTest {
     @Test
     @DisplayName("Register: delegates registration to RegistrationService")
     void testRegisterDelegatesToRegistrationService() {
-        RegisterRequest request =
-                RegisterRequest.builder()
+        RegisterRequestDTO request =
+                RegisterRequestDTO.builder()
                         .email("rider@shareride.com")
                         .password("SuperSecretPass123!")
-                        .phoneNumber("+84988111222")
-                        .roleCode("ROLE_RIDER")
+                        .confirmPassword("SuperSecretPass123!")
                         .build();
 
-        AccountResponse expectedResponse =
-                AccountResponse.builder()
-                        .accountId(UUID.randomUUID())
+        AccountResponseDTO expectedResponse =
+                AccountResponseDTO.builder()
+                        .accountId(UuidUtils.v7())
                         .email("rider@shareride.com")
-                        .phoneNumber("+84988111222")
+                        .phoneNumber(null)
                         .status(AccountStatus.ACTIVE)
                         .roles(Set.of("ROLE_RIDER"))
                         .build();
 
         when(registrationService.register(request)).thenReturn(expectedResponse);
 
-        AccountResponse response = authService.register(request);
+        AccountResponseDTO response = authService.register(request);
 
         assertNotNull(response);
         assertEquals("rider@shareride.com", response.getEmail());
@@ -104,13 +106,13 @@ class AuthServiceImplTest {
     void testLoginSuccessWithArgon2id() {
         String rawPassword = "ValidPassword123";
         String argon2idHash = PasswordUtils.hashPassword(rawPassword);
-        UUID accountId = UUID.randomUUID();
-        UUID sessionId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
+        UUID sessionId = UuidUtils.v7();
 
         Account account =
                 Account.builder()
                         .email("active.user@shareride.com")
-                        .phoneNumber("+84988333444")
+                        .phoneNumber(null)
                         .passwordHash(argon2idHash)
                         .status(AccountStatus.ACTIVE)
                         .roles(Set.of())
@@ -126,8 +128,8 @@ class AuthServiceImplTest {
                         .build();
         session.setId(sessionId);
 
-        AccountResponse accountResponse =
-                AccountResponse.builder()
+        AccountResponseDTO accountResponse =
+                AccountResponseDTO.builder()
                         .accountId(accountId)
                         .email("active.user@shareride.com")
                         .build();
@@ -169,11 +171,11 @@ class AuthServiceImplTest {
         Account account =
                 Account.builder()
                         .email("user@shareride.com")
-                        .phoneNumber("+84988555666")
+                        .phoneNumber(null)
                         .passwordHash(argon2idHash)
                         .status(AccountStatus.ACTIVE)
                         .build();
-        account.setId(UUID.randomUUID());
+        account.setId(UuidUtils.v7());
 
         when(accountRepository.findByEmailAndDeletedFalse("user@shareride.com"))
                 .thenReturn(Optional.of(account));
@@ -211,11 +213,11 @@ class AuthServiceImplTest {
         Account account =
                 Account.builder()
                         .email("locked@shareride.com")
-                        .phoneNumber("+84988999888")
+                        .phoneNumber(null)
                         .passwordHash("dummyHash")
                         .status(AccountStatus.LOCKED)
                         .build();
-        account.setId(UUID.randomUUID());
+        account.setId(UuidUtils.v7());
 
         when(accountRepository.findByEmailAndDeletedFalse("locked@shareride.com"))
                 .thenReturn(Optional.of(account));
@@ -240,11 +242,11 @@ class AuthServiceImplTest {
         Account account =
                 Account.builder()
                         .email("target@shareride.com")
-                        .phoneNumber("+84988777888")
+                        .phoneNumber(null)
                         .passwordHash(argon2idHash)
                         .status(AccountStatus.ACTIVE)
                         .build();
-        account.setId(UUID.randomUUID());
+        account.setId(UuidUtils.v7());
 
         when(accountRepository.findByEmailAndDeletedFalse("target@shareride.com"))
                 .thenReturn(Optional.of(account));
@@ -268,13 +270,16 @@ class AuthServiceImplTest {
     @Test
     @DisplayName("getAccountById: delegates to AccountManagementService")
     void testGetAccountByIdDelegates() {
-        UUID accountId = UUID.randomUUID();
-        AccountResponse expected =
-                AccountResponse.builder().accountId(accountId).email("self@shareride.com").build();
+        UUID accountId = UuidUtils.v7();
+        AccountResponseDTO expected =
+                AccountResponseDTO.builder()
+                        .accountId(accountId)
+                        .email("self@shareride.com")
+                        .build();
 
         when(accountManagementService.getAccountById(accountId)).thenReturn(expected);
 
-        AccountResponse actual = authService.getAccountById(accountId);
+        AccountResponseDTO actual = authService.getAccountById(accountId);
         assertNotNull(actual);
         assertEquals(accountId, actual.getAccountId());
         verify(accountManagementService).getAccountById(accountId);
@@ -283,7 +288,7 @@ class AuthServiceImplTest {
     @Test
     @DisplayName("getActiveSessions: delegates to SessionManagementService")
     void testGetActiveSessionsDelegates() {
-        UUID accountId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
         when(sessionManagementService.getActiveSessions(accountId)).thenReturn(java.util.List.of());
 
         var sessions = authService.getActiveSessions(accountId);
@@ -294,8 +299,8 @@ class AuthServiceImplTest {
     @Test
     @DisplayName("revokeSession: delegates to SessionManagementService")
     void testRevokeSessionDelegates() {
-        UUID sessionId = UUID.randomUUID();
-        UUID accountId = UUID.randomUUID();
+        UUID sessionId = UuidUtils.v7();
+        UUID accountId = UuidUtils.v7();
 
         authService.revokeSession(sessionId, accountId);
         verify(sessionManagementService).revokeSession(sessionId, accountId);
@@ -304,7 +309,7 @@ class AuthServiceImplTest {
     @Test
     @DisplayName("softDeleteAccount: delegates to AccountManagementService")
     void testSoftDeleteAccountDelegates() {
-        UUID accountId = UUID.randomUUID();
+        UUID accountId = UuidUtils.v7();
         authService.softDeleteAccount(accountId, "admin");
         verify(accountManagementService).softDeleteAccount(accountId, "admin");
     }
@@ -336,7 +341,7 @@ class AuthServiceImplTest {
                         .passwordHash(argon2idHash)
                         .status(AccountStatus.INACTIVE)
                         .build();
-        account.setId(UUID.randomUUID());
+        account.setId(UuidUtils.v7());
 
         when(accountRepository.findByEmailAndDeletedFalse("inactive@shareride.com"))
                 .thenReturn(Optional.of(account));
@@ -356,8 +361,8 @@ class AuthServiceImplTest {
     @DisplayName("RefreshToken: Successfully rotates token and returns updated AuthResponse")
     void testRefreshTokenSuccess() {
         String token = "old-refresh-token";
-        UUID sessionId = UUID.randomUUID();
-        UUID accountId = UUID.randomUUID();
+        UUID sessionId = UuidUtils.v7();
+        UUID accountId = UuidUtils.v7();
 
         Session session =
                 Session.builder().accountId(accountId).status(SessionStatus.ACTIVE).build();
@@ -367,7 +372,8 @@ class AuthServiceImplTest {
                 Account.builder().email("rider@shareride.com").status(AccountStatus.ACTIVE).build();
         account.setId(accountId);
 
-        AccountResponse accountResponse = AccountResponse.builder().accountId(accountId).build();
+        AccountResponseDTO accountResponse =
+                AccountResponseDTO.builder().accountId(accountId).build();
 
         when(sessionManagementService.refreshSession(token, "127.0.0.1")).thenReturn(session);
         when(accountManagementService.getActiveAccount(accountId)).thenReturn(account);
