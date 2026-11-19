@@ -98,9 +98,7 @@ class AuthGrpcIntegrationTest extends AbstractIntegrationTest {
                 RegisterRequest.newBuilder()
                         .setEmail(testEmail)
                         .setPassword(testPassword)
-                        .setPhoneNumber("+84901234567")
-                        .setRoleCode("RIDER")
-                        .setDisplayName("gRPC Test User")
+                        .setConfirmPassword(testPassword)
                         .build();
 
         RegisterResponse response = blockingStub.register(request);
@@ -133,9 +131,7 @@ class AuthGrpcIntegrationTest extends AbstractIntegrationTest {
                 RegisterRequest.newBuilder()
                         .setEmail(testEmail)
                         .setPassword(testPassword)
-                        .setPhoneNumber("+84901234568")
-                        .setRoleCode("DRIVER")
-                        .setDisplayName("Driver User")
+                        .setConfirmPassword(testPassword)
                         .build();
 
         RegisterResponse registerResponse = blockingStub.register(registerRequest);
@@ -147,9 +143,8 @@ class AuthGrpcIntegrationTest extends AbstractIntegrationTest {
         assertThat(response.hasAccount()).isTrue();
         assertThat(response.getAccount().getAccountId()).isEqualTo(accountId);
         assertThat(response.getAccount().getEmail()).isEqualTo(testEmail);
-        assertThat(response.getAccount().getPhoneNumber()).isEqualTo("+84901234568");
         assertThat(response.getAccount().getStatus()).isEqualTo("PENDING_VERIFICATION");
-        assertThat(response.getAccount().getRolesList()).contains("ROLE_DRIVER");
+        assertThat(response.getAccount().getRolesList()).contains("ROLE_RIDER");
     }
 
     @Test
@@ -162,8 +157,7 @@ class AuthGrpcIntegrationTest extends AbstractIntegrationTest {
                 RegisterRequest.newBuilder()
                         .setEmail(testEmail)
                         .setPassword(testPassword)
-                        .setPhoneNumber("+84901234569")
-                        .setRoleCode("RIDER")
+                        .setConfirmPassword(testPassword)
                         .build();
 
         RegisterResponse registerResponse = blockingStub.register(registerRequest);
@@ -321,8 +315,7 @@ class AuthGrpcIntegrationTest extends AbstractIntegrationTest {
                 RegisterRequest.newBuilder()
                         .setEmail(testEmail)
                         .setPassword(testPassword)
-                        .setPhoneNumber("+84901234570")
-                        .setRoleCode("RIDER")
+                        .setConfirmPassword(testPassword)
                         .build();
 
         blockingStub.register(registerRequest);
@@ -344,8 +337,7 @@ class AuthGrpcIntegrationTest extends AbstractIntegrationTest {
                 RegisterRequest.newBuilder()
                         .setEmail(testEmail)
                         .setPassword(testPassword)
-                        .setPhoneNumber("+84901234571")
-                        .setRoleCode("RIDER")
+                        .setConfirmPassword(testPassword)
                         .build();
 
         blockingStub.register(registerRequest);
@@ -402,8 +394,7 @@ class AuthGrpcIntegrationTest extends AbstractIntegrationTest {
                 RegisterRequest.newBuilder()
                         .setEmail(testEmail)
                         .setPassword(testPassword)
-                        .setPhoneNumber("+84901234572")
-                        .setRoleCode("RIDER")
+                        .setConfirmPassword(testPassword)
                         .build();
 
         RegisterResponse registerResponse = blockingStub.register(registerRequest);

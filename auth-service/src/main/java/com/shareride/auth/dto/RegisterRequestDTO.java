@@ -15,7 +15,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Schema(description = "Yêu cầu đăng ký tài khoản xác thực người dùng mới")
-public class RegisterRequest {
+public class RegisterRequestDTO {
 
     @NotBlank(message = "Email is required")
     @Email(message = "Invalid email format")
@@ -33,23 +33,10 @@ public class RegisterRequest {
             requiredMode = Schema.RequiredMode.REQUIRED)
     private String password;
 
-    @NotBlank(message = "Phone number is required")
+    @NotBlank(message = "Confirm password is required")
     @Schema(
-            description = "Số điện thoại liên lạc chuẩn E.164 hoặc quốc gia",
-            example = "+84901234567",
+            description = "Xác nhận mật khẩu (phải khớp với password)",
+            example = "SecurePass123!@#",
             requiredMode = Schema.RequiredMode.REQUIRED)
-    private String phoneNumber;
-
-    /** Tên đầy đủ (tùy chọn, được chuyển tiếp qua Outbox event sang User Service để tạo hồ sơ). */
-    @Schema(
-            description = "Họ và tên đầy đủ của người dùng (sẽ gửi Outbox Event sang User Service)",
-            example = "Nguyen Van A")
-    private String fullName;
-
-    /** Mã vai trò mong muốn (mặc định: ROLE_RIDER). */
-    @Schema(
-            description = "Mã vai trò RBAC khởi tạo cho tài khoản (mặc định: ROLE_RIDER)",
-            example = "ROLE_RIDER",
-            defaultValue = "ROLE_RIDER")
-    private String roleCode;
+    private String confirmPassword;
 }

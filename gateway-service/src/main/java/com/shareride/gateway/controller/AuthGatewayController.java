@@ -83,18 +83,7 @@ public class AuthGatewayController {
                                             RegisterRequest.newBuilder()
                                                     .setEmail(dto.getEmail())
                                                     .setPassword(dto.getPassword())
-                                                    .setPhoneNumber(
-                                                            dto.getPhoneNumber() != null
-                                                                    ? dto.getPhoneNumber()
-                                                                    : "")
-                                                    .setRoleCode(
-                                                            dto.getRoleCode() != null
-                                                                    ? dto.getRoleCode()
-                                                                    : "RIDER")
-                                                    .setDisplayName(
-                                                            dto.getDisplayName() != null
-                                                                    ? dto.getDisplayName()
-                                                                    : "")
+                                                    .setConfirmPassword(dto.getConfirmPassword())
                                                     .build();
 
                                     return authServiceGrpcClient

@@ -93,9 +93,7 @@ class AuthServiceGrpcClientTest {
                 RegisterRequest.newBuilder()
                         .setEmail("test@example.com")
                         .setPassword("password123")
-                        .setPhoneNumber("+84901234567")
-                        .setRoleCode("RIDER")
-                        .setDisplayName("Test User")
+                        .setConfirmPassword("password123")
                         .build();
 
         StepVerifier.create(client.register(request))

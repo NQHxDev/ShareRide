@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.shareride.auth.domain.AccountStatus;
 import com.shareride.auth.dto.AccountResponse;
 import com.shareride.auth.dto.AuthResponse;
 import com.shareride.auth.dto.SessionResponse;
@@ -32,12 +33,14 @@ import com.shareride.common.grpc.auth.v1.RegisterResponse;
 import com.shareride.common.grpc.auth.v1.ResendVerificationResponse;
 import com.shareride.common.grpc.auth.v1.RevokeSessionRequest;
 import com.shareride.common.grpc.auth.v1.RevokeSessionResponse;
+import com.shareride.common.grpc.auth.v1.VerifyEmailRequest;
 import com.shareride.common.grpc.auth.v1.VerifyEmailResponse;
 import com.shareride.common.util.UuidUtils;
 import io.grpc.stub.StreamObserver;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -97,9 +100,7 @@ class AuthGrpcServiceTest {
                 RegisterRequest.newBuilder()
                         .setEmail("test@example.com")
                         .setPassword("SecurePass123")
-                        .setPhoneNumber("+84901234567")
-                        .setRoleCode("RIDER")
-                        .setDisplayName("Test User")
+                        .setConfirmPassword("SecurePass123")
                         .build();
 
         String accountId = UuidUtils.v7AsString();
@@ -107,8 +108,8 @@ class AuthGrpcServiceTest {
                 AccountResponse.builder()
                         .accountId(UUID.fromString(accountId))
                         .email("test@example.com")
-                        .status(com.shareride.auth.domain.AccountStatus.PENDING_VERIFICATION)
-                        .roles(java.util.Set.of("ROLE_RIDER"))
+                        .status(AccountStatus.PENDING_VERIFICATION)
+                        .roles(Set.of("ROLE_RIDER"))
                         .createdAt(Instant.now())
                         .build();
 
@@ -149,7 +150,7 @@ class AuthGrpcServiceTest {
                                 AccountResponse.builder()
                                         .accountId(UuidUtils.v7())
                                         .email("test@example.com")
-                                        .status(com.shareride.auth.domain.AccountStatus.ACTIVE)
+                                        .status(AccountStatus.ACTIVE)
                                         .build())
                         .build();
 
@@ -176,9 +177,8 @@ class AuthGrpcServiceTest {
                 AccountResponse.builder()
                         .accountId(UUID.fromString(accountId))
                         .email("test@example.com")
-                        .phoneNumber("+84901234567")
-                        .status(com.shareride.auth.domain.AccountStatus.ACTIVE)
-                        .roles(java.util.Set.of("ROLE_RIDER"))
+                        .status(AccountStatus.ACTIVE)
+                        .roles(Set.of("ROLE_RIDER"))
                         .build();
 
         when(accountManagementService.getAccountById(any(UUID.class))).thenReturn(mockAccount);
@@ -250,10 +250,8 @@ class AuthGrpcServiceTest {
 
     @Test
     void verifyEmail_shouldVerifyAccount_whenValidToken() {
-        com.shareride.common.grpc.auth.v1.VerifyEmailRequest request =
-                com.shareride.common.grpc.auth.v1.VerifyEmailRequest.newBuilder()
-                        .setToken("valid-verification-token")
-                        .build();
+        VerifyEmailRequest request =
+                VerifyEmailRequest.newBuilder().setToken("valid-verification-token").build();
 
         AccountResponse mockAccount = AccountResponse.builder().accountId(UuidUtils.v7()).build();
         when(accountVerificationService.verifyEmail(any())).thenReturn(mockAccount);

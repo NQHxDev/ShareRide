@@ -18,7 +18,7 @@ import com.shareride.auth.domain.Role;
 import com.shareride.auth.domain.RoleCode;
 import com.shareride.auth.domain.VerificationStatus;
 import com.shareride.auth.dto.AccountResponse;
-import com.shareride.auth.dto.RegisterRequest;
+import com.shareride.auth.dto.RegisterRequestDTO;
 import com.shareride.auth.publisher.AuthEventPublisher;
 import com.shareride.auth.repository.AccountRepository;
 import com.shareride.auth.repository.AccountVerificationRepository;
@@ -79,12 +79,11 @@ class RegistrationServiceImplVerificationTest {
 
     @Test
     void register_ShouldCreateAccountWithPendingVerificationStatus() {
-        final RegisterRequest request =
-                RegisterRequest.builder()
+        final RegisterRequestDTO request =
+                RegisterRequestDTO.builder()
                         .email("newuser@example.com")
                         .password("SecurePass123!")
-                        .phoneNumber("+84123456789")
-                        .fullName("Nguyen Van A")
+                        .confirmPassword("SecurePass123!")
                         .build();
 
         final Role riderRole = Role.builder().roleCode(RoleCode.ROLE_RIDER).build();
@@ -92,14 +91,13 @@ class RegistrationServiceImplVerificationTest {
         final Account savedAccount =
                 Account.builder()
                         .email("newuser@example.com")
-                        .phoneNumber("+84123456789")
+                        .phoneNumber(null)
                         .status(AccountStatus.PENDING_VERIFICATION)
                         .roles(Set.of(riderRole))
                         .build();
         savedAccount.setId(UuidUtils.v7());
 
         when(emailBloomFilterService.mightExist(anyString())).thenReturn(false);
-        when(accountRepository.existsByPhoneNumber(anyString())).thenReturn(false);
         when(roleRepository.findByRoleCode(RoleCode.ROLE_RIDER)).thenReturn(Optional.of(riderRole));
         when(accountRepository.save(any(Account.class))).thenReturn(savedAccount);
         when(accountManagementService.toAccountResponse(any(Account.class)))
@@ -117,11 +115,11 @@ class RegistrationServiceImplVerificationTest {
 
     @Test
     void register_ShouldGenerateAndStoreVerificationCodeHash() {
-        final RegisterRequest request =
-                RegisterRequest.builder()
+        final RegisterRequestDTO request =
+                RegisterRequestDTO.builder()
                         .email("user@example.com")
                         .password("Pass123!")
-                        .phoneNumber("+84987654321")
+                        .confirmPassword("Pass123!")
                         .build();
 
         final Role riderRole = Role.builder().roleCode(RoleCode.ROLE_RIDER).build();
@@ -134,7 +132,6 @@ class RegistrationServiceImplVerificationTest {
         savedAccount.setId(UuidUtils.v7());
 
         when(emailBloomFilterService.mightExist(anyString())).thenReturn(false);
-        when(accountRepository.existsByPhoneNumber(anyString())).thenReturn(false);
         when(roleRepository.findByRoleCode(RoleCode.ROLE_RIDER)).thenReturn(Optional.of(riderRole));
         when(accountRepository.save(any(Account.class))).thenReturn(savedAccount);
         when(accountManagementService.toAccountResponse(any(Account.class)))
@@ -157,12 +154,11 @@ class RegistrationServiceImplVerificationTest {
 
     @Test
     void register_ShouldPublishAccountVerificationEvent() {
-        final RegisterRequest request =
-                RegisterRequest.builder()
+        final RegisterRequestDTO request =
+                RegisterRequestDTO.builder()
                         .email("test@example.com")
                         .password("Password123!")
-                        .phoneNumber("+84111222333")
-                        .fullName("Test User")
+                        .confirmPassword("Password123!")
                         .build();
 
         final Role riderRole = Role.builder().roleCode(RoleCode.ROLE_RIDER).build();
@@ -175,7 +171,6 @@ class RegistrationServiceImplVerificationTest {
         savedAccount.setId(UuidUtils.v7());
 
         when(emailBloomFilterService.mightExist(anyString())).thenReturn(false);
-        when(accountRepository.existsByPhoneNumber(anyString())).thenReturn(false);
         when(roleRepository.findByRoleCode(RoleCode.ROLE_RIDER)).thenReturn(Optional.of(riderRole));
         when(accountRepository.save(any(Account.class))).thenReturn(savedAccount);
         when(accountManagementService.toAccountResponse(any(Account.class)))
@@ -190,11 +185,11 @@ class RegistrationServiceImplVerificationTest {
 
     @Test
     void register_ShouldThrowConflictExceptionWhenEmailPendingVerification() {
-        final RegisterRequest request =
-                RegisterRequest.builder()
+        final RegisterRequestDTO request =
+                RegisterRequestDTO.builder()
                         .email("pending@example.com")
                         .password("Pass123!")
-                        .phoneNumber("+84999888777")
+                        .confirmPassword("Pass123!")
                         .build();
 
         final Account existingAccount =

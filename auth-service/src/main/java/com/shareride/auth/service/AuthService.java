@@ -3,7 +3,7 @@ package com.shareride.auth.service;
 import com.shareride.auth.dto.AccountResponse;
 import com.shareride.auth.dto.AuthResponse;
 import com.shareride.auth.dto.LoginRequest;
-import com.shareride.auth.dto.RegisterRequest;
+import com.shareride.auth.dto.RegisterRequestDTO;
 import com.shareride.auth.dto.SessionResponse;
 import java.util.List;
 import java.util.Map;
@@ -21,7 +21,7 @@ public interface AuthService {
      * @param request dữ liệu đăng ký chứa email, password, phoneNumber, roleCode...
      * @return chi tiết tài khoản vừa tạo
      */
-    AccountResponse register(RegisterRequest request);
+    AccountResponse register(RegisterRequestDTO request);
 
     /**
      * Xác thực thông tin đăng nhập và tạo phiên làm việc mới trên thiết bị.

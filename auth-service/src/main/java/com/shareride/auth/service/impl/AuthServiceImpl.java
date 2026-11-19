@@ -9,7 +9,7 @@ import com.shareride.auth.domain.Session;
 import com.shareride.auth.dto.AccountResponse;
 import com.shareride.auth.dto.AuthResponse;
 import com.shareride.auth.dto.LoginRequest;
-import com.shareride.auth.dto.RegisterRequest;
+import com.shareride.auth.dto.RegisterRequestDTO;
 import com.shareride.auth.dto.SessionResponse;
 import com.shareride.auth.exception.AccountPendingVerificationException;
 import com.shareride.auth.repository.AccountRepository;
@@ -60,7 +60,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public AccountResponse register(RegisterRequest request) {
+    public AccountResponse register(RegisterRequestDTO request) {
         return registrationService.register(request);
     }
 

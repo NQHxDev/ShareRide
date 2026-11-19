@@ -2,6 +2,7 @@ package com.shareride.auth.grpc.mapper;
 
 import com.shareride.auth.dto.AccountResponse;
 import com.shareride.auth.dto.AuthResponse;
+import com.shareride.auth.dto.RegisterRequestDTO;
 import com.shareride.auth.dto.SessionResponse;
 import com.shareride.common.grpc.auth.v1.AccountProto;
 import com.shareride.common.grpc.auth.v1.GetAccountResponse;
@@ -34,23 +35,12 @@ import org.springframework.stereotype.Component;
 @Component
 public class AuthProtoMapper {
 
-    // -------------------------------------------------------------------------
-    // Register Request/Response Mapping
-    // -------------------------------------------------------------------------
-
-    public com.shareride.auth.dto.RegisterRequest toRegisterRequest(
+    public RegisterRequestDTO toRegisterRequest(
             com.shareride.common.grpc.auth.v1.RegisterRequest protoRequest) {
-        String roleCode = protoRequest.getRoleCode();
-        if (roleCode != null && !roleCode.isEmpty() && !roleCode.startsWith("ROLE_")) {
-            roleCode = "ROLE_" + roleCode;
-        }
-
-        return com.shareride.auth.dto.RegisterRequest.builder()
+        return RegisterRequestDTO.builder()
                 .email(protoRequest.getEmail())
                 .password(protoRequest.getPassword())
-                .phoneNumber(protoRequest.getPhoneNumber())
-                .roleCode(roleCode)
-                .fullName(protoRequest.getDisplayName())
+                .confirmPassword(protoRequest.getConfirmPassword())
                 .build();
     }
 
@@ -84,10 +74,6 @@ public class AuthProtoMapper {
         return builder.build();
     }
 
-    // -------------------------------------------------------------------------
-    // Login Request/Response Mapping
-    // -------------------------------------------------------------------------
-
     public com.shareride.auth.dto.LoginRequest toLoginRequest(
             com.shareride.common.grpc.auth.v1.LoginRequest protoRequest) {
         return com.shareride.auth.dto.LoginRequest.builder()
@@ -117,10 +103,6 @@ public class AuthProtoMapper {
         return builder.build();
     }
 
-    // -------------------------------------------------------------------------
-    // RefreshToken Request/Response Mapping
-    // -------------------------------------------------------------------------
-
     public String extractRefreshToken(
             com.shareride.common.grpc.auth.v1.RefreshTokenRequest protoRequest) {
         return protoRequest.getRefreshToken();
@@ -148,10 +130,6 @@ public class AuthProtoMapper {
                 .build();
     }
 
-    // -------------------------------------------------------------------------
-    // Logout Request/Response Mapping
-    // -------------------------------------------------------------------------
-
     public String extractAccessToken(LogoutRequest protoRequest) {
         return protoRequest.getAccessToken();
     }
@@ -163,10 +141,6 @@ public class AuthProtoMapper {
     public LogoutResponse toLogoutResponseProto(boolean success, String message) {
         return LogoutResponse.newBuilder().setSuccess(success).setMessage(message).build();
     }
-
-    // -------------------------------------------------------------------------
-    // VerifyEmail Request/Response Mapping
-    // -------------------------------------------------------------------------
 
     public com.shareride.auth.dto.VerifyEmailRequest toVerifyEmailRequest(
             com.shareride.common.grpc.auth.v1.VerifyEmailRequest protoRequest) {
@@ -189,10 +163,6 @@ public class AuthProtoMapper {
         return builder.build();
     }
 
-    // -------------------------------------------------------------------------
-    // ResendVerification Request/Response Mapping
-    // -------------------------------------------------------------------------
-
     public com.shareride.auth.dto.ResendVerificationRequest toResendVerificationRequest(
             com.shareride.common.grpc.auth.v1.ResendVerificationRequest protoRequest) {
         return com.shareride.auth.dto.ResendVerificationRequest.builder()
@@ -207,10 +177,6 @@ public class AuthProtoMapper {
                 .setMessage(message)
                 .build();
     }
-
-    // -------------------------------------------------------------------------
-    // GetJwks Response Mapping
-    // -------------------------------------------------------------------------
 
     public GetJwksResponse toGetJwksResponseProto(Map<String, Object> jwks) {
         GetJwksResponse.Builder responseBuilder = GetJwksResponse.newBuilder();
@@ -250,10 +216,6 @@ public class AuthProtoMapper {
         return responseBuilder.build();
     }
 
-    // -------------------------------------------------------------------------
-    // GetAccount Request/Response Mapping
-    // -------------------------------------------------------------------------
-
     public UUID extractAccountId(com.shareride.common.grpc.auth.v1.GetAccountRequest protoRequest) {
         return UUID.fromString(protoRequest.getAccountId());
     }
@@ -261,10 +223,6 @@ public class AuthProtoMapper {
     public GetAccountResponse toGetAccountResponseProto(AccountResponse accountResponse) {
         return GetAccountResponse.newBuilder().setAccount(toAccountProto(accountResponse)).build();
     }
-
-    // -------------------------------------------------------------------------
-    // GetSessions Request/Response Mapping
-    // -------------------------------------------------------------------------
 
     public UUID extractAccountIdFromGetSessions(
             com.shareride.common.grpc.auth.v1.GetSessionsRequest protoRequest) {
@@ -283,10 +241,6 @@ public class AuthProtoMapper {
         return responseBuilder.build();
     }
 
-    // -------------------------------------------------------------------------
-    // RevokeSession Request/Response Mapping
-    // -------------------------------------------------------------------------
-
     public UUID extractAccountIdFromRevokeSession(
             com.shareride.common.grpc.auth.v1.RevokeSessionRequest protoRequest) {
         return UUID.fromString(protoRequest.getAccountId());
@@ -301,10 +255,6 @@ public class AuthProtoMapper {
         return RevokeSessionResponse.newBuilder().setSuccess(success).setMessage(message).build();
     }
 
-    // -------------------------------------------------------------------------
-    // HealthCheck Response Mapping
-    // -------------------------------------------------------------------------
-
     public HealthCheckResponse toHealthCheckResponseProto(
             HealthCheckResponse.ServingStatus status, String message, long timestamp) {
         return HealthCheckResponse.newBuilder()
@@ -313,10 +263,6 @@ public class AuthProtoMapper {
                 .setTimestamp(timestamp)
                 .build();
     }
-
-    // -------------------------------------------------------------------------
-    // Private Helper Methods
-    // -------------------------------------------------------------------------
 
     private AccountProto toAccountProto(AccountResponse accountResponse) {
         AccountProto.Builder builder =

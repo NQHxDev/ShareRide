@@ -4,7 +4,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.shareride.common.communication.grpc.client.GrpcChannelFactory;
 import com.shareride.common.grpc.auth.v1.GetAccountResponse;
 import com.shareride.common.grpc.auth.v1.GetJwksRequest;
 import com.shareride.common.grpc.auth.v1.GetJwksResponse;
@@ -13,7 +12,6 @@ import com.shareride.common.grpc.auth.v1.LoginResponse;
 import com.shareride.common.grpc.auth.v1.RegisterResponse;
 import com.shareride.gateway.client.AuthServiceGrpcClient;
 import com.shareride.gateway.support.AbstractIntegrationTest;
-import io.grpc.ManagedChannel;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,9 +20,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
 
@@ -34,7 +32,7 @@ import reactor.core.publisher.Mono;
  * mocked gRPC infrastructure.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(GatewayNorthboundGrpcIntegrationTest.MockGrpcConfig.class)
+@TestPropertySource(properties = {"spring.main.allow-bean-definition-overriding=true"})
 class GatewayNorthboundGrpcIntegrationTest extends AbstractIntegrationTest {
 
     @LocalServerPort private int port;
@@ -50,20 +48,10 @@ class GatewayNorthboundGrpcIntegrationTest extends AbstractIntegrationTest {
     }
 
     @TestConfiguration
-    static class MockGrpcConfig {
+    static class MockGrpcClientConfig {
         @Bean
         @Primary
-        public GrpcChannelFactory grpcChannelFactory() {
-            GrpcChannelFactory factory = mock(GrpcChannelFactory.class);
-            ManagedChannel mockChannel = mock(ManagedChannel.class);
-            when(factory.getChannel(any(String.class))).thenReturn(mockChannel);
-            when(factory.getManagedChannel(any(String.class))).thenReturn(mockChannel);
-            return factory;
-        }
-
-        @Bean
-        @Primary
-        public AuthServiceGrpcClient authServiceGrpcClient(GrpcChannelFactory factory) {
+        public AuthServiceGrpcClient authServiceGrpcClient() {
             return mock(AuthServiceGrpcClient.class);
         }
     }
@@ -85,9 +73,7 @@ class GatewayNorthboundGrpcIntegrationTest extends AbstractIntegrationTest {
                 Map.of(
                         "email", "test@example.com",
                         "password", "SecurePass123",
-                        "phoneNumber", "+84901234567",
-                        "roleCode", "RIDER",
-                        "displayName", "Test User");
+                        "confirmPassword", "SecurePass123");
 
         webTestClient
                 .post()
@@ -241,8 +227,7 @@ class GatewayNorthboundGrpcIntegrationTest extends AbstractIntegrationTest {
                 Map.of(
                         "email", "invalid-email",
                         "password", "short",
-                        "phoneNumber", "",
-                        "roleCode", "RIDER");
+                        "confirmPassword", "short");
 
         webTestClient
                 .post()

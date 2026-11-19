@@ -36,6 +36,9 @@ processes:
     log_location: ./logs/gateway-service.log
     availability:
       restart: 'no'
+    shutdown:
+      signal: 15  # SIGTERM
+      timeout_seconds: 30
     depends_on:
       infra:
         condition: process_healthy
@@ -67,6 +70,9 @@ processes:
     log_location: ./logs/auth-service.log
     availability:
       restart: 'no'
+    shutdown:
+      signal: 15  # SIGTERM
+      timeout_seconds: 30
     depends_on:
       infra:
         condition: process_healthy
@@ -97,6 +103,9 @@ processes:
     log_location: ./logs/notification-service.log
     availability:
       restart: 'no'
+    shutdown:
+      signal: 15  # SIGTERM
+      timeout_seconds: 30
     depends_on:
       infra:
         condition: process_healthy

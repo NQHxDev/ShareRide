@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.shareride.auth.dto.AccountResponse;
-import com.shareride.auth.dto.RegisterRequest;
+import com.shareride.auth.dto.RegisterRequestDTO;
 import com.shareride.auth.repository.AccountRepository;
 import com.shareride.auth.service.EmailBloomFilterService;
 import com.shareride.auth.service.RegistrationService;
@@ -42,12 +42,11 @@ class RegistrationWithBloomFilterIntegrationTest extends AbstractIntegrationTest
     @Test
     @DisplayName("New email registration skips DB existence check via Bloom filter")
     void registerNewEmail_skipsDbCheck() {
-        RegisterRequest request =
-                RegisterRequest.builder()
+        RegisterRequestDTO request =
+                RegisterRequestDTO.builder()
                         .email("newuser@example.com")
                         .password("SecurePass123!")
-                        .phoneNumber("+84901234567")
-                        .roleCode("RIDER")
+                        .confirmPassword("SecurePass123!")
                         .build();
 
         double missCountBefore = meterRegistry.counter("auth.bloom.miss.total").count();
@@ -67,24 +66,22 @@ class RegistrationWithBloomFilterIntegrationTest extends AbstractIntegrationTest
     @Test
     @DisplayName("Existing email registration triggers DB confirmation via Bloom filter hit")
     void registerExistingEmail_triggersDbConfirmation() {
-        RegisterRequest request1 =
-                RegisterRequest.builder()
+        RegisterRequestDTO request1 =
+                RegisterRequestDTO.builder()
                         .email("existing@example.com")
                         .password("Pass123!")
-                        .phoneNumber("+84901111111")
-                        .roleCode("RIDER")
+                        .confirmPassword("Pass123!")
                         .build();
 
         registrationService.register(request1);
 
         double hitCountBefore = meterRegistry.counter("auth.bloom.hit.total").count();
 
-        RegisterRequest request2 =
-                RegisterRequest.builder()
+        RegisterRequestDTO request2 =
+                RegisterRequestDTO.builder()
                         .email("existing@example.com")
                         .password("Pass456!")
-                        .phoneNumber("+84902222222")
-                        .roleCode("RIDER")
+                        .confirmPassword("Pass456!")
                         .build();
 
         assertThrows(
@@ -105,12 +102,11 @@ class RegistrationWithBloomFilterIntegrationTest extends AbstractIntegrationTest
         double missCountBefore = meterRegistry.counter("auth.bloom.miss.total").count();
 
         for (int i = 0; i < totalRegistrations; i++) {
-            RegisterRequest request =
-                    RegisterRequest.builder()
+            RegisterRequestDTO request =
+                    RegisterRequestDTO.builder()
                             .email("batchuser" + i + "@example.com")
                             .password("Pass123!")
-                            .phoneNumber("+8490" + String.format("%07d", i))
-                            .roleCode("RIDER")
+                            .confirmPassword("Pass123!")
                             .build();
 
             registrationService.register(request);
@@ -135,12 +131,11 @@ class RegistrationWithBloomFilterIntegrationTest extends AbstractIntegrationTest
 
         assertFalse(emailBloomFilterService.mightExist(email), "Email should not exist initially");
 
-        RegisterRequest request =
-                RegisterRequest.builder()
+        RegisterRequestDTO request =
+                RegisterRequestDTO.builder()
                         .email(email)
                         .password("Pass123!")
-                        .phoneNumber("+84903333333")
-                        .roleCode("RIDER")
+                        .confirmPassword("Pass123!")
                         .build();
 
         registrationService.register(request);
@@ -153,28 +148,26 @@ class RegistrationWithBloomFilterIntegrationTest extends AbstractIntegrationTest
     @Test
     @DisplayName("Failed registration does not add email to Bloom filter (rollback test)")
     void failedRegistration_doesNotAddEmailToBloomFilter() {
-        RegisterRequest validRequest =
-                RegisterRequest.builder()
+        RegisterRequestDTO validRequest =
+                RegisterRequestDTO.builder()
                         .email("valid@example.com")
                         .password("Pass123!")
-                        .phoneNumber("+84904444444")
-                        .roleCode("RIDER")
+                        .confirmPassword("Pass123!")
                         .build();
 
         registrationService.register(validRequest);
 
-        RegisterRequest duplicatePhoneRequest =
-                RegisterRequest.builder()
+        RegisterRequestDTO mismatchPasswordRequest =
+                RegisterRequestDTO.builder()
                         .email("newemail@example.com")
                         .password("Pass123!")
-                        .phoneNumber("+84904444444")
-                        .roleCode("RIDER")
+                        .confirmPassword("DifferentPass123!")
                         .build();
 
         assertThrows(
-                ConflictException.class,
-                () -> registrationService.register(duplicatePhoneRequest),
-                "Should throw ConflictException for duplicate phone");
+                IllegalArgumentException.class,
+                () -> registrationService.register(mismatchPasswordRequest),
+                "Should throw IllegalArgumentException for password mismatch");
 
         assertFalse(
                 emailBloomFilterService.mightExist("newemail@example.com"),
@@ -185,12 +178,11 @@ class RegistrationWithBloomFilterIntegrationTest extends AbstractIntegrationTest
     @Test
     @DisplayName("Bloom filter check duration is under 10ms")
     void bloomFilterCheckDuration_under10ms() {
-        RegisterRequest request =
-                RegisterRequest.builder()
+        RegisterRequestDTO request =
+                RegisterRequestDTO.builder()
                         .email("performance@example.com")
                         .password("Pass123!")
-                        .phoneNumber("+84905555555")
-                        .roleCode("RIDER")
+                        .confirmPassword("Pass123!")
                         .build();
 
         registrationService.register(request);

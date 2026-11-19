@@ -12,7 +12,7 @@ import com.shareride.auth.domain.AccountStatus;
 import com.shareride.auth.domain.Role;
 import com.shareride.auth.domain.RoleCode;
 import com.shareride.auth.dto.AccountResponse;
-import com.shareride.auth.dto.RegisterRequest;
+import com.shareride.auth.dto.RegisterRequestDTO;
 import com.shareride.auth.publisher.AuthEventPublisher;
 import com.shareride.auth.repository.AccountRepository;
 import com.shareride.auth.repository.AccountVerificationRepository;
@@ -81,19 +81,16 @@ class RegistrationServiceImplTest {
     @Test
     @DisplayName("Register: Password must be hashed using Argon2id format ($argon2id$v=19$...)")
     void testRegisterWithArgon2id() {
-        RegisterRequest request =
-                RegisterRequest.builder()
+        RegisterRequestDTO request =
+                RegisterRequestDTO.builder()
                         .email("rider@shareride.com")
                         .password("SuperSecretPass123!")
-                        .phoneNumber("+84988111222")
-                        .roleCode("ROLE_RIDER")
-                        .fullName("Nguyen Van A")
+                        .confirmPassword("SuperSecretPass123!")
                         .build();
 
         Role riderRole = Role.builder().roleCode(RoleCode.ROLE_RIDER).roleName("Rider").build();
         when(emailBloomFilterService.mightExist(any())).thenReturn(true);
         when(accountRepository.findByEmail("rider@shareride.com")).thenReturn(Optional.empty());
-        when(accountRepository.existsByPhoneNumber("+84988111222")).thenReturn(false);
         when(roleRepository.findByRoleCode(RoleCode.ROLE_RIDER)).thenReturn(Optional.of(riderRole));
 
         UUID generatedId = UuidUtils.v7();
@@ -110,7 +107,7 @@ class RegistrationServiceImplTest {
                 AccountResponse.builder()
                         .accountId(generatedId)
                         .email("rider@shareride.com")
-                        .phoneNumber("+84988111222")
+                        .phoneNumber(null)
                         .status(AccountStatus.ACTIVE)
                         .roles(Set.of("ROLE_RIDER"))
                         .build();
@@ -134,11 +131,11 @@ class RegistrationServiceImplTest {
     @Test
     @DisplayName("Register: Fails when email already exists")
     void testRegisterEmailAlreadyExists() {
-        RegisterRequest request =
-                RegisterRequest.builder()
+        RegisterRequestDTO request =
+                RegisterRequestDTO.builder()
                         .email("existing@shareride.com")
                         .password("Pass123456")
-                        .phoneNumber("+84988111222")
+                        .confirmPassword("Pass123456")
                         .build();
 
         when(emailBloomFilterService.mightExist(any())).thenReturn(true);
@@ -155,24 +152,20 @@ class RegistrationServiceImplTest {
     }
 
     @Test
-    @DisplayName("Register: Fails when phone number already exists")
+    @DisplayName("Register: Fails when passwords do not match")
     void testRegisterPhoneAlreadyExists() {
-        RegisterRequest request =
-                RegisterRequest.builder()
+        RegisterRequestDTO request =
+                RegisterRequestDTO.builder()
                         .email("unique@shareride.com")
                         .password("Pass123456")
-                        .phoneNumber("+84988111222")
+                        .confirmPassword("DifferentPassword")
                         .build();
 
-        when(emailBloomFilterService.mightExist(any())).thenReturn(true);
-        when(accountRepository.findByEmail("unique@shareride.com")).thenReturn(Optional.empty());
-        when(accountRepository.existsByPhoneNumber("+84988111222")).thenReturn(true);
-
-        assertThrows(ConflictException.class, () -> registrationService.register(request));
+        assertThrows(IllegalArgumentException.class, () -> registrationService.register(request));
     }
 
     @Test
-    @DisplayName("Register: Uses DistributedLockService when available and handles null fullName")
+    @DisplayName("Register: Uses DistributedLockService when available")
     void testRegisterWithDistributedLockAndNullFullName() {
         com.shareride.common.cache.DistributedLockService lockService =
                 org.mockito.Mockito.mock(com.shareride.common.cache.DistributedLockService.class);
@@ -186,8 +179,8 @@ class RegistrationServiceImplTest {
                                 .<java.util.function.Supplier<AccountResponse>>any()))
                 .thenAnswer(inv -> ((java.util.function.Supplier<?>) inv.getArgument(2)).get());
 
-        Role driverRole = Role.builder().roleCode(RoleCode.ROLE_DRIVER).build();
-        when(cacheService.getRoleByCode(RoleCode.ROLE_DRIVER)).thenReturn(Optional.of(driverRole));
+        Role riderRole = Role.builder().roleCode(RoleCode.ROLE_RIDER).build();
+        when(cacheService.getRoleByCode(RoleCode.ROLE_RIDER)).thenReturn(Optional.of(riderRole));
 
         StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
         beanFactory.addBean("distributedLockService", lockService);
@@ -208,19 +201,16 @@ class RegistrationServiceImplTest {
                         accountVerificationRepository,
                         authEventPublisher);
 
-        RegisterRequest request =
-                RegisterRequest.builder()
+        RegisterRequestDTO request =
+                RegisterRequestDTO.builder()
                         .email("driver.locked@shareride.com")
                         .password("SecurePass123")
-                        .phoneNumber("+84988999888")
-                        .roleCode("ROLE_DRIVER")
-                        .fullName(null)
+                        .confirmPassword("SecurePass123")
                         .build();
 
         when(emailBloomFilterService.mightExist(any())).thenReturn(true);
         when(accountRepository.findByEmail("driver.locked@shareride.com"))
                 .thenReturn(Optional.empty());
-        when(accountRepository.existsByPhoneNumber("+84988999888")).thenReturn(false);
         when(accountRepository.save(any()))
                 .thenAnswer(
                         inv -> {

@@ -6,7 +6,6 @@ option java_multiple_files = true;
 option java_package = "com.shareride.common.grpc.template.v1";
 option java_outer_classname = "TemplateServiceProto";
 
-// TemplateService defines the reference RPC operations for service-template.
 service TemplateService {
   rpc GetTemplate (GetTemplateRequest) returns (GetTemplateResponse);
   rpc VerifyTemplate (VerifyTemplateRequest) returns (VerifyTemplateResponse);

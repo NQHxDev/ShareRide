@@ -13,7 +13,7 @@ import com.shareride.auth.domain.Role;
 import com.shareride.auth.domain.RoleCode;
 import com.shareride.auth.domain.VerificationStatus;
 import com.shareride.auth.dto.AccountResponse;
-import com.shareride.auth.dto.RegisterRequest;
+import com.shareride.auth.dto.RegisterRequestDTO;
 import com.shareride.auth.event.AccountRegisteredEvent;
 import com.shareride.auth.publisher.AuthEventPublisher;
 import com.shareride.auth.repository.AccountRepository;
@@ -125,7 +125,12 @@ public class RegistrationServiceImpl implements RegistrationService {
 
     @Override
     @Transactional
-    public AccountResponse register(RegisterRequest request) {
+    public AccountResponse register(RegisterRequestDTO request) {
+        // Validate password confirmation
+        if (!request.getPassword().equals(request.getConfirmPassword())) {
+            throw new IllegalArgumentException("Password and confirm password do not match");
+        }
+
         String normalizedEmail = request.getEmail().toLowerCase().trim();
         String lockKey = AuthConstants.CacheKey.REGISTER_EMAIL_LOCK_PREFIX + normalizedEmail;
         if (distributedLockService != null) {
@@ -137,9 +142,7 @@ public class RegistrationServiceImpl implements RegistrationService {
         return doRegister(request, normalizedEmail);
     }
 
-    private AccountResponse doRegister(RegisterRequest request, String normalizedEmail) {
-        String normalizedPhone = request.getPhoneNumber().trim();
-
+    private AccountResponse doRegister(RegisterRequestDTO request, String normalizedEmail) {
         // FR-013: Check if email already exists with PENDING_VERIFICATION status
         boolean mightExist = emailBloomFilterService.mightExist(normalizedEmail);
         if (mightExist) {
@@ -156,26 +159,20 @@ public class RegistrationServiceImpl implements RegistrationService {
             }
         }
 
-        if (accountRepository.existsByPhoneNumber(normalizedPhone)) {
-            throw new ConflictException(
-                    AuthResponseCode.PHONE_ALREADY_EXISTS,
-                    AuthMessage.phoneNumberAlreadyExists(normalizedPhone));
-        }
+        // Default role is ROLE_RIDER
+        Role role = resolveTargetRole(null);
 
-        Role role = resolveTargetRole(request.getRoleCode());
-
-        // FR-001: Create account with PENDING_VERIFICATION status
         Account account =
                 accountRepository.save(
                         Account.builder()
                                 .email(normalizedEmail)
-                                .phoneNumber(normalizedPhone)
+                                .phoneNumber(null)
                                 .passwordHash(PasswordUtils.hashPassword(request.getPassword()))
                                 .status(AccountStatus.PENDING_VERIFICATION)
                                 .roles(role != null ? Set.of(role) : Set.of())
                                 .build());
 
-        // Publish event for Bloom filter sync (AFTER_COMMIT listener will add email)
+        // Publish event for Bloom filter sync
         eventPublisher.publishEvent(new AccountRegisteredEvent(account.getEmail()));
 
         // FR-002: Generate 6-character alphanumeric verification code
@@ -194,10 +191,9 @@ public class RegistrationServiceImpl implements RegistrationService {
         accountVerificationRepository.save(verification);
 
         // FR-004: Dispatch ACCOUNT_VERIFICATION event via Outbox
-        String userName =
-                request.getFullName() != null && !request.getFullName().isBlank()
-                        ? request.getFullName().trim()
-                        : account.getEmail().split("@")[0];
+        // Use email prefix as default username since fullName is no longer collected during
+        // registration
+        String userName = account.getEmail().split("@")[0];
 
         Map<String, Object> parameters = new HashMap<>();
         parameters.put("userName", userName);
@@ -225,11 +221,8 @@ public class RegistrationServiceImpl implements RegistrationService {
         Map<String, Object> payload = new HashMap<>();
         payload.put(AuthOutboxConstants.PayloadKey.ACCOUNT_ID, account.getId());
         payload.put(AuthOutboxConstants.PayloadKey.EMAIL, account.getEmail());
-        payload.put(AuthOutboxConstants.PayloadKey.PHONE_NUMBER, account.getPhoneNumber());
         payload.put(AuthOutboxConstants.PayloadKey.ROLES, roleCodes);
-        if (request.getFullName() != null && !request.getFullName().isBlank()) {
-            payload.put(AuthOutboxConstants.PayloadKey.FULL_NAME, request.getFullName().trim());
-        }
+        // Phone number and full name are no longer part of initial registration
 
         outboxService.recordEvent(
                 AuthOutboxConstants.AGGREGATE_TYPE_ACCOUNT,

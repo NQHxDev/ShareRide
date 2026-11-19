@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.shareride.auth.domain.AccountStatus;
 import com.shareride.auth.dto.AccountResponse;
 import com.shareride.auth.dto.AuthResponse;
+import com.shareride.auth.dto.RegisterRequestDTO;
 import com.shareride.auth.dto.SessionResponse;
 import com.shareride.common.grpc.auth.v1.AccountProto;
 import com.shareride.common.grpc.auth.v1.GetAccountRequest;
@@ -69,19 +70,14 @@ class AuthProtoMapperTest {
                 RegisterRequest.newBuilder()
                         .setEmail("test@example.com")
                         .setPassword("SecurePass123")
-                        .setPhoneNumber("+84901234567")
-                        .setRoleCode("RIDER")
-                        .setDisplayName("Test User")
+                        .setConfirmPassword("SecurePass123")
                         .build();
 
-        com.shareride.auth.dto.RegisterRequest dto = mapper.toRegisterRequest(protoRequest);
+        RegisterRequestDTO dto = mapper.toRegisterRequest(protoRequest);
 
         assertThat(dto).isNotNull();
         assertThat(dto.getEmail()).isEqualTo("test@example.com");
         assertThat(dto.getPassword()).isEqualTo("SecurePass123");
-        assertThat(dto.getPhoneNumber()).isEqualTo("+84901234567");
-        assertThat(dto.getRoleCode()).isEqualTo("ROLE_RIDER");
-        assertThat(dto.getFullName()).isEqualTo("Test User");
     }
 
     @Test
@@ -104,7 +100,6 @@ class AuthProtoMapperTest {
         assertThat(proto).isNotNull();
         assertThat(proto.getAccountId()).isEqualTo(accountId.toString());
         assertThat(proto.getEmail()).isEqualTo("test@example.com");
-        assertThat(proto.getRoleCode()).isEqualTo("ROLE_RIDER");
         assertThat(proto.getVerificationStatus()).isEqualTo("PENDING_VERIFICATION");
         assertThat(proto.getCreatedAt()).isEqualTo(createdAt.toString());
     }
@@ -512,7 +507,6 @@ class AuthProtoMapperTest {
                 AccountResponse.builder()
                         .accountId(accountId)
                         .email("test@example.com")
-                        .phoneNumber("+84901234567")
                         .status(AccountStatus.ACTIVE)
                         .roles(Set.of("ROLE_RIDER", "ROLE_DRIVER"))
                         .permissions(Set.of("READ:PROFILE", "UPDATE:PROFILE"))
@@ -528,7 +522,6 @@ class AuthProtoMapperTest {
         AccountProto account = proto.getAccount();
         assertThat(account.getAccountId()).isEqualTo(accountId.toString());
         assertThat(account.getEmail()).isEqualTo("test@example.com");
-        assertThat(account.getPhoneNumber()).isEqualTo("+84901234567");
         assertThat(account.getStatus()).isEqualTo("ACTIVE");
         assertThat(account.getRolesList()).containsExactlyInAnyOrder("ROLE_RIDER", "ROLE_DRIVER");
         assertThat(account.getPermissionsList())

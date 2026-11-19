@@ -106,9 +106,7 @@ class AuthGatewayControllerTest {
                 Map.of(
                         "email", "test@example.com",
                         "password", "password123",
-                        "phoneNumber", "+84901234567",
-                        "roleCode", "RIDER",
-                        "displayName", "Test User");
+                        "confirmPassword", "password123");
 
         webTestClient
                 .post()

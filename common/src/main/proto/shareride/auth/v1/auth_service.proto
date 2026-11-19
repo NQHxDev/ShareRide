@@ -6,39 +6,27 @@ option java_multiple_files = true;
 option java_package = "com.shareride.common.grpc.auth.v1";
 option java_outer_classname = "AuthServiceProto";
 
-// AuthService provides the 11 core authentication and session operations
-// mandated by Constitution Principle IV for internal synchronous communication.
 service AuthService {
-  // Account Lifecycle
   rpc Register (RegisterRequest) returns (RegisterResponse);
   rpc VerifyEmail (VerifyEmailRequest) returns (VerifyEmailResponse);
   rpc ResendVerification (ResendVerificationRequest) returns (ResendVerificationResponse);
   rpc GetAccount (GetAccountRequest) returns (GetAccountResponse);
 
-  // Authentication & Tokens
   rpc Login (LoginRequest) returns (LoginResponse);
   rpc RefreshToken (RefreshTokenRequest) returns (RefreshTokenResponse);
   rpc Logout (LogoutRequest) returns (LogoutResponse);
   rpc GetJwks (GetJwksRequest) returns (GetJwksResponse);
 
-  // Session Management
   rpc GetSessions (GetSessionsRequest) returns (GetSessionsResponse);
   rpc RevokeSession (RevokeSessionRequest) returns (RevokeSessionResponse);
 
-  // Observability & Health
   rpc HealthCheck (HealthCheckRequest) returns (HealthCheckResponse);
 }
-
-// -----------------------------------------------------------------------------
-// Registration Messages
-// -----------------------------------------------------------------------------
 
 message RegisterRequest {
   string email = 1;
   string password = 2;
-  string phone_number = 3;
-  string role_code = 4;
-  string display_name = 5;
+  string confirm_password = 3;
 }
 
 message RegisterResponse {
@@ -67,10 +55,6 @@ message ResendVerificationResponse {
   bool success = 1;
   string message = 2;
 }
-
-// -----------------------------------------------------------------------------
-// Authentication & Token Messages
-// -----------------------------------------------------------------------------
 
 message LoginRequest {
   string email = 1;
@@ -114,10 +98,6 @@ message LogoutResponse {
   string message = 2;
 }
 
-// -----------------------------------------------------------------------------
-// JWKS Public Key Retrieval
-// -----------------------------------------------------------------------------
-
 message GetJwksRequest {}
 
 message JwkKeyProto {
@@ -132,10 +112,6 @@ message JwkKeyProto {
 message GetJwksResponse {
   repeated JwkKeyProto keys = 1;
 }
-
-// -----------------------------------------------------------------------------
-// Account Queries
-// -----------------------------------------------------------------------------
 
 message GetAccountRequest {
   string account_id = 1;
@@ -156,10 +132,6 @@ message AccountProto {
 message GetAccountResponse {
   AccountProto account = 1;
 }
-
-// -----------------------------------------------------------------------------
-// Session Management
-// -----------------------------------------------------------------------------
 
 message GetSessionsRequest {
   string account_id = 1;
@@ -190,10 +162,6 @@ message RevokeSessionResponse {
   bool success = 1;
   string message = 2;
 }
-
-// -----------------------------------------------------------------------------
-// Health Checking
-// -----------------------------------------------------------------------------
 
 message HealthCheckRequest {
   string service_name = 1;

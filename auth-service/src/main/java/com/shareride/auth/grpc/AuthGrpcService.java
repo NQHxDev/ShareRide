@@ -2,6 +2,7 @@ package com.shareride.auth.grpc;
 
 import com.shareride.auth.dto.AccountResponse;
 import com.shareride.auth.dto.AuthResponse;
+import com.shareride.auth.dto.RegisterRequestDTO;
 import com.shareride.auth.dto.SessionResponse;
 import com.shareride.auth.grpc.mapper.AuthProtoMapper;
 import com.shareride.auth.service.AccountManagementService;
@@ -67,8 +68,7 @@ public class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
         log.debug("gRPC Register request received for email: {}", request.getEmail());
 
         try {
-            com.shareride.auth.dto.RegisterRequest registerRequest =
-                    mapper.toRegisterRequest(request);
+            RegisterRequestDTO registerRequest = mapper.toRegisterRequest(request);
             AccountResponse response = authService.register(registerRequest);
             RegisterResponse grpcResponse = mapper.toRegisterResponseProto(response);
 

@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.shareride.auth.dto.RegisterRequest;
+import com.shareride.auth.dto.RegisterRequestDTO;
 import com.shareride.auth.repository.AccountRepository;
 import com.shareride.auth.service.EmailBloomFilterService;
 import com.shareride.auth.service.RegistrationService;
@@ -42,12 +42,11 @@ class AccountCreationSyncIntegrationTest extends AbstractIntegrationTest {
                 emailBloomFilterService.mightExist(email),
                 "Email should not exist before registration");
 
-        RegisterRequest request =
-                RegisterRequest.builder()
+        RegisterRequestDTO request =
+                RegisterRequestDTO.builder()
                         .email(email)
                         .password("SecurePass123!")
-                        .phoneNumber("+84901234567")
-                        .roleCode("RIDER")
+                        .confirmPassword("SecurePass123!")
                         .build();
 
         registrationService.register(request);
@@ -62,12 +61,11 @@ class AccountCreationSyncIntegrationTest extends AbstractIntegrationTest {
     void accountCreation_emailVerifiedViaBfExists() {
         String email = "verified@example.com";
 
-        RegisterRequest request =
-                RegisterRequest.builder()
+        RegisterRequestDTO request =
+                RegisterRequestDTO.builder()
                         .email(email)
                         .password("Pass123!")
-                        .phoneNumber("+84902222222")
-                        .roleCode("RIDER")
+                        .confirmPassword("Pass123!")
                         .build();
 
         registrationService.register(request);
@@ -80,47 +78,15 @@ class AccountCreationSyncIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    @DisplayName("Transaction rollback prevents email from being added to Bloom filter")
-    void transactionRollback_doesNotAddEmailToBloomFilter() {
-        RegisterRequest validRequest =
-                RegisterRequest.builder()
-                        .email("existing@example.com")
-                        .password("Pass123!")
-                        .phoneNumber("+84903333333")
-                        .roleCode("RIDER")
-                        .build();
-
-        registrationService.register(validRequest);
-
-        RegisterRequest duplicatePhoneRequest =
-                RegisterRequest.builder()
-                        .email("newemail@example.com")
-                        .password("Pass456!")
-                        .phoneNumber("+84903333333")
-                        .roleCode("RIDER")
-                        .build();
-
-        assertThrows(
-                ConflictException.class,
-                () -> registrationService.register(duplicatePhoneRequest),
-                "Should throw ConflictException for duplicate phone number");
-
-        assertFalse(
-                emailBloomFilterService.mightExist("newemail@example.com"),
-                "Email should NOT be in Bloom filter after transaction rollback");
-    }
-
-    @Test
     @DisplayName("Duplicate email validation prevents adding to Bloom filter")
     void duplicateEmailValidation_doesNotAddToBloomFilter() {
         String email = "duplicate@example.com";
 
-        RegisterRequest firstRequest =
-                RegisterRequest.builder()
+        RegisterRequestDTO firstRequest =
+                RegisterRequestDTO.builder()
                         .email(email)
                         .password("Pass123!")
-                        .phoneNumber("+84904444444")
-                        .roleCode("RIDER")
+                        .confirmPassword("Pass123!")
                         .build();
 
         registrationService.register(firstRequest);
@@ -129,12 +95,11 @@ class AccountCreationSyncIntegrationTest extends AbstractIntegrationTest {
                 emailBloomFilterService.mightExist(email),
                 "Email should exist after first registration");
 
-        RegisterRequest secondRequest =
-                RegisterRequest.builder()
+        RegisterRequestDTO secondRequest =
+                RegisterRequestDTO.builder()
                         .email(email)
                         .password("Pass456!")
-                        .phoneNumber("+84905555555")
-                        .roleCode("RIDER")
+                        .confirmPassword("Pass456!")
                         .build();
 
         assertThrows(
@@ -151,12 +116,11 @@ class AccountCreationSyncIntegrationTest extends AbstractIntegrationTest {
     @DisplayName("Multiple successful registrations sync all emails to Bloom filter")
     void multipleSuccessfulRegistrations_syncAllEmails() {
         for (int i = 0; i < 10; i++) {
-            RegisterRequest request =
-                    RegisterRequest.builder()
+            RegisterRequestDTO request =
+                    RegisterRequestDTO.builder()
                             .email("user" + i + "@example.com")
                             .password("Pass123!")
-                            .phoneNumber("+8490" + String.format("%07d", i))
-                            .roleCode("RIDER")
+                            .confirmPassword("Pass123!")
                             .build();
 
             registrationService.register(request);
@@ -175,12 +139,11 @@ class AccountCreationSyncIntegrationTest extends AbstractIntegrationTest {
     void bloomFilterSync_idempotent() {
         String email = "idempotent@example.com";
 
-        RegisterRequest request =
-                RegisterRequest.builder()
+        RegisterRequestDTO request =
+                RegisterRequestDTO.builder()
                         .email(email)
                         .password("Pass123!")
-                        .phoneNumber("+84906666666")
-                        .roleCode("RIDER")
+                        .confirmPassword("Pass123!")
                         .build();
 
         registrationService.register(request);

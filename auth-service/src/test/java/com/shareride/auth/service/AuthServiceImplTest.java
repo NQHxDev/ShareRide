@@ -14,7 +14,7 @@ import com.shareride.auth.domain.Session;
 import com.shareride.auth.domain.SessionStatus;
 import com.shareride.auth.dto.AccountResponse;
 import com.shareride.auth.dto.LoginRequest;
-import com.shareride.auth.dto.RegisterRequest;
+import com.shareride.auth.dto.RegisterRequestDTO;
 import com.shareride.auth.repository.AccountRepository;
 import com.shareride.auth.service.impl.AuthServiceImpl;
 import com.shareride.auth.util.PasswordUtils;
@@ -76,19 +76,18 @@ class AuthServiceImplTest {
     @Test
     @DisplayName("Register: delegates registration to RegistrationService")
     void testRegisterDelegatesToRegistrationService() {
-        RegisterRequest request =
-                RegisterRequest.builder()
+        RegisterRequestDTO request =
+                RegisterRequestDTO.builder()
                         .email("rider@shareride.com")
                         .password("SuperSecretPass123!")
-                        .phoneNumber("+84988111222")
-                        .roleCode("ROLE_RIDER")
+                        .confirmPassword("SuperSecretPass123!")
                         .build();
 
         AccountResponse expectedResponse =
                 AccountResponse.builder()
                         .accountId(UuidUtils.v7())
                         .email("rider@shareride.com")
-                        .phoneNumber("+84988111222")
+                        .phoneNumber(null)
                         .status(AccountStatus.ACTIVE)
                         .roles(Set.of("ROLE_RIDER"))
                         .build();
@@ -113,7 +112,7 @@ class AuthServiceImplTest {
         Account account =
                 Account.builder()
                         .email("active.user@shareride.com")
-                        .phoneNumber("+84988333444")
+                        .phoneNumber(null)
                         .passwordHash(argon2idHash)
                         .status(AccountStatus.ACTIVE)
                         .roles(Set.of())
@@ -172,7 +171,7 @@ class AuthServiceImplTest {
         Account account =
                 Account.builder()
                         .email("user@shareride.com")
-                        .phoneNumber("+84988555666")
+                        .phoneNumber(null)
                         .passwordHash(argon2idHash)
                         .status(AccountStatus.ACTIVE)
                         .build();
@@ -214,7 +213,7 @@ class AuthServiceImplTest {
         Account account =
                 Account.builder()
                         .email("locked@shareride.com")
-                        .phoneNumber("+84988999888")
+                        .phoneNumber(null)
                         .passwordHash("dummyHash")
                         .status(AccountStatus.LOCKED)
                         .build();
@@ -243,7 +242,7 @@ class AuthServiceImplTest {
         Account account =
                 Account.builder()
                         .email("target@shareride.com")
-                        .phoneNumber("+84988777888")
+                        .phoneNumber(null)
                         .passwordHash(argon2idHash)
                         .status(AccountStatus.ACTIVE)
                         .build();
